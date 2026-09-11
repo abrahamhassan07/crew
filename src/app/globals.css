@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: oklch(97% 0.012 75);
+  --color-surface: oklch(100% 0 0);
+  --color-surface-alt: oklch(95.5% 0.014 75);
+  --color-header: oklch(99% 0.006 75);
+  --color-border: oklch(89% 0.014 75);
+
+  --color-ink: oklch(24% 0.02 75);
+  --color-ink-faint: oklch(46% 0.02 75);
+  --color-ink-faintest: oklch(62% 0.015 75);
+
+  --color-accent: oklch(58% 0.15 70);
+  --color-accent-hover: oklch(45% 0.13 70);
+  --color-accent-strong: oklch(42% 0.14 70);
+  --color-accent-tint: oklch(94% 0.045 70);
+
+  --color-danger: oklch(50% 0.16 25);
+  --color-danger-strong: oklch(38% 0.13 25);
+  --color-danger-text: oklch(45% 0.15 25);
+  --color-danger-tint: oklch(96% 0.03 25);
+  --color-danger-border: oklch(88% 0.06 25);
+
+  --color-success-strong: oklch(38% 0.13 145);
+  --color-success-tint: oklch(95% 0.035 145);
+  --color-success-border: oklch(88% 0.05 145);
+
+  --color-today-tint: oklch(96% 0.03 70);
+  --color-today-border: oklch(85% 0.06 70);
+}
+
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-alt: var(--color-surface-alt);
+  --color-header: var(--color-header);
+  --color-border: var(--color-border);
+
+  --color-ink: var(--color-ink);
+  --color-ink-faint: var(--color-ink-faint);
+  --color-ink-faintest: var(--color-ink-faintest);
+
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-strong: var(--color-accent-strong);
+  --color-accent-tint: var(--color-accent-tint);
+
+  --color-danger: var(--color-danger);
+  --color-danger-strong: var(--color-danger-strong);
+  --color-danger-text: var(--color-danger-text);
+  --color-danger-tint: var(--color-danger-tint);
+  --color-danger-border: var(--color-danger-border);
+
+  --color-success-strong: var(--color-success-strong);
+  --color-success-tint: var(--color-success-tint);
+  --color-success-border: var(--color-success-border);
+
+  --color-today-tint: var(--color-today-tint);
+  --color-today-border: var(--color-today-border);
+
+  --font-sans: var(--font-karla);
+  --font-serif: var(--font-spectral);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+a {
+  color: var(--color-accent-hover);
+}
+a:hover {
+  color: var(--color-accent-strong);
+}

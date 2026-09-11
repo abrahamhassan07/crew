@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;600;700&family=Spectral:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;}
+body{margin:0;}
+input,select,textarea,button{font-family:inherit;}
+a{color:oklch(45% 0.13 70);}
+a:hover{color:oklch(38% 0.14 70);}
+</style>
+</helmet>
+
+<div style="display:flex;min-height:100vh;background:oklch(97% 0.012 75);font-family:'Karla',sans-serif;color:oklch(24% 0.02 75);">
+
+<div style="{{ backdropStyle }}" onClick="{{ closeMobileNav }}"></div>
+
+<aside style="{{ sidebarStyle }}">
+  <div style="display:flex;align-items:center;gap:10px;padding:4px 4px 20px;border-bottom:1px solid oklch(89% 0.014 75);margin-bottom:16px;">
+    <div style="width:36px;height:36px;border-radius:10px;background:oklch(58% 0.15 70);display:flex;align-items:center;justify-content:center;color:oklch(99% 0.006 75);font-family:'Spectral',serif;font-weight:700;font-size:15px;flex-shrink:0;">CG</div>
+    <div style="font-family:'Spectral',serif;font-weight:600;font-size:18px;line-height:1.15;">Crew &amp; Grounds</div>
+  </div>
+  <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="4">
+    <sc-if value="{{ item.active }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ item.onClick }}" style="padding:10px 12px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:600;background:oklch(94% 0.045 70);color:oklch(42% 0.14 70);margin-bottom:2px;">{{ item.label }}</div>
+    </sc-if>
+    <sc-if value="{{ item.inactive }}" hint-placeholder-val="{{ true }}">
+      <div onClick="{{ item.onClick }}" style-hover="background:oklch(95.5% 0.014 75);color:oklch(24% 0.02 75);" style="padding:10px 12px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:500;color:oklch(46% 0.02 75);margin-bottom:2px;">{{ item.label }}</div>
+    </sc-if>
+  </sc-for>
+  <div style="flex:1;"></div>
+  <div style="font-size:12px;color:oklch(62% 0.015 75);padding:8px 4px;">Crew &amp; Grounds &middot; Ops</div>
+</aside>
+
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:100vh;">
+
+  <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid oklch(89% 0.014 75);background:oklch(99% 0.006 75);position:sticky;top:0;z-index:20;flex-wrap:wrap;">
+    <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ toggleMobileNav }}" style="width:36px;height:36px;border-radius:8px;border:1px solid oklch(89% 0.014 75);background:white;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;flex-shrink:0;">
+        <div style="width:16px;height:2px;background:oklch(24% 0.02 75);"></div>
+        <div style="width:16px;height:2px;background:oklch(24% 0.02 75);"></div>
+        <div style="width:16px;height:2px;background:oklch(24% 0.02 75);"></div>
+      </button>
+    </sc-if>
+    <div style="font-family:'Spectral',serif;font-size:20px;font-weight:600;flex-shrink:0;">{{ pageTitle }}</div>
+    <input type="text" placeholder="Search clients or addresses…" value="{{ searchQuery }}" onChange="{{ onSearchChange }}" onKeyDown="{{ onSearchKeyDown }}" style="flex:1;min-width:160px;max-width:360px;padding:9px 14px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;background:oklch(97% 0.012 75);color:oklch(24% 0.02 75);" />
+    <button onClick="{{ openNewJob }}" style="padding:9px 16px;border-radius:8px;border:none;background:oklch(58% 0.15 70);color:white;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap;flex-shrink:0;">+ New Job</button>
+  </div>
+
+  <div style="{{ contentStyle }}">
+
+  <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+    <div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:22px;">
+        <sc-for list="{{ kpiCards }}" as="card" hint-placeholder-count="4">
+          <div style="background:white;border:1px solid oklch(89% 0.014 75);border-radius:14px;padding:18px 20px;">
+            <div style="font-size:13px;color:oklch(46% 0.02 75);font-weight:500;margin-bottom:6px;">{{ card.label }}</div>
+            <sc-if value="{{ card.alert }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:32px;font-weight:700;font-family:'Spectral',serif;color:oklch(50% 0.16 25);">{{ card.value }}</div>
+            </sc-if>
+            <sc-if value="{{ card.normal }}" hint-placeholder-val="{{ true }}">
+              <div style="font-size:32px;font-weight:700;font-family:'Spectral',serif;">{{ card.value }}</div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="margin-bottom:22px;">
+        <sc-if value="{{ hasNeedsAttention }}" hint-placeholder-val="{{ false }}">
+          <div style="background:oklch(96% 0.03 25);border:1px solid oklch(88% 0.06 25);border-radius:14px;padding:18px 20px;">
+            <div style="font-family:'Spectral',serif;font-weight:600;font-size:17px;margin-bottom:12px;color:oklch(38% 0.13 25);">Needs Attention</div>
+            <sc-if value="{{ hasOverdue }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:oklch(50% 0.16 25);margin:4px 0 8px;">Overdue &middot; still marked scheduled</div>
+              <sc-for list="{{ needsAttentionOverdue }}" as="job" hint-placeholder-count="2">
+                <div onClick="{{ job.onClick }}" style="{{ job.rowStyleFixed }}">
+                  <div style="min-width:150px;">
+                    <div style="font-weight:600;font-size:14px;">{{ job.client }}</div>
+                    <div style="font-size:12px;color:oklch(46% 0.02 75);">{{ job.address }}</div>
+                  </div>
+                  <div style="font-size:13px;color:oklch(46% 0.02 75);min-width:120px;">{{ job.dateLabel }}, {{ job.timeLabel }}</div>
+                  <div style="font-size:13px;font-weight:500;min-width:110px;">{{ job.staffName }}</div>
+                  <div style="padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600;background:{{ job.statusTintHex }};color:{{ job.statusColorHex }};">{{ job.statusLabel }}</div>
+                </div>
+              </sc-for>
+            </sc-if>
+            <sc-if value="{{ hasUnassignedUpcoming }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:oklch(50% 0.16 25);margin:14px 0 8px;">Unassigned &middot; upcoming</div>
+              <sc-for list="{{ needsAttentionUnassigned }}" as="job" hint-placeholder-count="2">
+                <div onClick="{{ job.onClick }}" style="{{ job.rowStyleFixed }}">
+                  <div style="min-width:150px;">
+                    <div style="font-weight:600;font-size:14px;">{{ job.client }}</div>
+                    <div style="font-size:12px;color:oklch(46% 0.02 75);">{{ job.address }}</div>
+                  </div>
+                  <div style="font-size:13px;color:oklch(46% 0.02 75);min-width:120px;">{{ job.dateLabel }}, {{ job.timeLabel }}</div>
+                  <div style="font-size:13px;font-weight:500;min-width:110px;color:oklch(50% 0.16 25);">Unassigned</div>
+                  <div style="padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600;background:{{ job.typeTintHex }};color:{{ job.typeColorHex }};">{{ job.typeLabel }}</div>
+                </div>
+              </sc-for>
+            </sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasNoNeedsAttention }}" hint-placeholder-val="{{ true }}">
+          <div style="background:oklch(95% 0.035 145);border:1px solid oklch(88% 0.05 145);border-radius:14px;padding:16px 20px;font-size:14px;color:oklch(38% 0.13 145);font-weight:500;">All caught up — no unassigned or overdue jobs.</div>
+        </sc-if>
+      </div>
+
+      <div>
+        <div style="font-family:'Spectral',serif;font-weight:600;font-size:17px;margin-bottom:12px;">Today's Schedule &middot; {{ todayDateLabel }}</div>
+        <sc-if value="{{ hasTodaySchedule }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ todaySchedule }}" as="job" hint-placeholder-count="4">
+            <div onClick="{{ job.onClick }}" style="{{ job.rowStyleFixed }}">
+              <div style="min-width:70px;font-weight:600;font-size:14px;">{{ job.timeLabel }}</div>
+              <div style="min-width:160px;">
+                <div style="font-weight:600;font-size:14px;">{{ job.client }}</div>
+                <div style="font-size:12px;color:oklch(46% 0.02 75);">{{ job.address }}</div>
+              </div>
+              <div style="padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600;background:{{ job.typeTintHex }};color:{{ job.typeColorHex }};">{{ job.typeLabel }}</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;min-width:110px;">
+                <div style="width:9px;height:9px;border-radius:50%;background:{{ job.staffColorHex }};flex-shrink:0;"></div>
+                {{ job.staffName }}
+              </div>
+              <div style="padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600;background:{{ job.statusTintHex }};color:{{ job.statusColorHex }};">{{ job.statusLabel }}</div>
+            </div>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{ hasNoTodaySchedule }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:14px;color:oklch(46% 0.02 75);padding:14px 0;">No jobs scheduled today.</div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isSchedule }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+        <button onClick="{{ goPrevWeek }}" style="padding:8px 14px;border-radius:8px;border:1px solid oklch(89% 0.014 75);background:white;cursor:pointer;font-size:14px;font-weight:500;">&larr; Prev</button>
+        <button onClick="{{ goNextWeek }}" style="padding:8px 14px;border-radius:8px;border:1px solid oklch(89% 0.014 75);background:white;cursor:pointer;font-size:14px;font-weight:500;">Next &rarr;</button>
+        <button onClick="{{ goThisWeek }}" style="padding:8px 14px;border-radius:8px;border:1px solid oklch(89% 0.014 75);background:oklch(96% 0.02 75);cursor:pointer;font-size:14px;font-weight:500;">Today</button>
+        <div style="font-family:'Spectral',serif;font-size:17px;font-weight:600;margin-left:4px;">{{ weekLabel }}</div>
+      </div>
+      <div style="{{ scheduleGridStyle }}">
+        <sc-for list="{{ weekDays }}" as="day" hint-placeholder-count="7">
+          <div style="{{ day.colStyle }}">
+            <div style="{{ day.headerStyle }}">
+              <div style="font-size:12px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;">{{ day.dayName }}</div>
+              <div style="font-size:14px;font-weight:600;">{{ day.dateLabel }}</div>
+            </div>
+            <sc-for list="{{ day.jobs }}" as="job" hint-placeholder-count="2">
+              <div onClick="{{ job.onClick }}" style="{{ job.blockStyle }}">
+                <div style="font-size:12px;font-weight:700;">{{ job.timeLabel }}</div>
+                <div style="font-size:13px;font-weight:600;line-height:1.25;">{{ job.client }}</div>
+                <div style="font-size:11px;color:oklch(46% 0.02 75);">{{ job.staffName }} &middot; {{ job.typeLabel }}</div>
+              </div>
+            </sc-for>
+            <div onClick="{{ day.onAdd }}" style="text-align:center;font-size:12px;font-weight:600;color:oklch(46% 0.02 75);padding:8px 0;cursor:pointer;border:1px dashed oklch(89% 0.014 75);border-radius:8px;">+ Add job</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isJobs }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;background:white;border:1px solid oklch(89% 0.014 75);border-radius:12px;padding:14px;">
+        <input type="text" placeholder="Search…" value="{{ jobFilters.search }}" onChange="{{ onJobsSearchChange }}" style="flex:1;min-width:140px;padding:8px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;" />
+        <select value="{{ jobFilters.status }}" onChange="{{ onStatusFilterChange }}" style="padding:8px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;">
+          <option value="all">All statuses</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <select value="{{ jobFilters.staffId }}" onChange="{{ onStaffFilterChange }}" style="padding:8px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;">
+          <sc-for list="{{ staffFilterOptions }}" as="opt" hint-placeholder-count="7">
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+          </sc-for>
+        </select>
+        <select value="{{ jobFilters.type }}" onChange="{{ onTypeFilterChange }}" style="padding:8px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;">
+          <option value="all">All types</option>
+          <option value="cleaning">Cleaning</option>
+          <option value="gardening">Gardening</option>
+          <option value="both">Both</option>
+        </select>
+        <input type="date" value="{{ jobFilters.dateFrom }}" onChange="{{ onFilterDateFromChange }}" style="padding:8px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;" />
+        <input type="date" value="{{ jobFilters.dateTo }}" onChange="{{ onFilterDateToChange }}" style="padding:8px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;" />
+        <button onClick="{{ clearJobFilters }}" style="padding:8px 14px;border-radius:8px;border:1px solid oklch(89% 0.014 75);background:oklch(96% 0.02 75);cursor:pointer;font-size:14px;">Clear</button>
+      </div>
+      <div style="font-size:13px;color:oklch(46% 0.02 75);margin-bottom:12px;">{{ filteredCount }} jobs</div>
+      <sc-if value="{{ hasFilteredJobs }}" hint-placeholder-val="{{ true }}">
+        <sc-for list="{{ filteredJobs }}" as="job" hint-placeholder-count="6">
+          <div onClick="{{ job.onClick }}" style="{{ job.rowStyle }}">
+            <div style="min-width:170px;flex:2;">
+              <div style="font-weight:600;font-size:14px;">{{ job.client }}</div>
+              <div style="font-size:12px;color:oklch(46% 0.02 75);">{{ job.address }}</div>
+            </div>
+            <div style="padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600;background:{{ job.typeTintHex }};color:{{ job.typeColorHex }};">{{ job.typeLabel }}</div>
+            <div style="font-size:13px;min-width:120px;">{{ job.dateLabel }}, {{ job.timeLabel }}</div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;min-width:110px;">
+              <div style="width:9px;height:9px;border-radius:50%;background:{{ job.staffColorHex }};flex-shrink:0;"></div>
+              {{ job.staffName }}
+            </div>
+            <div style="padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600;background:{{ job.statusTintHex }};color:{{ job.statusColorHex }};">{{ job.statusLabel }}</div>
+            <div style="font-size:13px;font-weight:600;min-width:56px;text-align:right;">{{ job.priceLabel }}</div>
+          </div>
+        </sc-for>
+      </sc-if>
+      <sc-if value="{{ hasNoFilteredJobs }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:14px;color:oklch(46% 0.02 75);padding:20px 0;">No jobs match your filters.</div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isStaff }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;">
+      <sc-for list="{{ staffCards }}" as="s" hint-placeholder-count="6">
+        <div style="background:white;border:1px solid oklch(89% 0.014 75);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="{{ s.avatarStyle }}">{{ s.initials }}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;font-size:15px;">{{ s.name }}</div>
+              <div style="font-size:12px;color:oklch(46% 0.02 75);">{{ s.roleLabel }}</div>
+            </div>
+          </div>
+          <div style="font-size:13px;color:oklch(46% 0.02 75);">{{ s.phone }}</div>
+          <div style="font-size:13px;color:oklch(46% 0.02 75);">{{ s.email }}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+            <div style="font-size:13px;font-weight:500;">{{ s.upcomingCount }} upcoming</div>
+            <div onClick="{{ s.onToggle }}" style="{{ s.toggleStyle }}">{{ s.activeLabel }}</div>
+          </div>
+          <button onClick="{{ s.onEdit }}" style="margin-top:4px;padding:8px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);background:oklch(97% 0.012 75);cursor:pointer;font-size:13px;font-weight:600;">Edit</button>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  </div>
+</div>
+
+<sc-if value="{{ jobModalOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeJobModal }}" style="position:fixed;inset:0;background:rgba(30,22,10,0.45);z-index:100;"></div>
+  <div style="{{ jobPanelStyle }}">
+    <div style="font-family:'Spectral',serif;font-weight:600;font-size:19px;margin-bottom:4px;">{{ jobModalTitle }}</div>
+
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Client name *</label>
+      <input type="text" value="{{ jobForm.client }}" onChange="{{ onClientChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;" />
+      <sc-if value="{{ jobFormErrors.client }}" hint-placeholder-val="{{ false }}"><div style="color:oklch(50% 0.16 25);font-size:12px;margin-top:3px;">{{ jobFormErrors.client }}</div></sc-if>
+    </div>
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Address *</label>
+      <input type="text" value="{{ jobForm.address }}" onChange="{{ onAddressChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;" />
+      <sc-if value="{{ jobFormErrors.address }}" hint-placeholder-val="{{ false }}"><div style="color:oklch(50% 0.16 25);font-size:12px;margin-top:3px;">{{ jobFormErrors.address }}</div></sc-if>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Job type</label>
+        <select value="{{ jobForm.type }}" onChange="{{ onTypeChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;">
+          <option value="cleaning">Cleaning</option>
+          <option value="gardening">Gardening</option>
+          <option value="both">Cleaning + Gardening</option>
+        </select>
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Status</label>
+        <select value="{{ jobForm.status }}" onChange="{{ onStatusChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;">
+          <option value="scheduled">Scheduled</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Date *</label>
+        <input type="date" value="{{ jobForm.date }}" onChange="{{ onDateChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;" />
+        <sc-if value="{{ jobFormErrors.date }}" hint-placeholder-val="{{ false }}"><div style="color:oklch(50% 0.16 25);font-size:12px;margin-top:3px;">{{ jobFormErrors.date }}</div></sc-if>
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Start time *</label>
+        <input type="time" value="{{ jobForm.startTime }}" onChange="{{ onStartTimeChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;" />
+        <sc-if value="{{ jobFormErrors.startTime }}" hint-placeholder-val="{{ false }}"><div style="color:oklch(50% 0.16 25);font-size:12px;margin-top:3px;">{{ jobFormErrors.startTime }}</div></sc-if>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Duration</label>
+        <select value="{{ jobForm.duration }}" onChange="{{ onDurationChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;">
+          <option value="60">1h</option>
+          <option value="90">1.5h</option>
+          <option value="120">2h</option>
+          <option value="150">2.5h</option>
+          <option value="180">3h</option>
+          <option value="240">4h</option>
+        </select>
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Price ($)</label>
+        <input type="number" value="{{ jobForm.price }}" onChange="{{ onPriceChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;" />
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Assigned staff</label>
+        <select value="{{ jobForm.staffId }}" onChange="{{ onStaffChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;">
+          <sc-for list="{{ staffOptionsForForm }}" as="opt" hint-placeholder-count="6">
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+          </sc-for>
+        </select>
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Repeat</label>
+        <select value="{{ jobForm.repeat }}" onChange="{{ onRepeatChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;">
+          <option value="none">Does not repeat</option>
+          <option value="weekly">Weekly</option>
+          <option value="fortnightly">Fortnightly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+    </div>
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Notes</label>
+      <textarea value="{{ jobForm.notes }}" onChange="{{ onNotesChange }}" rows="3" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;resize:vertical;"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button onClick="{{ closeJobModal }}" style="padding:10px 16px;border-radius:8px;border:1px solid oklch(89% 0.014 75);background:white;cursor:pointer;font-size:14px;font-weight:500;">Cancel</button>
+      <sc-if value="{{ isEditingJob }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ deleteCurrentJob }}" style="padding:10px 16px;border-radius:8px;border:1px solid oklch(88% 0.06 25);background:oklch(96% 0.03 25);color:oklch(45% 0.15 25);cursor:pointer;font-size:14px;font-weight:600;">Delete</button>
+      </sc-if>
+      <div style="flex:1;"></div>
+      <button onClick="{{ saveJobForm }}" style="padding:10px 18px;border-radius:8px;border:none;background:oklch(58% 0.15 70);color:white;cursor:pointer;font-size:14px;font-weight:600;">Save</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ staffModalOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeStaffModal }}" style="position:fixed;inset:0;background:rgba(30,22,10,0.45);z-index:100;"></div>
+  <div style="{{ jobPanelStyle }}">
+    <div style="font-family:'Spectral',serif;font-weight:600;font-size:19px;margin-bottom:4px;">Edit Staff</div>
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Name</label>
+      <input type="text" value="{{ staffForm.name }}" onChange="{{ onStaffNameChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;" />
+    </div>
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Phone</label>
+      <input type="text" value="{{ staffForm.phone }}" onChange="{{ onStaffPhoneChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;" />
+    </div>
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Email</label>
+      <input type="text" value="{{ staffForm.email }}" onChange="{{ onStaffEmailChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;" />
+    </div>
+    <div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Role</label>
+      <select value="{{ staffForm.role }}" onChange="{{ onStaffRoleChange }}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid oklch(89% 0.014 75);font-size:14px;">
+        <option value="cleaning">Cleaning</option>
+        <option value="gardening">Gardening</option>
+        <option value="both">Cleaning + Gardening</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <input type="checkbox" checked="{{ staffForm.active }}" onChange="{{ onStaffActiveToggle }}" id="staffActiveCk" />
+      <label for="staffActiveCk" style="font-size:14px;">Active</label>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button onClick="{{ closeStaffModal }}" style="padding:10px 16px;border-radius:8px;border:1px solid oklch(89% 0.014 75);background:white;cursor:pointer;font-size:14px;font-weight:500;">Cancel</button>
+      <div style="flex:1;"></div>
+      <button onClick="{{ saveStaffForm }}" style="padding:10px 18px;border-radius:8px;border:none;background:oklch(58% 0.15 70);color:white;cursor:pointer;font-size:14px;font-weight:600;">Save</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:oklch(24% 0.02 75);color:white;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:500;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,0.2);">{{ toast }}</div>
+</sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;scheduleColorBy&quot;: {&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;staff&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;staff&quot;,&quot;type&quot;],&quot;section&quot;:&quot;Schedule&quot;}, &quot;compactJobsList&quot;: {&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Jobs list&quot;}}">
+const PALETTE = {
+  border: 'oklch(89% 0.014 75)',
+  surfaceAlt: 'oklch(95.5% 0.014 75)',
+  inkFaint: 'oklch(62% 0.015 75)',
+};
+const STATUS_META = {
+  scheduled: {label:'Scheduled', hex:'oklch(45% 0.12 230)', tint:'oklch(95% 0.035 230)'},
+  in_progress: {label:'In Progress', hex:'oklch(46% 0.14 70)', tint:'oklch(95% 0.05 70)'},
+  completed: {label:'Completed', hex:'oklch(42% 0.12 145)', tint:'oklch(95% 0.035 145)'},
+  cancelled: {label:'Cancelled', hex:'oklch(42% 0.01 75)', tint:'oklch(92% 0.008 75)'},
+};
+const TYPE_META = {
+  cleaning: {label:'Cleaning', hex:'oklch(46% 0.11 235)', tint:'oklch(95% 0.03 235)'},
+  gardening: {label:'Gardening', hex:'oklch(44% 0.11 145)', tint:'oklch(95% 0.03 145)'},
+  both: {label:'Cleaning + Gardening', hex:'oklch(42% 0.13 70)', tint:'oklch(95% 0.045 70)'},
+};
+const STAFF_HUES = [15,190,280,330,100,250];
+const PAGE_TITLES = {dashboard:'Dashboard', schedule:'Schedule', jobs:'Jobs', staff:'Staff'};
+const CLIENTS = [
+  {name:'Harborview Apartments', address:'214 Harbor Ln, Unit 4B', pref:'cleaning'},
+  {name:'The Whitfield Residence', address:'88 Cedar Ridge Rd', pref:'gardening'},
+  {name:'Greenfield Office Park', address:'1500 Corporate Dr, Bldg C', pref:'cleaning'},
+  {name:'Dana & Paul Meyers', address:'42 Willow Creek Ct', pref:'both'},
+  {name:'Sunrise Assisted Living', address:'760 Maple Ave', pref:'cleaning'},
+  {name:'Rosalind Ortiz', address:'19 Birchwood Ter', pref:'gardening'},
+  {name:'Blue Heron Cafe', address:'305 Main St', pref:'cleaning'},
+  {name:'The Castellanos Family', address:'127 Foxglove Dr', pref:'both'},
+  {name:'Marcus Webb', address:'63 Pinecrest Ave', pref:'gardening'},
+  {name:'Lighthouse Dental', address:'890 Bayview Blvd, Suite 2', pref:'cleaning'},
+  {name:'Priya & Anil Shah', address:'11 Orchard Hill Rd', pref:'both'},
+  {name:'Tessa Lindgren', address:'274 Meadowbrook Ln', pref:'gardening'},
+];
+
+function pad2(n){ return n<10 ? '0'+n : ''+n; }
+function fmtISO(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function parseISO(s){ const p=s.split('-').map(Number); return new Date(p[0],p[1]-1,p[2]); }
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function startOfWeek(d){ const day=d.getDay(); const diff = day===0?-6:1-day; const r=new Date(d); r.setDate(d.getDate()+diff); r.setHours(0,0,0,0); return r; }
+function fmtTime12(t){ if(!t) return ''; const p=t.split(':').map(Number); const ampm=p[0]>=12?'PM':'AM'; let h=p[0]%12; if(h===0)h=12; return h+':'+pad2(p[1])+' '+ampm; }
+function durationLabel(m){ const h=Math.floor(m/60); const r=m%60; return r? h+'h '+r+'m' : h+'h'; }
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDateLabel(iso){ const d=parseISO(iso); return DAYS[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate(); }
+function fmtMonthDay(d){ return MONTHS[d.getMonth()]+' '+d.getDate(); }
+function initialsOf(name){ return name.split(' ').filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase(); }
+
+function seedStaff(){
+  const base = [
+    {id:1,name:'Maria Alvarez',phone:'(555) 201-3348',email:'maria.alvarez@crewgrounds.com',role:'both',active:true},
+    {id:2,name:'Jordan Pike',phone:'(555) 488-2210',email:'jordan.pike@crewgrounds.com',role:'cleaning',active:true},
+    {id:3,name:'Sam Whitfield',phone:'(555) 662-7743',email:'sam.whitfield@crewgrounds.com',role:'gardening',active:true},
+    {id:4,name:'Nina Torres',phone:'(555) 390-5521',email:'nina.torres@crewgrounds.com',role:'cleaning',active:true},
+    {id:5,name:'Deshawn Carter',phone:'(555) 774-9930',email:'deshawn.carter@crewgrounds.com',role:'gardening',active:true},
+    {id:6,name:'Ellie Novak',phone:'(555) 128-4467',email:'ellie.novak@crewgrounds.com',role:'both',active:false},
+  ];
+  return base.map((s,i)=>({...s, colorHex:'oklch(52% 0.13 '+STAFF_HUES[i]+')', tintHex:'oklch(95% 0.04 '+STAFF_HUES[i]+')'}));
+}
+
+function seedJobs(staffList){
+  const jobs=[]; let id=1;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const currentHour = new Date().getHours();
+  for(let offset=-9; offset<=20; offset++){
+    const date=addDays(today,offset);
+    const dow=date.getDay();
+    const isWeekend = dow===0||dow===6;
+    const count = isWeekend ? (Math.random()<0.5?1:0) : (2+Math.floor(Math.random()*3));
+    for(let i=0;i<count;i++){
+      const client = CLIENTS[Math.floor(Math.random()*CLIENTS.length)];
+      let type;
+      if(client.pref==='both') type = Math.random()<0.5?'both':(Math.random()<0.5?'cleaning':'gardening');
+      else type = Math.random()<0.85 ? client.pref : 'both';
+      const eligible = staffList.filter(s=>s.active && (s.role==='both' || s.role===type || type==='both'));
+      const assign = Math.random()<0.85 && eligible.length>0;
+      const staff = assign ? eligible[Math.floor(Math.random()*eligible.length)] : null;
+      const hour = 7+Math.floor(Math.random()*9);
+      const startTime = pad2(hour)+':'+(Math.random()<0.5?'00':'30');
+      const durOpts = type==='both' ? [120,150,180,240] : type==='cleaning' ? [60,90,120] : [60,90,120,150];
+      const duration = durOpts[Math.floor(Math.random()*durOpts.length)];
+      const priceBase = type==='both' ? 150 : type==='cleaning' ? 80 : 60;
+      const price = priceBase + Math.floor(Math.random()*7)*15;
+      let status;
+      if(offset<0){ const r=Math.random(); status = r<0.82?'completed': r<0.93?'cancelled':'scheduled'; }
+      else if(offset===0){ const r=Math.random(); status = hour < currentHour-1 ? 'completed' : (hour<=currentHour ? 'in_progress':'scheduled'); if(Math.random()<0.05) status='cancelled'; }
+      else { status = Math.random()<0.92 ? 'scheduled':'cancelled'; }
+      jobs.push({id:id++, client:client.name, address:client.address, type, date:fmtISO(date), startTime, duration, staffId: staff?staff.id:null, status, price, notes:'', repeat:'none', seriesId:null});
+    }
+  }
+  jobs.push({id:id++, client:'Rivendell HOA Common Areas', address:'50 Rivendell Way', type:'gardening', date:fmtISO(addDays(today,1)), startTime:'09:00', duration:120, staffId:null, status:'scheduled', price:180, notes:'New client inquiry — needs confirmation.', repeat:'none', seriesId:null});
+  jobs.push({id:id++, client:'Bellamy & Cross Realty', address:'900 Commerce St, Suite 5', type:'cleaning', date:fmtISO(addDays(today,2)), startTime:'13:00', duration:90, staffId:null, status:'scheduled', price:120, notes:'', repeat:'none', seriesId:null});
+  jobs.push({id:id++, client:'Okafor Family', address:'18 Sycamore Pl', type:'both', date:fmtISO(addDays(today,-3)), startTime:'10:00', duration:150, staffId:2, status:'scheduled', price:210, notes:'', repeat:'none', seriesId:null});
+  return jobs;
+}
+
+class Component extends DCLogic {
+  state = {
+    staffList: [], jobs: [], loaded:false,
+    activeTab: 'dashboard', mobileNavOpen:false,
+    windowWidth: typeof window!=='undefined' ? window.innerWidth : 1280,
+    weekOffset: 0, searchQuery:'',
+    jobFilters: {status:'all', staffId:'all', type:'all', dateFrom:'', dateTo:'', search:''},
+    jobModalOpen:false, jobModalMode:'new', jobForm:null, jobFormErrors:{},
+    staffModalOpen:false, staffForm:null,
+    toast:null,
+  };
+
+  componentDidMount(){
+    this.handleResize = () => this.setState({windowWidth: window.innerWidth});
+    window.addEventListener('resize', this.handleResize);
+    let data=null;
+    try{ const raw=localStorage.getItem('crewGroundsData'); if(raw) data=JSON.parse(raw); }catch(e){}
+    if(data && data.staffList && data.jobs){
+      this.setState({staffList:data.staffList, jobs:data.jobs, loaded:true});
+    } else {
+      const staffList = seedStaff();
+      const jobs = seedJobs(staffList);
+      this.persist(staffList, jobs);
+      this.setState({staffList, jobs, loaded:true});
+    }
+  }
+  componentWillUnmount(){ window.removeEventListener('resize', this.handleResize); clearTimeout(this._toastTimer); }
+
+  persist(staffList, jobs){ try{ localStorage.setItem('crewGroundsData', JSON.stringify({staffList, jobs})); }catch(e){} }
+  showToast(msg){ this.setState({toast:msg}); clearTimeout(this._toastTimer); this._toastTimer=setTimeout(()=>this.setState({toast:null}), 2600); }
+
+  setTab(tab){ this.setState({activeTab:tab, mobileNavOpen:false}); }
+  toggleMobileNav(){ this.setState(s=>({mobileNavOpen:!s.mobileNavOpen})); }
+  closeMobileNav(){ this.setState({mobileNavOpen:false}); }
+  setJobFilter(field,value){ this.setState(s=>({jobFilters:{...s.jobFilters,[field]:value}})); }
+  clearJobFilters(){ this.setState({jobFilters:{status:'all',staffId:'all',type:'all',dateFrom:'',dateTo:'',search:''}}); }
+  goPrevWeek(){ this.setState(s=>({weekOffset:s.weekOffset-1})); }
+  goNextWeek(){ this.setState(s=>({weekOffset:s.weekOffset+1})); }
+  goThisWeek(){ this.setState({weekOffset:0}); }
+
+  openNewJob(prefillDate){
+    this.setState({ jobModalOpen:true, jobModalMode:'new', jobFormErrors:{},
+      jobForm:{ id:null, client:'', address:'', type:'cleaning', date: prefillDate||fmtISO(new Date()), startTime:'09:00', duration:'90', staffId:'', status:'scheduled', price:'', notes:'', repeat:'none', seriesId:null } });
+  }
+  openEditJob(job){
+    this.setState({ jobModalOpen:true, jobModalMode:'edit', jobFormErrors:{},
+      jobForm:{ id:job.id, client:job.client, address:job.address, type:job.type, date:job.date, startTime:job.startTime, duration:String(job.duration), staffId: job.staffId!=null?String(job.staffId):'', status:job.status, price: job.price!=null?String(job.price):'', notes:job.notes||'', repeat:job.repeat||'none', seriesId:job.seriesId||null } });
+  }
+  closeJobModal(){ this.setState({jobModalOpen:false, jobForm:null}); }
+  setJobField(field,value){ this.setState(s=>({jobForm:{...s.jobForm,[field]:value}})); }
+
+  validateJobForm(f){
+    const errors={};
+    if(!f.client || !f.client.trim()) errors.client='Client name is required';
+    if(!f.address || !f.address.trim()) errors.address='Address is required';
+    if(!f.date) errors.date='Date is required';
+    if(!f.startTime) errors.startTime='Start time is required';
+    return errors;
+  }
+
+  saveJobForm(){
+    const f=this.state.jobForm;
+    const errors=this.validateJobForm(f);
+    if(Object.keys(errors).length){ this.setState({jobFormErrors:errors}); return; }
+    const staffId = f.staffId===''? null: Number(f.staffId);
+    const price = f.price===''? 0: Number(f.price);
+    const duration = Number(f.duration);
+    let jobs = this.state.jobs.slice();
+    if(this.state.jobModalMode==='new'){
+      let nextId = jobs.reduce((m,j)=>Math.max(m,j.id),0)+1;
+      const seriesId = f.repeat!=='none' ? 'series-'+nextId : null;
+      const clean = {id:nextId, client:f.client, address:f.address, type:f.type, date:f.date, startTime:f.startTime, duration, staffId, status:f.status, price, notes:f.notes, repeat:f.repeat, seriesId};
+      jobs.push(clean);
+      if(f.repeat!=='none'){
+        const stepDays = f.repeat==='weekly'?7:f.repeat==='fortnightly'?14:30;
+        let d = parseISO(f.date);
+        for(let i=1;i<=6;i++){
+          d = addDays(d, stepDays);
+          nextId+=1;
+          jobs.push({...clean, id:nextId, date:fmtISO(d), status:'scheduled'});
+        }
+      }
+      this.showToast('Job created');
+    } else {
+      jobs = jobs.map(j=> j.id===f.id ? {id:f.id, client:f.client, address:f.address, type:f.type, date:f.date, startTime:f.startTime, duration, staffId, status:f.status, price, notes:f.notes, repeat:f.repeat, seriesId:f.seriesId} : j);
+      this.showToast('Job updated');
+    }
+    this.persist(this.state.staffList, jobs);
+    this.setState({jobs, jobModalOpen:false, jobForm:null});
+  }
+  deleteCurrentJob(){
+    const f=this.state.jobForm; if(!f || !f.id) return;
+    const jobs = this.state.jobs.filter(j=>j.id!==f.id);
+    this.persist(this.state.staffList, jobs);
+    this.setState({jobs, jobModalOpen:false, jobForm:null});
+    this.showToast('Job deleted');
+  }
+
+  openStaffEdit(staff){ this.setState({staffModalOpen:true, staffForm:{...staff}}); }
+  closeStaffModal(){ this.setState({staffModalOpen:false, staffForm:null}); }
+  setStaffField(field,value){ this.setState(s=>({staffForm:{...s.staffForm,[field]:value}})); }
+  saveStaffForm(){
+    const f=this.state.staffForm;
+    const staffList = this.state.staffList.map(s=> s.id===f.id? {...s, name:f.name, phone:f.phone, email:f.email, role:f.role, active:f.active} : s);
+    this.persist(staffList, this.state.jobs);
+    this.setState({staffList, staffModalOpen:false, staffForm:null});
+    this.showToast('Staff updated');
+  }
+  toggleStaffActive(id){
+    const staffList = this.state.staffList.map(s=> s.id===id? {...s, active:!s.active} : s);
+    this.persist(staffList, this.state.jobs);
+    this.setState({staffList});
+  }
+
+  renderVals(){
+    const {staffList, jobs, activeTab, mobileNavOpen, windowWidth, weekOffset, searchQuery, jobFilters, jobModalOpen, jobModalMode, jobForm, jobFormErrors, staffModalOpen, staffForm, toast} = this.state;
+    const isMobile = windowWidth < 900;
+    const colorCodeBy = this.props && this.props.scheduleColorBy || 'staff';
+    const compact = !!(this.props && this.props.compactJobsList);
+    const todayISO = fmtISO(new Date());
+
+    const rowStyleFixed = (opacity) => ({background:'white', border:'1px solid '+PALETTE.border, borderRadius:12, padding:'14px 16px', marginBottom:10, cursor:'pointer', display:'flex', flexWrap:'wrap', alignItems:'center', gap:16, opacity});
+    const rowStyleCompact = (opacity) => ({background:'white', border:'1px solid '+PALETTE.border, borderRadius:12, padding: compact?'9px 14px':'14px 16px', marginBottom:10, cursor:'pointer', display:'flex', flexWrap:'wrap', alignItems:'center', gap:16, opacity});
+
+    const enrich = (job) => {
+      const staff = job.staffId!=null ? staffList.find(s=>s.id===job.staffId) : null;
+      const typeMeta = TYPE_META[job.type] || TYPE_META.cleaning;
+      const statusMeta = STATUS_META[job.status] || STATUS_META.scheduled;
+      const opacity = job.status==='cancelled' ? 0.55 : 1;
+      const swatchHex = colorCodeBy==='type' ? typeMeta.hex : (staff ? staff.colorHex : PALETTE.inkFaint);
+      const swatchTint = colorCodeBy==='type' ? typeMeta.tint : (staff ? staff.tintHex : PALETTE.surfaceAlt);
+      return {
+        ...job,
+        staffName: staff ? staff.name : 'Unassigned',
+        staffColorHex: staff ? staff.colorHex : PALETTE.inkFaint,
+        typeLabel: typeMeta.label, typeColorHex: typeMeta.hex, typeTintHex: typeMeta.tint,
+        statusLabel: statusMeta.label, statusColorHex: statusMeta.hex, statusTintHex: statusMeta.tint,
+        timeLabel: fmtTime12(job.startTime), durationLabel: durationLabel(job.duration),
+        dateLabel: fmtDateLabel(job.date), priceLabel: '$'+(job.price||0),
+        onClick: () => this.openEditJob(job),
+        rowStyleFixed: rowStyleFixed(opacity),
+        rowStyle: rowStyleCompact(opacity),
+        blockStyle: {background:swatchTint, borderLeft:'4px solid '+swatchHex, borderRadius:8, padding:'8px 10px', marginBottom:8, cursor:'pointer', opacity, textDecoration: job.status==='cancelled'?'line-through':'none'},
+      };
+    };
+
+    const enrichedAll = jobs.map(enrich);
+    const weekStartToday = startOfWeek(new Date());
+    const weekEndToday = addDays(weekStartToday,6);
+    const jobsToday = enrichedAll.filter(j=>j.date===todayISO);
+    const jobsThisWeek = enrichedAll.filter(j=> j.date>=fmtISO(weekStartToday) && j.date<=fmtISO(weekEndToday));
+    const unassignedActive = enrichedAll.filter(j=> j.staffId==null && j.status!=='cancelled' && j.status!=='completed');
+    const activeStaffCount = staffList.filter(s=>s.active).length;
+
+    const needsAttentionUnassigned = unassignedActive.filter(j=>j.date>=todayISO).sort((a,b)=> a.date===b.date? a.startTime.localeCompare(b.startTime): a.date.localeCompare(b.date)).slice(0,6);
+    const needsAttentionOverdue = enrichedAll.filter(j=> j.date<todayISO && j.status==='scheduled').sort((a,b)=>a.date.localeCompare(b.date));
+    const todaySchedule = jobsToday.slice().sort((a,b)=>a.startTime.localeCompare(b.startTime));
+
+    const weekStart = addDays(startOfWeek(new Date()), weekOffset*7);
+    const weekDays = [0,1,2,3,4,5,6].map(i=>{
+      const d = addDays(weekStart,i);
+      const iso = fmtISO(d);
+      const isToday = iso===todayISO;
+      const dayJobs = enrichedAll.filter(j=>j.date===iso).sort((a,b)=>a.startTime.localeCompare(b.startTime));
+      return {
+        dateStr: iso, dayName: DAYS[d.getDay()], dateLabel: (d.getMonth()+1)+'/'+d.getDate(), isToday, jobs: dayJobs,
+        onAdd: () => this.openNewJob(iso),
+        colStyle: {background: isToday?'oklch(96% 0.03 70)':'white', border:'1px solid '+(isToday?'oklch(85% 0.06 70)':PALETTE.border), borderRadius:12, padding:10, display:'flex', flexDirection:'column', gap:6, minHeight:120},
+        headerStyle: {marginBottom:4, color: isToday?'oklch(42% 0.14 70)':'inherit'},
+      };
+    });
+    const weekLabel = fmtMonthDay(weekStart)+' – '+fmtMonthDay(addDays(weekStart,6));
+
+    let filtered = enrichedAll.slice();
+    if(jobFilters.status!=='all') filtered = filtered.filter(j=>j.status===jobFilters.status);
+    if(jobFilters.staffId!=='all') filtered = filtered.filter(j=> jobFilters.staffId==='unassigned' ? j.staffId==null : j.staffId===Number(jobFilters.staffId));
+    if(jobFilters.type!=='all') filtered = filtered.filter(j=>j.type===jobFilters.type);
+    if(jobFilters.dateFrom) filtered = filtered.filter(j=>j.date>=jobFilters.dateFrom);
+    if(jobFilters.dateTo) filtered = filtered.filter(j=>j.date<=jobFilters.dateTo);
+    if(jobFilters.search){ const q=jobFilters.search.toLowerCase(); filtered = filtered.filter(j=> j.client.toLowerCase().includes(q) || j.address.toLowerCase().includes(q)); }
+    filtered.sort((a,b)=> a.date===b.date? a.startTime.localeCompare(b.startTime) : a.date.localeCompare(b.date));
+
+    const staffCards = staffList.map(s=>{
+      const upcoming = enrichedAll.filter(j=> j.staffId===s.id && j.date>=todayISO && j.status!=='cancelled').length;
+      return { ...s, upcomingCount: upcoming, initials: initialsOf(s.name),
+        roleLabel: s.role==='both'?'Cleaning + Gardening': s.role==='cleaning'?'Cleaning':'Gardening',
+        avatarStyle: {width:44,height:44,borderRadius:'50%',background:s.colorHex,color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:15,flexShrink:0},
+        activeLabel: s.active?'Active':'Inactive',
+        toggleStyle: {padding:'4px 10px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', background: s.active?'oklch(95% 0.035 145)':'oklch(93% 0.01 75)', color: s.active?'oklch(38% 0.13 145)':'oklch(46% 0.02 75)'},
+        onToggle: () => this.toggleStaffActive(s.id),
+        onEdit: () => this.openStaffEdit(s),
+      };
+    });
+
+    return {
+      isMobile, activeTab,
+      navItems: ['dashboard','schedule','jobs','staff'].map(key=>({key, label: PAGE_TITLES[key], active: activeTab===key, inactive: activeTab!==key, onClick: ()=>this.setTab(key)})),
+      sidebarStyle: { position: isMobile?'fixed':'static', top:0, left:0, bottom:0, width:280, transform: isMobile ? (mobileNavOpen?'translateX(0)':'translateX(-100%)') : 'none', transition:'transform 0.25s ease', zIndex:50, background:PALETTE.surfaceAlt, borderRight:'1px solid '+PALETTE.border, display:'flex', flexDirection:'column', padding:'24px 20px', gap:2, flexShrink:0, boxShadow: isMobile?'4px 0 24px rgba(20,16,8,0.15)':'none' },
+      backdropStyle: (isMobile && mobileNavOpen) ? {display:'block', position:'fixed', inset:0, background:'rgba(20,16,8,0.45)', zIndex:40} : {display:'none'},
+      contentStyle: {flex:1, padding: isMobile?'16px':'28px 32px', overflowY:'auto'},
+      toggleMobileNav: ()=>this.toggleMobileNav(), closeMobileNav: ()=>this.closeMobileNav(),
+      pageTitle: PAGE_TITLES[activeTab] || 'Dashboard',
+      searchQuery, onSearchChange: (e)=>this.setState({searchQuery:e.target.value}),
+      onSearchKeyDown: (e)=>{ if(e.key==='Enter'){ this.setState({activeTab:'jobs', jobFilters:{...this.state.jobFilters, search:this.state.searchQuery}}); } },
+      openNewJob: ()=>this.openNewJob(),
+      toast, toastVisible: !!toast,
+
+      isDashboard: activeTab==='dashboard', isSchedule: activeTab==='schedule', isJobs: activeTab==='jobs', isStaff: activeTab==='staff',
+
+      kpiCards: [
+        {key:'today', label:'Jobs Today', value:jobsToday.length, alert:false, normal:true},
+        {key:'week', label:'Jobs This Week', value:jobsThisWeek.length, alert:false, normal:true},
+        {key:'unassigned', label:'Unassigned Jobs', value:unassignedActive.length, alert: unassignedActive.length>0, normal: unassignedActive.length===0},
+        {key:'staff', label:'Active Staff', value:activeStaffCount, alert:false, normal:true},
+      ],
+      hasOverdue: needsAttentionOverdue.length>0, hasUnassignedUpcoming: needsAttentionUnassigned.length>0,
+      hasNeedsAttention: needsAttentionOverdue.length>0 || needsAttentionUnassigned.length>0,
+      hasNoNeedsAttention: needsAttentionOverdue.length===0 && needsAttentionUnassigned.length===0,
+      needsAttentionUnassigned, needsAttentionOverdue,
+      todaySchedule, hasTodaySchedule: todaySchedule.length>0, hasNoTodaySchedule: todaySchedule.length===0,
+      todayDateLabel: fmtDateLabel(todayISO),
+
+      weekLabel, weekDays, goPrevWeek: ()=>this.goPrevWeek(), goNextWeek: ()=>this.goNextWeek(), goThisWeek: ()=>this.goThisWeek(),
+      scheduleGridStyle: {display:'grid', gridTemplateColumns: isMobile?'1fr':'repeat(7,minmax(0,1fr))', gap:12},
+
+      jobFilters,
+      onJobsSearchChange: (e)=>this.setJobFilter('search', e.target.value),
+      onStatusFilterChange: (e)=>this.setJobFilter('status', e.target.value),
+      onStaffFilterChange: (e)=>this.setJobFilter('staffId', e.target.value),
+      onTypeFilterChange: (e)=>this.setJobFilter('type', e.target.value),
+      onFilterDateFromChange: (e)=>this.setJobFilter('dateFrom', e.target.value),
+      onFilterDateToChange: (e)=>this.setJobFilter('dateTo', e.target.value),
+      clearJobFilters: ()=>this.clearJobFilters(),
+      staffFilterOptions: [{value:'all',label:'All staff'},{value:'unassigned',label:'Unassigned'}, ...staffList.map(s=>({value:String(s.id), label:s.name}))],
+      filteredJobs: filtered, filteredCount: filtered.length, hasFilteredJobs: filtered.length>0, hasNoFilteredJobs: filtered.length===0,
+
+      staffCards,
+
+      jobModalOpen, jobModalMode, jobForm: jobForm||{}, jobFormErrors,
+      jobModalTitle: jobModalMode==='edit' ? 'Edit Job' : 'New Job',
+      isEditingJob: jobModalMode==='edit',
+      onClientChange: (e)=>this.setJobField('client', e.target.value),
+      onAddressChange: (e)=>this.setJobField('address', e.target.value),
+      onTypeChange: (e)=>this.setJobField('type', e.target.value),
+      onStatusChange: (e)=>this.setJobField('status', e.target.value),
+      onDateChange: (e)=>this.setJobField('date', e.target.value),
+      onStartTimeChange: (e)=>this.setJobField('startTime', e.target.value),
+      onDurationChange: (e)=>this.setJobField('duration', e.target.value),
+      onPriceChange: (e)=>this.setJobField('price', e.target.value),
+      onStaffChange: (e)=>this.setJobField('staffId', e.target.value),
+      onRepeatChange: (e)=>this.setJobField('repeat', e.target.value),
+      onNotesChange: (e)=>this.setJobField('notes', e.target.value),
+      closeJobModal: ()=>this.closeJobModal(), saveJobForm: ()=>this.saveJobForm(), deleteCurrentJob: ()=>this.deleteCurrentJob(),
+      staffOptionsForForm: [{value:'',label:'Unassigned'}, ...staffList.filter(s=>s.active).map(s=>({value:String(s.id), label:s.name}))],
+      jobPanelStyle: { position:'fixed', top:0, right:0, bottom:0, width: isMobile?'100%':480, background:'white', boxShadow:'-8px 0 32px rgba(0,0,0,0.12)', overflowY:'auto', padding:24, zIndex:101, display:'flex', flexDirection:'column', gap:14 },
+
+      staffModalOpen, staffForm: staffForm||{},
+      closeStaffModal: ()=>this.closeStaffModal(), saveStaffForm: ()=>this.saveStaffForm(),
+      onStaffNameChange: (e)=>this.setStaffField('name', e.target.value),
+      onStaffPhoneChange: (e)=>this.setStaffField('phone', e.target.value),
+      onStaffEmailChange: (e)=>this.setStaffField('email', e.target.value),
+      onStaffRoleChange: (e)=>this.setStaffField('role', e.target.value),
+      onStaffActiveToggle: (e)=>this.setStaffField('active', e.target.checked),
+    };
+  }
+}
+
+</script>
+</body>
+</html>
