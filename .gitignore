@@ -44,3 +44,6 @@ next-env.d.ts
 /supabase/.branches
 /supabase/.temp
 /supabase/.env
+
+# Claude Code session state (not project config)
+.claude/scheduled_tasks.lock
