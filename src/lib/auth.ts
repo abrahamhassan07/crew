@@ -12,14 +12,21 @@ export interface Viewer {
 }
 
 /**
- * Loads the signed-in user's profile (and staff row, if any). Wrapped in
- * React's cache() so the layout, a page, and requireAdmin() can all call
- * this within the same request and only hit Supabase once instead of
- * once each — each call was a real network round trip.
+ * Loads the signed-in user's profile and staff row (if any) in a single
+ * round trip via an embedded select, joining on the profiles -> staff FK
+ * (previously two sequential queries). Wrapped in React's cache() so the
+ * layout, a page, and requireAdmin() can all call this within the same
+ * request and only hit Supabase once instead of once each.
  *
- * Middleware already guarantees a session exists on every non-public
- * route, so the only way this fails is a profile row not existing yet
- * (trigger lag) — treat that as "not signed in" and bounce to login.
+ * Deliberately still uses getUser() rather than getSession(), even though
+ * middleware already validated the token for this request: getSession()
+ * only decodes the local cookie and won't catch a token that's since been
+ * revoked (e.g. a removed staff member's existing session) — getUser()'s
+ * round trip to the auth server is what actually re-checks that.
+ *
+ * Middleware guarantees a session exists on every non-public route, so
+ * the only way this fails is a profile row not existing yet (trigger
+ * lag) — treat that as "not signed in" and bounce to login.
  */
 export const getViewer = cache(async (): Promise<Viewer> => {
   const supabase = await createClient();
@@ -31,23 +38,19 @@ export const getViewer = cache(async (): Promise<Viewer> => {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
+  const { data: profileWithStaff } = await supabase
     .from("profiles")
-    .select("*")
+    .select("*, staff(*)")
     .eq("user_id", user.id)
-    .single();
+    .single<Profile & { staff: Staff | null }>();
 
-  if (!profile) {
+  if (!profileWithStaff) {
     redirect("/login");
   }
 
-  let staff: Staff | null = null;
-  if (profile.staff_id) {
-    const { data } = await supabase.from("staff").select("*").eq("id", profile.staff_id).single();
-    staff = data ?? null;
-  }
+  const { staff, ...profile } = profileWithStaff;
 
-  return { userId: user.id, email: user.email ?? "", profile, staff };
+  return { userId: user.id, email: user.email ?? "", profile, staff: staff ?? null };
 });
 
 export async function requireAdmin(): Promise<Viewer> {
