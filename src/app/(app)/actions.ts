@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
 import { addDays, fmtISO, parseISO, STAFF_HUES } from "@/lib/design";
-import type { JobStatus, Recurrence, Skill } from "@/lib/supabase/types";
+import type { CareProvider, JobStatus, Recurrence, Skill } from "@/lib/supabase/types";
 
 export interface ActionResult {
   ok: boolean;
@@ -196,6 +196,78 @@ export async function updateStaff(id: string, input: StaffUpdateInput): Promise<
 export async function toggleStaffActive(id: string, active: boolean): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("staff").update({ active }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export interface ClientInput {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  jobType: Skill;
+  careProvider: CareProvider | null;
+  caseManager: string;
+  hoursAllocated: number | null;
+}
+
+function validateClientInput(input: ClientInput): string | null {
+  if (!input.name.trim()) return "Name is required.";
+  return null;
+}
+
+export async function addClient(input: ClientInput): Promise<ActionResult> {
+  const err = validateClientInput(input);
+  if (err) return { ok: false, error: err };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("clients").insert({
+    name: input.name.trim(),
+    address: input.address.trim() || null,
+    phone: input.phone.trim() || null,
+    email: input.email.trim() || null,
+    job_type: input.jobType,
+    care_provider: input.careProvider,
+    case_manager: input.caseManager.trim() || null,
+    hours_allocated: input.hoursAllocated,
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function updateClient(id: string, input: ClientInput): Promise<ActionResult> {
+  const err = validateClientInput(input);
+  if (err) return { ok: false, error: err };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("clients")
+    .update({
+      name: input.name.trim(),
+      address: input.address.trim() || null,
+      phone: input.phone.trim() || null,
+      email: input.email.trim() || null,
+      job_type: input.jobType,
+      care_provider: input.careProvider,
+      case_manager: input.caseManager.trim() || null,
+      hours_allocated: input.hoursAllocated,
+    })
+    .eq("id", id);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function deleteClient(id: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("clients").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");

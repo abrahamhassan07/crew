@@ -11,6 +11,8 @@ const NAV_ITEMS: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: "/schedule", label: "Schedule" },
   { href: "/jobs", label: "Jobs", adminOnly: true },
   { href: "/staff", label: "Staff", adminOnly: true },
+  { href: "/clients", label: "Clients", adminOnly: true },
+  { href: "/reports", label: "Reports", adminOnly: true },
 ];
 
 export function AppShell({

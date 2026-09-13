@@ -11,6 +11,13 @@ export interface StaffOption {
   name: string;
 }
 
+export interface ClientOption {
+  id: string;
+  name: string;
+  address: string | null;
+  job_type: Skill;
+}
+
 function toInput(job: Job | null, prefillDate?: string): JobInput {
   if (job) {
     return {
@@ -47,6 +54,7 @@ export function JobModal({
   job,
   prefillDate,
   staffOptions,
+  clientOptions,
   onClose,
   onSaved,
 }: {
@@ -54,15 +62,24 @@ export function JobModal({
   job: Job | null;
   prefillDate?: string;
   staffOptions: StaffOption[];
+  clientOptions: ClientOption[];
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
   const [form, setForm] = useState<JobInput>(() => toInput(job, prefillDate));
+  const [selectedClientId, setSelectedClientId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const set = <K extends keyof JobInput>(key: K, value: JobInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  const selectClient = (clientId: string) => {
+    setSelectedClientId(clientId);
+    const client = clientOptions.find((c) => c.id === clientId);
+    if (!client) return;
+    setForm((f) => ({ ...f, client: client.name, address: client.address ?? f.address, type: client.job_type }));
+  };
 
   const save = () => {
     setError(null);
@@ -96,6 +113,23 @@ export function JobModal({
         <div className="font-serif font-semibold text-lg mb-1">
           {mode === "edit" ? "Edit Job" : "New Job"}
         </div>
+
+        {clientOptions.length > 0 && (
+          <Field label="Client">
+            <select
+              value={selectedClientId}
+              onChange={(e) => selectClient(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
+            >
+              <option value="">Custom / not in directory…</option>
+              {clientOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
 
         <Field label="Client name *">
           <input

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { JobModal, type StaffOption } from "@/components/JobModal";
+import { JobModal, type ClientOption, type StaffOption } from "@/components/JobModal";
 import { StaffJobDrawer } from "@/components/StaffJobDrawer";
 import { ToastBanner, useToast } from "@/components/Toast";
 import type { AppRole } from "@/lib/supabase/types";
@@ -34,6 +34,7 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
   const [state, setState] = useState<JobModalState | null>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
+  const [clientOptions, setClientOptions] = useState<ClientOption[]>([]);
   const [loading, setLoading] = useState(false);
 
   const close = useCallback(() => {
@@ -48,15 +49,14 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
       if (role === "admin") {
         setLoading(true);
         const supabase = createClient();
-        supabase
-          .from("staff")
-          .select("id, name")
-          .eq("active", true)
-          .order("name")
-          .then(({ data }) => {
-            setStaffOptions(data ?? []);
-            setLoading(false);
-          });
+        Promise.all([
+          supabase.from("staff").select("id, name").eq("active", true).order("name"),
+          supabase.from("clients").select("id, name, address, job_type").order("name"),
+        ]).then(([staffRes, clientsRes]) => {
+          setStaffOptions(staffRes.data ?? []);
+          setClientOptions(clientsRes.data ?? []);
+          setLoading(false);
+        });
       }
     },
     [role],
@@ -72,10 +72,15 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
         role === "admin"
           ? supabase.from("staff").select("id, name").eq("active", true).order("name")
           : Promise.resolve({ data: [] as StaffOption[] });
+      const clientsPromise =
+        role === "admin"
+          ? supabase.from("clients").select("id, name, address, job_type").order("name")
+          : Promise.resolve({ data: [] as ClientOption[] });
 
-      Promise.all([jobPromise, staffPromise]).then(([jobRes, staffRes]) => {
+      Promise.all([jobPromise, staffPromise, clientsPromise]).then(([jobRes, staffRes, clientsRes]) => {
         setJob(jobRes.data ?? null);
         setStaffOptions(staffRes.data ?? []);
+        setClientOptions(clientsRes.data ?? []);
         setLoading(false);
       });
     },
@@ -102,6 +107,7 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
           job={job}
           prefillDate={state.prefillDate}
           staffOptions={staffOptions}
+          clientOptions={clientOptions}
           onClose={close}
           onSaved={onSaved}
         />

@@ -2,6 +2,7 @@ export type AppRole = "admin" | "staff";
 export type Skill = "cleaning" | "gardening" | "both";
 export type JobStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
 export type Recurrence = "none" | "weekly" | "fortnightly" | "monthly";
+export type CareProvider = "AYS" | "GIHC" | "Aurora Home Care";
 
 export type Profile = {
   user_id: string;
@@ -40,6 +41,20 @@ export type Job = {
   updated_at: string;
 };
 
+export type Client = {
+  id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  job_type: Skill;
+  care_provider: CareProvider | null;
+  case_manager: string | null;
+  hours_allocated: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -59,6 +74,12 @@ export type Database = {
         Row: Job;
         Insert: Partial<Job> & Pick<Job, "client_name" | "address" | "job_date" | "start_time">;
         Update: Partial<Job>;
+        Relationships: [];
+      };
+      clients: {
+        Row: Client;
+        Insert: Partial<Client> & Pick<Client, "name">;
+        Update: Partial<Client>;
         Relationships: [];
       };
     };
