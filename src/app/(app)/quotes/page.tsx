@@ -1,41 +1,26 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/Button";
-import { Plus } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth";
+import { QuotesPageClient } from "@/components/QuotesPageClient";
+import type { GstMode } from "@/lib/supabase/types";
 
-export default function QuotesPage() {
-  return (
-    <div className="min-h-screen bg-page-bg">
-      <div className="px-6 py-8 border-b border-line bg-card-bg">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-ink-primary">Quotes</h1>
-            <p className="text-sm text-ink-secondary mt-1">
-              Create and manage quotes for your clients.
-            </p>
-          </div>
-          <Link href="/quotes/new">
-            <Button variant="primary" size="md">
-              <Plus className="w-4 h-4" />
-              New quote
-            </Button>
-          </Link>
-        </div>
-      </div>
+export default async function QuotesPage() {
+  await requireAdmin();
+  const supabase = await createClient();
 
-      <div className="px-6 py-16">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="bg-info-bg border border-info-fg/20 rounded-lg p-8 inline-block">
-            <h2 className="text-lg font-bold text-info-fg mb-2">
-              Coming Soon
-            </h2>
-            <p className="text-sm text-info-fg/80">
-              Quotes feature is in development.
-              <br />
-              Database schema and backend logic to follow.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const [{ data: quotes }, { data: clients }, { data: items }] = await Promise.all([
+    supabase.from("quotes").select("*").order("quote_date", { ascending: false }),
+    supabase.from("clients").select("*"),
+    supabase.from("quote_items").select("quote_id, qty, unit_price"),
+  ]);
+
+  const quoteMode = new Map((quotes ?? []).map((q) => [q.id, q.mode]));
+  const itemTotals = new Map<string, { qty: number; unit_price: number; mode: GstMode }[]>();
+  for (const item of items ?? []) {
+    const mode = quoteMode.get(item.quote_id) ?? "exclusive";
+    const arr = itemTotals.get(item.quote_id) ?? [];
+    arr.push({ qty: item.qty, unit_price: item.unit_price, mode });
+    itemTotals.set(item.quote_id, arr);
+  }
+
+  return <QuotesPageClient quotes={quotes ?? []} clients={clients ?? []} itemTotals={itemTotals} />;
 }

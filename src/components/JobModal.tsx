@@ -32,6 +32,7 @@ function toInput(job: Job | null, prefillDate?: string): JobInput {
       staffId: job.assigned_staff_id,
       notes: job.notes,
       repeat: job.recurrence,
+      clientId: job.client_id,
     };
   }
   return {
@@ -46,6 +47,7 @@ function toInput(job: Job | null, prefillDate?: string): JobInput {
     staffId: null,
     notes: "",
     repeat: "none",
+    clientId: null,
   };
 }
 

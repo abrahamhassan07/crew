@@ -3,40 +3,34 @@
 import Link from "next/link";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus } from "lucide-react";
-import { ClientModal } from "@/components/ClientModal";
-import { ToastBanner, useToast } from "@/components/Toast";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { DataTable } from "@/components/ui/DataTable";
-import type { Client } from "@/lib/supabase/types";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import type { Client, ClientStatus } from "@/lib/supabase/types";
+
+const STATUSES: (ClientStatus | "All")[] = ["All", "Lead", "Active", "Inactive", "Archived"];
 
 export function ClientsPageClient({ clients }: { clients: Client[] }) {
   const router = useRouter();
-  const { toast, showToast } = useToast();
-  const [modal, setModal] = useState<{ mode: "new" | "edit"; client: Client | null } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [status, setStatus] = useState<ClientStatus | "All">("All");
   const [sortBy, setSortBy] = useState<string>("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
-  const onSaved = (message: string) => {
-    setModal(null);
-    showToast(message);
-    router.refresh();
-  };
-
-  // Filter clients based on search query
   const filteredClients = useMemo(() => {
-    return clients.filter((c) =>
-      [c.name, c.email, c.phone, c.address]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
+    return clients.filter(
+      (c) =>
+        (status === "All" || c.status === status) &&
+        [c.name, c.company, c.email, c.phone, c.address]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
     );
-  }, [clients, searchQuery]);
+  }, [clients, searchQuery, status]);
 
-  // Sort clients
   const sortedClients = useMemo(() => {
     const sorted = [...filteredClients];
     sorted.sort((a, b) => {
@@ -69,7 +63,12 @@ export function ClientsPageClient({ clients }: { clients: Client[] }) {
       key: "name",
       label: "Name",
       sortable: true,
-      render: (name: string) => <span className="font-semibold">{name}</span>,
+      render: (name: string, row: Client) => (
+        <div>
+          <div className="font-semibold">{name}</div>
+          {row.company && <div className="text-xs text-ink-secondary">{row.company}</div>}
+        </div>
+      ),
     },
     {
       key: "address",
@@ -90,16 +89,30 @@ export function ClientsPageClient({ clients }: { clients: Client[] }) {
       render: (email: string) => <span className="text-ink-secondary">{email || "—"}</span>,
     },
     {
-      key: "care_provider",
-      label: "Care Provider",
+      key: "tags",
+      label: "Tags",
       sortable: false,
-      render: (provider: string) => <span>{provider || "—"}</span>,
+      render: (tags: string[] | null) => (
+        <div className="flex flex-wrap gap-1">
+          {(tags ?? []).slice(0, 2).map((t) => (
+            <span key={t} className="px-2 py-0.5 rounded-full bg-neutral-bg text-ink-secondary text-xs">
+              {t}
+            </span>
+          ))}
+          {(tags ?? []).length > 2 && <span className="text-xs text-ink-muted">+{(tags ?? []).length - 2}</span>}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (s: ClientStatus) => <StatusBadge status={s.toLowerCase() as "lead" | "active" | "inactive" | "archived"} label={s} showDot />,
     },
   ];
 
   return (
     <div className="min-h-screen bg-page-bg">
-      {/* Page header */}
       <div className="px-6 py-8 border-b border-line bg-card-bg">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -117,20 +130,39 @@ export function ClientsPageClient({ clients }: { clients: Client[] }) {
         </div>
       </div>
 
-      {/* Content */}
       <div className="px-6 py-8">
         <div className="max-w-7xl mx-auto">
-          {/* Search bar */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {STATUSES.map((s) => {
+              const count = s === "All" ? clients.length : clients.filter((c) => c.status === s).length;
+              const active = status === s;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStatus(s)}
+                  className="h-9 px-3.5 rounded-full text-sm font-semibold border flex items-center gap-1.5"
+                  style={
+                    active
+                      ? { background: "var(--color-forest)", color: "#fff", borderColor: "var(--color-forest)" }
+                      : { background: "#fff", color: "var(--ink-primary)", borderColor: "var(--field-border)" }
+                  }
+                >
+                  {s === "All" ? "All statuses" : s}
+                  <span className="opacity-70 text-xs">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="mb-6">
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder="Search by name, email, phone, or address…"
+              placeholder="Search by name, company, email, phone, or address…"
               className="max-w-md"
             />
           </div>
 
-          {/* Table */}
           <DataTable
             columns={columns}
             data={sortedClients}
@@ -142,16 +174,13 @@ export function ClientsPageClient({ clients }: { clients: Client[] }) {
             }}
           />
 
-          {filteredClients.length === 0 && searchQuery && (
+          {sortedClients.length === 0 && (
             <div className="text-center py-8 text-ink-muted">
-              No clients match "{searchQuery}"
+              {searchQuery ? `No clients match "${searchQuery}"` : "No clients match these filters."}
             </div>
           )}
         </div>
       </div>
-
-      {modal && <ClientModal mode={modal.mode} client={modal.client} onClose={() => setModal(null)} onSaved={onSaved} />}
-      <ToastBanner message={toast} />
     </div>
   );
 }

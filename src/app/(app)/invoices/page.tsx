@@ -1,41 +1,29 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/Button";
-import { Plus } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth";
+import { InvoicesPageClient } from "@/components/InvoicesPageClient";
 
-export default function InvoicesPage() {
-  return (
-    <div className="min-h-screen bg-page-bg">
-      <div className="px-6 py-8 border-b border-line bg-card-bg">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-ink-primary">Invoices</h1>
-            <p className="text-sm text-ink-secondary mt-1">
-              Create and manage tax invoices for your clients.
-            </p>
-          </div>
-          <Link href="/invoices/new">
-            <Button variant="primary" size="md">
-              <Plus className="w-4 h-4" />
-              New invoice
-            </Button>
-          </Link>
-        </div>
-      </div>
+export default async function InvoicesPage() {
+  await requireAdmin();
+  const supabase = await createClient();
 
-      <div className="px-6 py-16">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="bg-info-bg border border-info-fg/20 rounded-lg p-8 inline-block">
-            <h2 className="text-lg font-bold text-info-fg mb-2">
-              Coming Soon
-            </h2>
-            <p className="text-sm text-info-fg/80">
-              Invoices feature is in development.
-              <br />
-              Database schema and backend logic to follow.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const [{ data: invoices }, { data: clients }, { data: items }, { data: payments }] = await Promise.all([
+    supabase.from("invoices").select("*").order("issue_date", { ascending: false }),
+    supabase.from("clients").select("*"),
+    supabase.from("invoice_items").select("invoice_id, qty, unit_price"),
+    supabase.from("payments").select("invoice_id, amount"),
+  ]);
+
+  const itemsByInvoice = new Map<string, { qty: number; unit_price: number }[]>();
+  for (const item of items ?? []) {
+    const arr = itemsByInvoice.get(item.invoice_id) ?? [];
+    arr.push({ qty: item.qty, unit_price: item.unit_price });
+    itemsByInvoice.set(item.invoice_id, arr);
+  }
+
+  const paidByInvoice = new Map<string, number>();
+  for (const p of payments ?? []) {
+    paidByInvoice.set(p.invoice_id, (paidByInvoice.get(p.invoice_id) ?? 0) + p.amount);
+  }
+
+  return <InvoicesPageClient invoices={invoices ?? []} clients={clients ?? []} itemsByInvoice={itemsByInvoice} paidByInvoice={paidByInvoice} />;
 }

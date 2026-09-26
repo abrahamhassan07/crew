@@ -2,10 +2,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/auth";
 import { addDays, buildStaffMap, DAYS, enrichJob, fmtISO, fmtMonthDay, startOfWeek, todayISO } from "@/lib/design";
-import { Button } from "@/components/ui/Button";
+import { NewJobButton } from "@/components/NewJobButton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Card } from "@/components/ui/Card";
-import { Plus, ChevronLeft, ChevronRight, Clock, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, MapPin } from "lucide-react";
 
 export default async function SchedulePage({ searchParams }: PageProps<"/schedule">) {
   const params = await searchParams;
@@ -48,12 +48,7 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
                 Week of {weekLabel}
               </p>
             </div>
-            <Link href="/jobs/new">
-              <Button variant="primary" size="md">
-                <Plus className="w-4 h-4" />
-                New job
-              </Button>
-            </Link>
+            <NewJobButton />
           </div>
 
           {/* Week navigation */}

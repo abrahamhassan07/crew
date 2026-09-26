@@ -7,9 +7,10 @@ export default async function StaffPage() {
   await requireAdmin();
   const supabase = await createClient();
 
-  const [{ data: staffList }, { data: jobs }] = await Promise.all([
+  const [{ data: staffList }, { data: jobs }, { data: crews }] = await Promise.all([
     supabase.from("staff").select("*").order("name"),
     supabase.from("jobs").select("id, assigned_staff_id, job_date, status"),
+    supabase.from("crews").select("*").order("name"),
   ]);
 
   const today = todayISO();
@@ -18,5 +19,5 @@ export default async function StaffPage() {
     upcomingCount: (jobs ?? []).filter((j) => j.assigned_staff_id === s.id && j.job_date >= today && j.status !== "cancelled").length,
   }));
 
-  return <StaffPageClient staffList={withCounts} />;
+  return <StaffPageClient staffList={withCounts} crews={crews ?? []} />;
 }

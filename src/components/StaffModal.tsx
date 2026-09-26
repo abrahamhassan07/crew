@@ -2,16 +2,20 @@
 
 import { useState, useTransition } from "react";
 import { inviteStaff, updateStaff, type StaffInput, type StaffUpdateInput } from "@/app/(app)/actions";
-import type { Skill, Staff } from "@/lib/supabase/types";
+import type { Crew, JobRole, Skill, Staff } from "@/lib/supabase/types";
+
+const JOB_ROLES: JobRole[] = ["Owner", "Admin", "Manager", "Crew Leader", "Staff"];
 
 export function StaffModal({
   mode,
   staff,
+  crews,
   onClose,
   onSaved,
 }: {
   mode: "new" | "edit";
   staff: Staff | null;
+  crews: Crew[];
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
@@ -20,6 +24,8 @@ export function StaffModal({
   const [email, setEmail] = useState(staff?.email ?? "");
   const [skill, setSkill] = useState<Skill>(staff?.skill ?? "both");
   const [active, setActive] = useState(staff?.active ?? true);
+  const [crewId, setCrewId] = useState(staff?.crew_id ?? "");
+  const [jobRole, setJobRole] = useState<JobRole>(staff?.job_role ?? "Staff");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -28,8 +34,18 @@ export function StaffModal({
     startTransition(async () => {
       const result =
         mode === "new"
-          ? await inviteStaff({ name, phone, email, skill } satisfies StaffInput)
-          : await updateStaff(staff!.id, { name, phone, email, skill, active } satisfies StaffUpdateInput);
+          ? await inviteStaff({ name, phone, email, skill, crewId: crewId || null, jobRole } satisfies StaffInput)
+          : await updateStaff(staff!.id, {
+              name,
+              phone,
+              email,
+              skill,
+              active,
+              crewId: crewId || null,
+              jobRole,
+              usualHours: staff?.usual_hours ?? "",
+              availability: staff?.availability ?? [true, true, true, true, true, false, false],
+            } satisfies StaffUpdateInput);
 
       if (!result.ok) {
         setError(result.error ?? "Something went wrong.");
@@ -65,11 +81,28 @@ export function StaffModal({
           {mode === "new" && <p className="text-xs text-ink-faint mt-1">We&rsquo;ll email an invite link here.</p>}
         </div>
         <div>
-          <label className="block text-sm font-semibold mb-1">Role</label>
+          <label className="block text-sm font-semibold mb-1">Skill</label>
           <select value={skill} onChange={(e) => setSkill(e.target.value as Skill)} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
             <option value="cleaning">Cleaning</option>
             <option value="gardening">Gardening</option>
             <option value="both">Cleaning + Gardening</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-semibold mb-1">Role</label>
+          <select value={jobRole} onChange={(e) => setJobRole(e.target.value as JobRole)} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
+            {JOB_ROLES.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-semibold mb-1">Crew</label>
+          <select value={crewId} onChange={(e) => setCrewId(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
+            <option value="">No crew (office)</option>
+            {crews.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
           </select>
         </div>
         {mode === "edit" && (

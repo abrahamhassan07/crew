@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/auth";
 import { addDays, buildStaffMap, enrichJob, fmtDateLabel, fmtISO, startOfWeek, todayISO } from "@/lib/design";
 import { StatCard, Card } from "@/components/ui/Card";
+import { NewJobQuickAction } from "@/components/NewJobQuickAction";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import {
@@ -241,16 +242,7 @@ export default async function DashboardPage() {
                     </button>
                   </Link>
 
-                  <Link href="/jobs/new">
-                    <button className="p-3 rounded-lg border border-line hover:border-brand hover:bg-ok-tint transition-all text-left">
-                      <div className="w-8 h-8 rounded-lg bg-ok-bg text-ok-fg flex items-center justify-center mb-2">
-                        <Briefcase className="w-4 h-4" />
-                      </div>
-                      <span className="text-sm font-semibold text-ink-primary block">
-                        New job
-                      </span>
-                    </button>
-                  </Link>
+                  <NewJobQuickAction />
 
                   <Link href="/quotes/new">
                     <button className="p-3 rounded-lg border border-line hover:border-brand hover:bg-ok-tint transition-all text-left">
