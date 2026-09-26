@@ -1,4 +1,4 @@
-import { AppShell } from "@/components/AppShell";
+import { AppShell } from "@/components/shell/AppShell";
 import { JobModalProvider } from "@/components/JobModalContext";
 import { getViewer } from "@/lib/auth";
 
