@@ -1,11 +1,11 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/auth";
 import { addDays, buildStaffMap, DAYS, enrichJob, fmtISO, fmtMonthDay, startOfWeek, todayISO } from "@/lib/design";
-import { JobBlock } from "@/components/JobBlock";
-import { JobRow } from "@/components/JobRow";
-import { AddJobButton } from "@/components/AddJobButton";
-import { DateRangeFilter } from "@/components/DateRangeFilter";
-import { WeekNav } from "@/components/WeekNav";
+import { Button } from "@/components/ui/Button";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { Card } from "@/components/ui/Card";
+import { Plus, ChevronLeft, ChevronRight, Clock, MapPin } from "lucide-react";
 
 export default async function SchedulePage({ searchParams }: PageProps<"/schedule">) {
   const params = await searchParams;
@@ -23,44 +23,8 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
 
   const today = todayISO();
   const weekStart = addDays(startOfWeek(new Date()), weekOffset * 7);
-  const weekLabel = `${fmtMonthDay(weekStart)} – ${fmtMonthDay(addDays(weekStart, 6))}`;
-  const isAdmin = viewer.profile.role === "admin";
-
-  const fromParam = typeof params.from === "string" && params.from ? params.from : null;
-  const toParam = typeof params.to === "string" && params.to ? params.to : null;
-  const hasCustomRange = Boolean(fromParam || toParam);
-
-  const headerNav = (
-    <div>
-      <div className="flex items-center gap-3 mb-1 flex-wrap">
-        <WeekNav weekOffset={weekOffset} basePath="/schedule" />
-        {!hasCustomRange && <div className="font-serif text-[17px] font-semibold ml-1">{weekLabel}</div>}
-      </div>
-      <div className="mb-1">
-        <DateRangeFilter basePath="/schedule" />
-      </div>
-    </div>
-  );
-
-  if (hasCustomRange) {
-    const rangeStartISO = fromParam ?? "0001-01-01";
-    const rangeEndISO = toParam ?? "9999-12-31";
-    const rangeJobs = enriched
-      .filter((j) => j.job_date >= rangeStartISO && j.job_date <= rangeEndISO)
-      .sort((a, b) => (a.job_date === b.job_date ? a.start_time.localeCompare(b.start_time) : a.job_date.localeCompare(b.job_date)));
-
-    return (
-      <div>
-        {headerNav}
-        <div className="text-[13px] text-ink-faint mb-3 mt-3">{rangeJobs.length} jobs</div>
-        {rangeJobs.length > 0 ? (
-          rangeJobs.map((job) => <JobRow key={job.id} job={job} showPrice />)
-        ) : (
-          <div className="text-sm text-ink-faint py-5">No jobs in this range.</div>
-        )}
-      </div>
-    );
-  }
+  const weekEnd = addDays(weekStart, 6);
+  const weekLabel = `${fmtMonthDay(weekStart)} – ${fmtMonthDay(weekEnd)}`;
 
   const weekDays = [0, 1, 2, 3, 4, 5, 6].map((i) => {
     const d = addDays(weekStart, i);
@@ -69,32 +33,138 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
     const dayJobs = enriched
       .filter((j) => j.job_date === iso)
       .sort((a, b) => a.start_time.localeCompare(b.start_time));
-    return { iso, dayName: DAYS[d.getDay()], dateLabel: `${d.getMonth() + 1}/${d.getDate()}`, isToday, jobs: dayJobs };
+    return { iso, dayName: DAYS[d.getDay()], dateLabel: d.getDate(), isToday, jobs: dayJobs };
   });
 
   return (
-    <div>
-      {headerNav}
-      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
-        {weekDays.map((day) => (
-          <div
-            key={day.iso}
-            className="rounded-xl p-2.5 flex flex-col gap-1.5 min-h-[120px]"
-            style={{
-              background: day.isToday ? "var(--color-today-tint)" : "white",
-              border: `1px solid ${day.isToday ? "var(--color-today-border)" : "var(--color-border)"}`,
-            }}
-          >
-            <div className="mb-1" style={day.isToday ? { color: "var(--color-accent-strong)" } : undefined}>
-              <div className="text-xs font-bold tracking-wide uppercase">{day.dayName}</div>
-              <div className="text-sm font-semibold">{day.dateLabel}</div>
+    <div className="min-h-screen bg-page-bg">
+      {/* Page header */}
+      <div className="px-6 py-8 border-b border-line bg-card-bg sticky top-16 z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-ink-primary">Schedule</h1>
+              <p className="text-sm text-ink-secondary mt-1">
+                Week of {weekLabel}
+              </p>
             </div>
-            {day.jobs.map((job) => (
-              <JobBlock key={job.id} job={job} />
-            ))}
-            {isAdmin && <AddJobButton date={day.iso} />}
+            <Link href="/jobs/new">
+              <Button variant="primary" size="md">
+                <Plus className="w-4 h-4" />
+                New job
+              </Button>
+            </Link>
           </div>
-        ))}
+
+          {/* Week navigation */}
+          <div className="flex items-center gap-3">
+            <Link href={`/schedule?week=${weekOffset - 1}`}>
+              <button className="p-2 hover:bg-page-bg rounded-lg transition-colors">
+                <ChevronLeft className="w-5 h-5 text-ink-primary" />
+              </button>
+            </Link>
+            <span className="text-sm font-semibold text-ink-secondary min-w-48 text-center">
+              {weekLabel}
+            </span>
+            <Link href={`/schedule?week=${weekOffset + 1}`}>
+              <button className="p-2 hover:bg-page-bg rounded-lg transition-colors">
+                <ChevronRight className="w-5 h-5 text-ink-primary" />
+              </button>
+            </Link>
+            <div className="flex-1" />
+            {weekOffset !== 0 && (
+              <Link href="/schedule">
+                <button className="text-xs font-semibold text-brand hover:text-brand-hover">
+                  Today
+                </button>
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="px-6 py-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Week grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+            {weekDays.map((day) => (
+              <Card key={day.iso} className={day.isToday ? "border-2 border-brand bg-ok-bg/5" : ""}>
+                <div className="p-4">
+                  {/* Day header */}
+                  <div className="mb-4">
+                    <div className={`text-xs font-bold tracking-wide uppercase mb-1 ${day.isToday ? "text-brand" : "text-ink-muted"}`}>
+                      {day.dayName}
+                    </div>
+                    <div className="text-xl font-bold text-ink-primary">{day.dateLabel}</div>
+                  </div>
+
+                  {/* Jobs */}
+                  <div className="space-y-2">
+                    {day.jobs.length === 0 ? (
+                      <div className="text-xs text-ink-muted py-4 text-center">
+                        No jobs scheduled
+                      </div>
+                    ) : (
+                      day.jobs.map((job) => (
+                        <Link key={job.id} href={`/jobs/${job.id}`}>
+                          <div className="p-3 rounded-lg bg-page-bg hover:bg-line-soft transition-colors cursor-pointer">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <Clock className="w-3 h-3 text-ink-muted flex-shrink-0" />
+                                <span className="text-xs font-semibold text-ink-primary">
+                                  {job.start_time}
+                                </span>
+                              </div>
+                              <StatusBadge
+                                status={
+                                  job.status === "in_progress"
+                                    ? "in-progress"
+                                    : job.status === "completed"
+                                      ? "completed"
+                                      : "scheduled"
+                                }
+                                label={
+                                  job.status === "in_progress"
+                                    ? "In"
+                                    : job.status === "completed"
+                                      ? "Done"
+                                      : "Sch"
+                                }
+                                showDot
+                              />
+                            </div>
+                            <div className="text-xs font-semibold text-ink-primary truncate mb-1">
+                              {job.client_name}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-ink-muted mb-2">
+                              <MapPin className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{job.address}</span>
+                            </div>
+                            {job.assigned_staff_id && job.staffName && (
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <span
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: job.staffColorHex }}
+                                />
+                                <span className="text-ink-secondary">{job.staffName}</span>
+                              </div>
+                            )}
+                            {!job.assigned_staff_id && (
+                              <div className="text-xs text-warn-fg bg-warn-bg px-2 py-1 rounded inline-block">
+                                Unassigned
+                              </div>
+                            )}
+                          </div>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

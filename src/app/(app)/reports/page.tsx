@@ -75,75 +75,93 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
   const unmatchedMinutes = unmatchedJobs.reduce((sum, j) => sum + j.duration_minutes, 0);
 
   return (
-    <div>
-      <div className="flex items-center gap-3 mb-1 flex-wrap">
-        <WeekNav weekOffset={weekOffset} basePath="/reports" />
-        <div className="font-serif text-[17px] font-semibold ml-1">{rangeLabel}</div>
-      </div>
-      <div className="mb-1">
-        <DateRangeFilter basePath="/reports" />
-      </div>
-
-      <div className="font-serif text-lg font-semibold mt-6 mb-3">Client Hours</div>
-      <div className="flex flex-col gap-2">
-        {clientRows.length === 0 && <div className="text-sm text-ink-faint py-3">No clients yet.</div>}
-        {clientRows.map(({ client, totalMinutes, minutesByType, jobCount }) => (
-          <div key={client.id} className="bg-white border border-border rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
-            <div className="min-w-[160px] flex-[2]">
-              <div className="font-semibold text-sm">{client.name}</div>
-              <div className="text-xs text-ink-faint">
-                {jobCount} job{jobCount === 1 ? "" : "s"} {periodPhrase}
-              </div>
-            </div>
-            <div className="flex gap-1.5 flex-wrap">
-              {JOB_TYPES.filter((t) => minutesByType[t] > 0).map((t) => (
-                <Badge key={t} label={`${TYPE_META[t].label}: ${durationLabel(minutesByType[t])}`} color={TYPE_META[t].hex} tint={TYPE_META[t].tint} />
-              ))}
-            </div>
-            <div className="font-semibold text-sm ml-auto">{durationLabel(totalMinutes)}</div>
-          </div>
-        ))}
+    <div className="min-h-screen bg-page-bg">
+      <div className="px-6 py-8 border-b border-line bg-card-bg">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-ink-primary mb-4">Reports</h1>
+          <p className="text-sm text-ink-secondary">
+            View hours worked by clients and staff for {rangeLabel}.
+          </p>
+        </div>
       </div>
 
-      <div className="font-serif text-lg font-semibold mt-8 mb-3">Staff Hours</div>
-      <div className="flex flex-col gap-2">
-        {staffRows.length === 0 && <div className="text-sm text-ink-faint py-3">No staff yet.</div>}
-        {staffRows.map(({ staff, totalMinutes, jobCount }) => (
-          <div key={staff.id} className="bg-white border border-border rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2.5 min-w-[160px] flex-[2]">
-              <div
-                className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0"
-                style={{ background: staffColorHex(staff.color_hue) }}
-              >
-                {initialsOf(staff.name)}
+      <div className="px-6 py-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Client Hours Section */}
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-ink-primary mb-4">Client Hours</h2>
+            {clientRows.length === 0 ? (
+              <div className="bg-card-bg border border-line rounded-lg p-8 text-center text-ink-muted">
+                No clients yet.
               </div>
-              <div>
-                <div className="font-semibold text-sm">{staff.name}</div>
-                <div className="text-xs text-ink-faint">
-                  {jobCount} job{jobCount === 1 ? "" : "s"} {periodPhrase}
-                </div>
+            ) : (
+              <div className="space-y-2">
+                {clientRows.map(({ client, totalMinutes, minutesByType, jobCount }) => (
+                  <div key={client.id} className="bg-card-bg border border-line rounded-lg p-4 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <div className="font-semibold text-ink-primary">{client.name}</div>
+                      <div className="text-xs text-ink-muted mt-1">
+                        {jobCount} job{jobCount === 1 ? "" : "s"} {periodPhrase}
+                      </div>
+                    </div>
+                    <div className="font-bold text-lg text-brand">{durationLabel(totalMinutes)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Staff Hours Section */}
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-ink-primary mb-4">Staff Hours</h2>
+            {staffRows.length === 0 ? (
+              <div className="bg-card-bg border border-line rounded-lg p-8 text-center text-ink-muted">
+                No staff yet.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {staffRows.map(({ staff, totalMinutes, jobCount }) => (
+                  <div key={staff.id} className="bg-card-bg border border-line rounded-lg p-4 flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-sm shrink-0"
+                        style={{ background: staffColorHex(staff.color_hue) }}
+                      >
+                        {initialsOf(staff.name)}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-ink-primary">{staff.name}</div>
+                        <div className="text-xs text-ink-muted mt-0.5">
+                          {jobCount} job{jobCount === 1 ? "" : "s"} {periodPhrase}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="font-bold text-lg text-brand">{durationLabel(totalMinutes)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Unmatched Jobs Section */}
+          {unmatchedJobs.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-ink-primary mb-2">Unmatched Jobs</h2>
+              <p className="text-sm text-ink-muted mb-4">
+                {unmatchedJobs.length} job{unmatchedJobs.length === 1 ? "" : "s"} ({durationLabel(unmatchedMinutes)}) {periodPhrase} whose client name doesn&rsquo;t match your Clients directory.
+              </p>
+              <div className="space-y-2">
+                {unmatchedJobs.map((job) => (
+                  <div key={job.id} className="bg-card-bg border border-line rounded-lg p-4">
+                    <div className="font-semibold text-ink-primary">{job.client_name}</div>
+                    <div className="text-sm text-ink-secondary mt-1">{job.address}</div>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="font-semibold text-sm ml-auto">{durationLabel(totalMinutes)}</div>
-          </div>
-        ))}
+          )}
+        </div>
       </div>
-
-      {unmatchedJobs.length > 0 && (
-        <>
-          <div className="font-serif text-lg font-semibold mt-8 mb-1">Unmatched Jobs</div>
-          <div className="text-xs text-ink-faint mb-3">
-            {unmatchedJobs.length} job{unmatchedJobs.length === 1 ? "" : "s"} ({durationLabel(unmatchedMinutes)}) {periodPhrase} whose client name
-            doesn&rsquo;t match anyone in your Clients directory — not counted in Client Hours above. Click one to fix the client name or add them as a
-            client.
-          </div>
-          <div>
-            {unmatchedJobs.map((job) => (
-              <JobRow key={job.id} job={job} showPrice showTime={false} />
-            ))}
-          </div>
-        </>
-      )}
     </div>
   );
 }
