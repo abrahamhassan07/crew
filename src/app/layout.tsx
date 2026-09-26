@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${figtree.variable} ${karla.variable} ${spectral.variable} h-full`}>
-      <body className="min-h-full font-sans antialiased bg-bg text-ink">{children}</body>
+      <body className="min-h-full font-sans antialiased bg-page-bg text-ink-primary">{children}</body>
     </html>
   );
 }

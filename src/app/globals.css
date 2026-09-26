@@ -1,7 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  /* Existing OKLCH tokens (kept for backward compatibility during migration) */
+  /* Existing OKLCH tokens (kept for backward compatibility — used by
+     pages/components not yet migrated to the v2 design system, e.g. the
+     login page). Do not remove without checking every var(--color-*) /
+     bg-bg / text-ink usage first. */
   --color-bg: oklch(97% 0.012 75);
   --color-surface: oklch(100% 0 0);
   --color-surface-alt: oklch(95.5% 0.014 75);
@@ -30,44 +33,6 @@
   --color-today-tint: oklch(96% 0.03 70);
   --color-today-border: oklch(85% 0.06 70);
 
-  /* New design system tokens (Crew & Grounds v2) */
-  --brand: #287D32;
-  --brand-hover: #226B2B;
-  --forest: #183E2D;
-  --ink-primary: #18313D;
-  --ink-secondary: #334E5A;
-  --ink-muted: #64748B;
-  --page-bg: #F7F9F7;
-  --card-bg: #FFFFFF;
-  --line: #E2E8E4;
-  --line-soft: #F1F4F2;
-  --field-border: #D5DDD8;
-  --danger-red: #B42318;
-
-  /* Status color pairs (bg / fg) */
-  --ok-bg: #EDF8EC;
-  --ok-fg: #1F6A28;
-  --info-bg: #E8F0FA;
-  --info-fg: #245A94;
-  --warn-bg: #FFF8E1;
-  --warn-fg: #835500;
-  --bad-bg: #FCEDEC;
-  --bad-fg: #A2352A;
-  --violet-bg: #F1EDFA;
-  --violet-fg: #5A3C92;
-  --neutral-bg: #F0F3F1;
-  --neutral-fg: #56655E;
-
-  /* Crew color palette */
-  --crew-1: #287D32;
-  --crew-1-tint: #E4F2E3;
-  --crew-2: #2F6C9E;
-  --crew-2-tint: #E3EDF6;
-  --crew-3: #A0601A;
-  --crew-3-tint: #F6ECDF;
-  --crew-4: #6B4FA0;
-  --crew-4-tint: #EDE8F6;
-
   /* Spacing (use with clamp for responsive) */
   --sp-xs: 4px;
   --sp-sm: 8px;
@@ -76,6 +41,56 @@
   --sp-xl: 20px;
   --sp-2xl: 24px;
   --sp-3xl: 32px;
+}
+
+/*
+ * Crew & Grounds v2 design system — extracted from the Claude Design
+ * source (Crew and Grounds.dc.html and friends). Every color MUST be
+ * declared under the --color-* namespace here for Tailwind 4 to generate
+ * the matching bg-, text- and border- utility classes; a bare custom
+ * property (e.g. --brand instead of --color-brand) silently produces no
+ * utility class at all, which was the root cause of the old cream
+ * background / brown nav / invisible button text.
+ */
+@theme {
+  --font-sans: var(--font-figtree);
+
+  --color-brand: #287d32;
+  --color-brand-hover: #226b2b;
+  --color-forest: #183e2d;
+  --color-ink-primary: #18313d;
+  --color-ink-secondary: #334e5a;
+  --color-ink-muted: #64748b;
+  --color-page-bg: #f7f9f7;
+  --color-card-bg: #ffffff;
+  --color-line: #e2e8e4;
+  --color-line-soft: #f1f4f2;
+  --color-field-border: #d5ddd8;
+  --color-danger-red: #b42318;
+
+  /* Status color pairs (bg / fg) */
+  --color-ok-bg: #edf8ec;
+  --color-ok-fg: #1f6a28;
+  --color-info-bg: #e8f0fa;
+  --color-info-fg: #245a94;
+  --color-warn-bg: #fff8e1;
+  --color-warn-fg: #835500;
+  --color-bad-bg: #fcedec;
+  --color-bad-fg: #a2352a;
+  --color-violet-bg: #f1edfa;
+  --color-violet-fg: #5a3c92;
+  --color-neutral-bg: #f0f3f1;
+  --color-neutral-fg: #56655e;
+
+  /* Crew color palette */
+  --color-crew-1: #287d32;
+  --color-crew-1-tint: #e4f2e3;
+  --color-crew-2: #2f6c9e;
+  --color-crew-2-tint: #e3edf6;
+  --color-crew-3: #a0601a;
+  --color-crew-3-tint: #f6ecdf;
+  --color-crew-4: #6b4fa0;
+  --color-crew-4-tint: #ede8f6;
 
   /* Radius */
   --radius-sm: 6px;
@@ -91,8 +106,48 @@
   --shadow-xl: 0 24px 60px rgba(24, 49, 61, 0.25);
 }
 
+/* Bare-name aliases: several components reference var(--brand),
+   var(--ink-primary), var(--ok-bg) etc. directly via inline styles
+   (not Tailwind classes). Keep them resolving to the same values. */
+:root {
+  --brand: var(--color-brand);
+  --brand-hover: var(--color-brand-hover);
+  --forest: var(--color-forest);
+  --ink-primary: var(--color-ink-primary);
+  --ink-secondary: var(--color-ink-secondary);
+  --ink-muted: var(--color-ink-muted);
+  --page-bg: var(--color-page-bg);
+  --card-bg: var(--color-card-bg);
+  --line: var(--color-line);
+  --line-soft: var(--color-line-soft);
+  --field-border: var(--color-field-border);
+  --danger-red: var(--color-danger-red);
+
+  --ok-bg: var(--color-ok-bg);
+  --ok-fg: var(--color-ok-fg);
+  --info-bg: var(--color-info-bg);
+  --info-fg: var(--color-info-fg);
+  --warn-bg: var(--color-warn-bg);
+  --warn-fg: var(--color-warn-fg);
+  --bad-bg: var(--color-bad-bg);
+  --bad-fg: var(--color-bad-fg);
+  --violet-bg: var(--color-violet-bg);
+  --violet-fg: var(--color-violet-fg);
+  --neutral-bg: var(--color-neutral-bg);
+  --neutral-fg: var(--color-neutral-fg);
+
+  --crew-1: var(--color-crew-1);
+  --crew-1-tint: var(--color-crew-1-tint);
+  --crew-2: var(--color-crew-2);
+  --crew-2-tint: var(--color-crew-2-tint);
+  --crew-3: var(--color-crew-3);
+  --crew-3-tint: var(--color-crew-3-tint);
+  --crew-4: var(--color-crew-4);
+  --crew-4-tint: var(--color-crew-4-tint);
+}
+
 @theme inline {
-  /* Existing tokens */
+  /* Legacy tokens, unchanged */
   --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);
   --color-surface-alt: var(--color-surface-alt);
@@ -121,65 +176,21 @@
   --color-today-tint: var(--color-today-tint);
   --color-today-border: var(--color-today-border);
 
-  --font-sans: var(--font-karla);
   --font-serif: var(--font-spectral);
-
-  /* New design system tokens */
-  --brand: var(--brand);
-  --brand-hover: var(--brand-hover);
-  --forest: var(--forest);
-  --ink-primary: var(--ink-primary);
-  --ink-secondary: var(--ink-secondary);
-  --ink-muted: var(--ink-muted);
-  --page-bg: var(--page-bg);
-  --card-bg: var(--card-bg);
-  --line: var(--line);
-  --line-soft: var(--line-soft);
-  --field-border: var(--field-border);
-  --danger-red: var(--danger-red);
-
-  --ok-bg: var(--ok-bg);
-  --ok-fg: var(--ok-fg);
-  --info-bg: var(--info-bg);
-  --info-fg: var(--info-fg);
-  --warn-bg: var(--warn-bg);
-  --warn-fg: var(--warn-fg);
-  --bad-bg: var(--bad-bg);
-  --bad-fg: var(--bad-fg);
-  --violet-bg: var(--violet-bg);
-  --violet-fg: var(--violet-fg);
-  --neutral-bg: var(--neutral-bg);
-  --neutral-fg: var(--neutral-fg);
-
-  --crew-1: var(--crew-1);
-  --crew-1-tint: var(--crew-1-tint);
-  --crew-2: var(--crew-2);
-  --crew-2-tint: var(--crew-2-tint);
-  --crew-3: var(--crew-3);
-  --crew-3-tint: var(--crew-3-tint);
-  --crew-4: var(--crew-4);
-  --crew-4-tint: var(--crew-4-tint);
-
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
-  --radius-xl: var(--radius-xl);
-  --radius-full: var(--radius-full);
-
-  --shadow-sm: var(--shadow-sm);
-  --shadow-md: var(--shadow-md);
-  --shadow-lg: var(--shadow-lg);
-  --shadow-xl: var(--shadow-xl);
 }
 
 body {
-  background: var(--color-bg);
-  color: var(--color-ink);
+  background: var(--color-page-bg);
+  color: var(--color-ink-primary);
 }
 
 a {
-  color: var(--color-accent-hover);
+  color: var(--color-brand);
 }
 a:hover {
-  color: var(--color-accent-strong);
+  color: var(--color-brand-hover);
+}
+
+* {
+  box-sizing: border-box;
 }
