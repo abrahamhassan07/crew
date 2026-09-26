@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/auth";
 import { addDays, buildStaffMap, enrichJob, fmtDateLabel, fmtISO, startOfWeek, todayISO } from "@/lib/design";
+import { calcTotals } from "@/lib/gst";
 import { StatCard, Card } from "@/components/ui/Card";
 import { NewJobQuickAction } from "@/components/NewJobQuickAction";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -13,18 +14,31 @@ import {
   Briefcase,
   TrendingUp,
   Users,
+  UserPlus,
+  FileClock,
+  Receipt,
   AlertCircle,
   CheckCircle,
   Activity,
 } from "lucide-react";
 
+function fmtAud(v: number) {
+  return v.toLocaleString("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 0 });
+}
+
 export default async function DashboardPage() {
   const viewer = await getViewer();
   const supabase = await createClient();
 
-  const [{ data: jobs }, { data: staffList }] = await Promise.all([
+  const [{ data: jobs }, { data: staffList }, { data: clients }, { data: invoices }, { data: invoiceItems }, { data: payments }, { data: quotes }, { data: quoteItems }] = await Promise.all([
     supabase.from("jobs").select("*"),
     supabase.from("staff").select("*"),
+    supabase.from("clients").select("*"),
+    supabase.from("invoices").select("*"),
+    supabase.from("invoice_items").select("invoice_id, qty, unit_price"),
+    supabase.from("payments").select("invoice_id, amount, paid_date"),
+    supabase.from("quotes").select("*"),
+    supabase.from("quote_items").select("quote_id, qty, unit_price"),
   ]);
 
   const staffById = buildStaffMap(staffList ?? []);
@@ -41,6 +55,47 @@ export default async function DashboardPage() {
   const unassignedActive = enriched.filter((j) => !j.assigned_staff_id && j.status !== "cancelled" && j.status !== "completed");
   const activeStaffCount = (staffList ?? []).filter((s) => s.active).length;
   const overdueCount = enriched.filter((j) => j.job_date < today && j.status === "scheduled").length;
+
+  // Revenue this month vs last month, from recorded payments.
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const revenueThisMonth = (payments ?? []).filter((p) => new Date(p.paid_date) >= thisMonthStart).reduce((s, p) => s + p.amount, 0);
+  const revenueLastMonth = (payments ?? [])
+    .filter((p) => new Date(p.paid_date) >= lastMonthStart && new Date(p.paid_date) < thisMonthStart)
+    .reduce((s, p) => s + p.amount, 0);
+  const revenueDelta = revenueLastMonth > 0 ? Math.round(((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100) : null;
+
+  // Outstanding invoices.
+  const itemsByInvoice = new Map<string, { qty: number; unit_price: number }[]>();
+  for (const item of invoiceItems ?? []) {
+    const arr = itemsByInvoice.get(item.invoice_id) ?? [];
+    arr.push({ qty: item.qty, unit_price: item.unit_price });
+    itemsByInvoice.set(item.invoice_id, arr);
+  }
+  const paidByInvoice = new Map<string, number>();
+  for (const p of payments ?? []) paidByInvoice.set(p.invoice_id, (paidByInvoice.get(p.invoice_id) ?? 0) + p.amount);
+  const openInvoices = (invoices ?? []).filter((i) => ["Sent", "Partially Paid", "Overdue"].includes(i.status));
+  const outstandingTotal = openInvoices.reduce((s, i) => {
+    const total = calcTotals(itemsByInvoice.get(i.id) ?? [], i.mode).total;
+    return s + Math.max(0, total - (paidByInvoice.get(i.id) ?? 0));
+  }, 0);
+  const overdueInvoiceCount = (invoices ?? []).filter((i) => i.status === "Overdue").length;
+
+  // Active clients + new leads (past 30 days).
+  const activeClientCount = (clients ?? []).filter((c) => c.status === "Active").length;
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 864e5);
+  const newLeadsCount = (clients ?? []).filter((c) => c.status === "Lead" && new Date(c.created_at) >= thirtyDaysAgo).length;
+
+  // Quotes awaiting approval.
+  const quoteItemsByQuote = new Map<string, { qty: number; unit_price: number }[]>();
+  for (const item of quoteItems ?? []) {
+    const arr = quoteItemsByQuote.get(item.quote_id) ?? [];
+    arr.push({ qty: item.qty, unit_price: item.unit_price });
+    quoteItemsByQuote.set(item.quote_id, arr);
+  }
+  const sentQuotes = (quotes ?? []).filter((q) => q.status === "Sent");
+  const sentQuotesValue = sentQuotes.reduce((s, q) => s + calcTotals(quoteItemsByQuote.get(q.id) ?? [], q.mode).total, 0);
 
   const todaySchedule = jobsToday.slice().sort((a, b) => a.start_time.localeCompare(b.start_time));
 
@@ -85,37 +140,46 @@ export default async function DashboardPage() {
       <div className="px-6 py-8">
         <div className="max-w-7xl mx-auto">
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             {isAdmin && (
               <>
                 <StatCard
-                  label="Jobs Today"
+                  label="Revenue this month"
+                  value={fmtAud(revenueThisMonth)}
+                  icon={<TrendingUp className="w-4 h-4" />}
+                  subtitle={revenueLastMonth > 0 ? `vs ${fmtAud(revenueLastMonth)} last month` : "No payments recorded last month"}
+                  delta={revenueDelta != null ? { value: `${revenueDelta >= 0 ? "+" : ""}${revenueDelta}%`, trend: revenueDelta >= 0 ? "up" : "down" } : undefined}
+                />
+                <StatCard
+                  label="Outstanding invoices"
+                  value={fmtAud(outstandingTotal)}
+                  icon={<Receipt className="w-4 h-4" />}
+                  subtitle={`${overdueInvoiceCount} overdue · ${openInvoices.length} open`}
+                  delta={overdueInvoiceCount > 0 ? { value: "Needs attention", trend: "down" } : undefined}
+                />
+                <StatCard
+                  label="Jobs scheduled today"
                   value={jobsToday.length}
                   icon={<Calendar className="w-4 h-4" />}
-                  subtitle={`${jobsToday.length} scheduled`}
+                  subtitle={`${jobsThisWeek.length} this week`}
                 />
                 <StatCard
-                  label="This Week"
-                  value={jobsThisWeek.length}
-                  icon={<Briefcase className="w-4 h-4" />}
-                  subtitle={`${jobsThisWeek.length} jobs`}
-                />
-                <StatCard
-                  label="Unassigned"
-                  value={unassignedActive.length}
-                  icon={<AlertCircle className="w-4 h-4" />}
-                  delta={
-                    unassignedActive.length > 0
-                      ? { value: "Action needed", trend: "down" }
-                      : undefined
-                  }
-                  subtitle={`${unassignedActive.length} waiting`}
-                />
-                <StatCard
-                  label="Active Staff"
-                  value={activeStaffCount}
+                  label="Active clients"
+                  value={activeClientCount}
                   icon={<Users className="w-4 h-4" />}
-                  subtitle={`${activeStaffCount} available`}
+                  subtitle={`${activeStaffCount} staff available`}
+                />
+                <StatCard
+                  label="New leads"
+                  value={newLeadsCount}
+                  icon={<UserPlus className="w-4 h-4" />}
+                  subtitle="Past 30 days"
+                />
+                <StatCard
+                  label="Quotes awaiting approval"
+                  value={sentQuotes.length}
+                  icon={<FileClock className="w-4 h-4" />}
+                  subtitle={sentQuotes.length ? `${fmtAud(sentQuotesValue)} total value` : "None outstanding"}
                 />
               </>
             )}

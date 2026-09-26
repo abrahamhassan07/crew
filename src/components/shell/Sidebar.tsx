@@ -16,6 +16,9 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Sprout,
+  Wrench,
+  Megaphone,
+  CreditCard,
 } from "lucide-react";
 
 interface NavItem {
@@ -44,6 +47,8 @@ const NAV_GROUPS = [
     items: [
       { href: "/staff", label: "Staff", icon: Users, adminOnly: true },
       { href: "/services", label: "Services", icon: Briefcase, adminOnly: true },
+      { href: "/equipment", label: "Equipment", icon: Wrench, adminOnly: true },
+      { href: "/marketing", label: "Marketing", icon: Megaphone, adminOnly: true },
       { href: "/reports", label: "Reports", icon: FileText, adminOnly: true },
     ],
   },
@@ -51,6 +56,7 @@ const NAV_GROUPS = [
     title: "Account",
     items: [
       { href: "/settings", label: "Settings", icon: Settings, adminOnly: true },
+      { href: "/subscription", label: "Subscription", icon: CreditCard, adminOnly: true },
     ],
   },
 ];
