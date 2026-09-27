@@ -3,6 +3,7 @@ import React, { useState } from "react";
 interface TabItem {
   id: string;
   label: string;
+  count?: number;
   content: React.ReactNode;
 }
 
@@ -45,6 +46,9 @@ export function Tabs({
             }`}
           >
             {tab.label}
+            {tab.count != null && (
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-neutral-bg text-ink-secondary">{tab.count}</span>
+            )}
           </button>
         ))}
       </div>

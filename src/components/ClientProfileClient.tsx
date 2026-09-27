@@ -8,6 +8,7 @@ import { addClientNote } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { Tabs } from "@/components/ui/Tabs";
 import { initialsOf } from "@/lib/design";
 import type { Client, ClientNote, Property } from "@/lib/supabase/types";
 
@@ -25,7 +26,6 @@ export function ClientProfileClient({
   notes: (ClientNote & { staffName: string | null })[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"overview" | "properties" | "notes">("overview");
   const [noteDraft, setNoteDraft] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -43,17 +43,11 @@ export function ClientProfileClient({
     });
   };
 
-  const tabs = [
-    { key: "overview" as const, label: "Overview" },
-    { key: "properties" as const, label: "Properties", count: properties.length },
-    { key: "notes" as const, label: "Notes", count: notes.length },
-  ];
-
   return (
     <div className="min-h-screen bg-page-bg">
       <div className="px-6 py-8 border-b border-line bg-card-bg">
         <div className="max-w-5xl mx-auto">
-          <Link href="/clients" className="text-sm font-semibold text-brand mb-3 inline-block">
+          <Link href="/clients" className="text-sm font-semibold text-brand mb-3 inline-block hover:text-brand-hover">
             ← Clients
           </Link>
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -120,82 +114,82 @@ export function ClientProfileClient({
             </Card>
           </div>
 
-          <div role="tablist" className="flex gap-1 border-b border-line">
-            {tabs.map((t) => (
-              <button
-                key={t.key}
-                role="tab"
-                aria-selected={tab === t.key}
-                onClick={() => setTab(t.key)}
-                className="px-3.5 py-3 text-sm font-semibold -mb-px flex items-center gap-1.5"
-                style={{ color: tab === t.key ? "var(--color-brand)" : "var(--color-ink-muted)", borderBottom: tab === t.key ? "2px solid var(--color-brand)" : "2px solid transparent" }}
-              >
-                {t.label}
-                {t.count != null && <span className="text-xs px-1.5 py-0.5 rounded-full bg-neutral-bg text-ink-secondary">{t.count}</span>}
-              </button>
-            ))}
-          </div>
-
-          {tab === "overview" && (
-            <Card className="p-6">
-              <h2 className="text-base font-bold text-ink-primary mb-3">Recent notes</h2>
-              <textarea
-                value={noteDraft}
-                onChange={(e) => setNoteDraft(e.target.value)}
-                rows={3}
-                placeholder="Add a note for your team. Clients never see these."
-                className="w-full border border-field-border rounded-md p-3 text-sm outline-none focus:border-brand"
-              />
-              <div className="flex justify-end my-2">
-                <Button variant="primary" size="sm" onClick={addNote} disabled={pending || !noteDraft.trim()}>
-                  Add note
-                </Button>
-              </div>
-              {notes.slice(0, 3).map((n) => (
-                <div key={n.id} className="py-2.5 border-t border-line-soft text-sm">
-                  <div className="whitespace-pre-wrap text-ink-primary">{n.text}</div>
-                  <div className="text-xs text-ink-muted mt-1">{n.staffName ?? "Unknown"} · {fmtDateTime(n.created_at)}</div>
-                </div>
-              ))}
-              {!notes.length && <p className="text-sm text-ink-muted pt-2">No notes yet.</p>}
-            </Card>
-          )}
-
-          {tab === "properties" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {properties.map((p) => (
-                <Card key={p.id} className="p-4">
-                  <div className="text-sm font-semibold text-ink-primary">{p.street}{p.line2 ? `, ${p.line2}` : ""}</div>
-                  <div className="text-sm text-ink-secondary">{p.suburb} {p.state} {p.postcode}</div>
-                </Card>
-              ))}
-              {!properties.length && <p className="text-sm text-ink-muted">No properties yet. Add one from Edit client.</p>}
-            </div>
-          )}
-
-          {tab === "notes" && (
-            <Card className="p-6">
-              <textarea
-                value={noteDraft}
-                onChange={(e) => setNoteDraft(e.target.value)}
-                rows={4}
-                placeholder="Add a note for your team…"
-                className="w-full border border-field-border rounded-md p-3 text-sm outline-none focus:border-brand"
-              />
-              <div className="flex justify-end my-2.5">
-                <Button variant="primary" size="sm" onClick={addNote} disabled={pending || !noteDraft.trim()}>
-                  Add note
-                </Button>
-              </div>
-              {notes.map((n) => (
-                <div key={n.id} className="py-3 border-t border-line-soft text-sm">
-                  <div className="whitespace-pre-wrap text-ink-primary">{n.text}</div>
-                  <div className="text-xs text-ink-muted mt-1">{n.staffName ?? "Unknown"} · {fmtDateTime(n.created_at)}</div>
-                </div>
-              ))}
-              {!notes.length && <p className="text-sm text-ink-muted pt-2">No notes yet.</p>}
-            </Card>
-          )}
+          <Tabs
+            tabs={[
+              {
+                id: "overview",
+                label: "Overview",
+                content: (
+                  <Card className="p-6 mt-6">
+                    <h2 className="text-base font-bold text-ink-primary mb-3">Recent notes</h2>
+                    <textarea
+                      value={noteDraft}
+                      onChange={(e) => setNoteDraft(e.target.value)}
+                      rows={3}
+                      placeholder="Add a note for your team. Clients never see these."
+                      className="w-full border border-field-border rounded-md p-3 text-sm outline-none focus:border-brand"
+                    />
+                    <div className="flex justify-end my-2">
+                      <Button variant="primary" size="sm" onClick={addNote} disabled={pending || !noteDraft.trim()}>
+                        Add note
+                      </Button>
+                    </div>
+                    {notes.slice(0, 3).map((n) => (
+                      <div key={n.id} className="py-2.5 border-t border-line-soft text-sm">
+                        <div className="whitespace-pre-wrap text-ink-primary">{n.text}</div>
+                        <div className="text-xs text-ink-muted mt-1">{n.staffName ?? "Unknown"} · {fmtDateTime(n.created_at)}</div>
+                      </div>
+                    ))}
+                    {!notes.length && <p className="text-sm text-ink-muted pt-2">No notes yet.</p>}
+                  </Card>
+                ),
+              },
+              {
+                id: "properties",
+                label: "Properties",
+                count: properties.length,
+                content: (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                    {properties.map((p) => (
+                      <Card key={p.id} className="p-4">
+                        <div className="text-sm font-semibold text-ink-primary">{p.street}{p.line2 ? `, ${p.line2}` : ""}</div>
+                        <div className="text-sm text-ink-secondary">{p.suburb} {p.state} {p.postcode}</div>
+                      </Card>
+                    ))}
+                    {!properties.length && <p className="text-sm text-ink-muted">No properties yet. Add one from Edit client.</p>}
+                  </div>
+                ),
+              },
+              {
+                id: "notes",
+                label: "Notes",
+                count: notes.length,
+                content: (
+                  <Card className="p-6 mt-6">
+                    <textarea
+                      value={noteDraft}
+                      onChange={(e) => setNoteDraft(e.target.value)}
+                      rows={4}
+                      placeholder="Add a note for your team…"
+                      className="w-full border border-field-border rounded-md p-3 text-sm outline-none focus:border-brand"
+                    />
+                    <div className="flex justify-end my-2.5">
+                      <Button variant="primary" size="sm" onClick={addNote} disabled={pending || !noteDraft.trim()}>
+                        Add note
+                      </Button>
+                    </div>
+                    {notes.map((n) => (
+                      <div key={n.id} className="py-3 border-t border-line-soft text-sm">
+                        <div className="whitespace-pre-wrap text-ink-primary">{n.text}</div>
+                        <div className="text-xs text-ink-muted mt-1">{n.staffName ?? "Unknown"} · {fmtDateTime(n.created_at)}</div>
+                      </div>
+                    ))}
+                    {!notes.length && <p className="text-sm text-ink-muted pt-2">No notes yet.</p>}
+                  </Card>
+                ),
+              },
+            ]}
+          />
         </div>
       </div>
     </div>

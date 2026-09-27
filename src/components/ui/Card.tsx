@@ -46,25 +46,25 @@ export function StatCard({
   return (
     <button
       onClick={onClick}
-      className={`text-left bg-card-bg border border-line rounded-lg p-4 hover:border-line hover:shadow-md transition-all ${className}`}
-      style={{ minHeight: "120px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}
+      className={`text-left bg-card-bg border border-line rounded-lg p-3 hover:border-line hover:shadow-md transition-all ${className}`}
+      style={{ minHeight: "104px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}
     >
-      <div className="flex items-center gap-2">
-        {icon && <span className="text-brand text-base">{icon}</span>}
-        <span className="text-xs font-semibold text-ink-muted">{label}</span>
+      <div className="flex items-center gap-1.5">
+        {icon && <span className="text-brand text-sm">{icon}</span>}
+        <span className="text-xs font-semibold text-ink-muted truncate">{label}</span>
       </div>
 
-      <div className="flex items-baseline gap-2 flex-wrap">
+      <div className="flex items-baseline gap-1.5 flex-wrap">
         <span className="text-2xl font-bold text-ink-primary">{value}</span>
         {delta && (
-          <span className={`text-xs font-bold px-2 py-1 rounded-full ${trendColors[delta.trend]} inline-flex items-center gap-1`}>
+          <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${trendColors[delta.trend]} inline-flex items-center gap-1`}>
             <span>{delta.trend === "up" ? "↑" : delta.trend === "down" ? "↓" : "→"}</span>
             {delta.value}
           </span>
         )}
       </div>
 
-      {subtitle && <span className="text-xs text-ink-muted mt-1">{subtitle}</span>}
+      {subtitle && <span className="text-[11px] text-ink-muted mt-1 truncate">{subtitle}</span>}
     </button>
   );
 }

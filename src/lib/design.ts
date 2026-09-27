@@ -1,16 +1,19 @@
 import type { Job, JobStatus, Skill, Staff } from "@/lib/supabase/types";
 
+// Colors reuse the same info/violet/ok/bad families as ui/StatusBadge.tsx
+// (via the bare CSS var aliases in globals.css) so Schedule/Jobs chips match
+// the status pills used everywhere else in the app.
 export const STATUS_META: Record<JobStatus, { label: string; hex: string; tint: string }> = {
-  scheduled: { label: "Scheduled", hex: "oklch(45% 0.12 230)", tint: "oklch(95% 0.035 230)" },
-  in_progress: { label: "In Progress", hex: "oklch(46% 0.14 70)", tint: "oklch(95% 0.05 70)" },
-  completed: { label: "Completed", hex: "oklch(42% 0.12 145)", tint: "oklch(95% 0.035 145)" },
-  cancelled: { label: "Cancelled", hex: "oklch(42% 0.01 75)", tint: "oklch(92% 0.008 75)" },
+  scheduled: { label: "Scheduled", hex: "var(--info-fg)", tint: "var(--info-bg)" },
+  in_progress: { label: "In Progress", hex: "var(--violet-fg)", tint: "var(--violet-bg)" },
+  completed: { label: "Completed", hex: "var(--ok-fg)", tint: "var(--ok-bg)" },
+  cancelled: { label: "Cancelled", hex: "var(--bad-fg)", tint: "var(--bad-bg)" },
 };
 
 export const TYPE_META: Record<Skill, { label: string; hex: string; tint: string }> = {
-  cleaning: { label: "Cleaning", hex: "oklch(46% 0.11 235)", tint: "oklch(95% 0.03 235)" },
-  gardening: { label: "Gardening", hex: "oklch(44% 0.11 145)", tint: "oklch(95% 0.03 145)" },
-  both: { label: "Cleaning + Gardening", hex: "oklch(42% 0.13 70)", tint: "oklch(95% 0.045 70)" },
+  cleaning: { label: "Cleaning", hex: "var(--info-fg)", tint: "var(--info-bg)" },
+  gardening: { label: "Gardening", hex: "var(--ok-fg)", tint: "var(--ok-bg)" },
+  both: { label: "Cleaning + Gardening", hex: "var(--violet-fg)", tint: "var(--violet-bg)" },
 };
 
 export const STAFF_HUES = [15, 190, 280, 330, 100, 250, 40, 210, 300, 130];
@@ -61,7 +64,8 @@ export function durationLabel(m: number) {
   const r = m % 60;
   return r ? h + "h " + r + "m" : h + "h";
 }
-export function fmtDateLabel(iso: string) {
+export function fmtDateLabel(iso: string | null | undefined) {
+  if (!iso) return "Not scheduled";
   const d = parseISO(iso);
   return DAYS[d.getDay()] + ", " + MONTHS[d.getMonth()] + " " + d.getDate();
 }
@@ -97,10 +101,13 @@ export interface EnrichedJob extends Job {
   priceLabel: string;
 }
 
+const UNSCHEDULED_META = { label: "Unscheduled", hex: "var(--warn-fg)", tint: "var(--warn-bg)" };
+
 export function enrichJob(job: Job, staffById: Map<string, Staff>): EnrichedJob {
   const staff = job.assigned_staff_id ? staffById.get(job.assigned_staff_id) : undefined;
   const typeMeta = TYPE_META[job.job_type] ?? TYPE_META.cleaning;
-  const statusMeta = STATUS_META[job.status] ?? STATUS_META.scheduled;
+  const unscheduled = !job.job_date && job.status === "scheduled";
+  const statusMeta = unscheduled ? UNSCHEDULED_META : (STATUS_META[job.status] ?? STATUS_META.scheduled);
 
   return {
     ...job,
@@ -112,7 +119,7 @@ export function enrichJob(job: Job, staffById: Map<string, Staff>): EnrichedJob 
     statusLabel: statusMeta.label,
     statusColorHex: statusMeta.hex,
     statusTintHex: statusMeta.tint,
-    timeLabel: fmtTime12(job.start_time.slice(0, 5)),
+    timeLabel: job.start_time ? fmtTime12(job.start_time.slice(0, 5)) : "",
     durationLabel: durationLabel(job.duration_minutes),
     dateLabel: fmtDateLabel(job.job_date),
     priceLabel: job.price != null ? "$" + job.price : "—",

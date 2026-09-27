@@ -20,11 +20,15 @@
   --color-accent-strong: oklch(42% 0.14 70);
   --color-accent-tint: oklch(94% 0.045 70);
 
-  --color-danger: oklch(50% 0.16 25);
-  --color-danger-strong: oklch(38% 0.13 25);
-  --color-danger-text: oklch(45% 0.15 25);
-  --color-danger-tint: oklch(96% 0.03 25);
-  --color-danger-border: oklch(88% 0.06 25);
+  /* Danger tokens are repointed to the v2 --color-danger-red family (see
+     @theme below) so every legacy text-danger/border-danger/bg-danger
+     usage renders the same red as the rest of the design system, instead
+     of a separate unrelated oklch red. */
+  --color-danger: #b42318;
+  --color-danger-strong: #b42318;
+  --color-danger-text: #a2352a;
+  --color-danger-tint: #fcedec;
+  --color-danger-border: #f3c2be;
 
   --color-success-strong: oklch(38% 0.13 145);
   --color-success-tint: oklch(95% 0.035 145);
@@ -32,15 +36,6 @@
 
   --color-today-tint: oklch(96% 0.03 70);
   --color-today-border: oklch(85% 0.06 70);
-
-  /* Spacing (use with clamp for responsive) */
-  --sp-xs: 4px;
-  --sp-sm: 8px;
-  --sp-md: 12px;
-  --sp-lg: 16px;
-  --sp-xl: 20px;
-  --sp-2xl: 24px;
-  --sp-3xl: 32px;
 }
 
 /*
@@ -179,18 +174,25 @@
   --font-serif: var(--font-spectral);
 }
 
-body {
-  background: var(--color-page-bg);
-  color: var(--color-ink-primary);
-}
+/* Base element defaults live in Tailwind's own @layer base so a
+   component's text-color utility (e.g. text-[#0d0d0d] on a sidebar link)
+   can still override them — unlayered CSS always beats layered utilities
+   regardless of specificity, which previously made every <a> render
+   green no matter what class was applied to it. */
+@layer base {
+  body {
+    background: var(--color-page-bg);
+    color: var(--color-ink-primary);
+  }
 
-a {
-  color: var(--color-brand);
-}
-a:hover {
-  color: var(--color-brand-hover);
-}
+  a {
+    color: var(--color-brand);
+  }
+  a:hover {
+    color: var(--color-brand-hover);
+  }
 
-* {
-  box-sizing: border-box;
+  * {
+    box-sizing: border-box;
+  }
 }

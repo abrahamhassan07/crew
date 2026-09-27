@@ -6,7 +6,7 @@ interface TextFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement
   error?: string;
   required?: boolean;
   help?: string;
-  type?: "text" | "email" | "password" | "number" | "tel" | "url" | "date";
+  type?: "text" | "email" | "password" | "number" | "tel" | "url" | "date" | "time";
 }
 
 export function TextField({

@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
 import { addDays, fmtISO, parseISO, STAFF_HUES } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
-import type { CareProvider, ClientStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, Skill } from "@/lib/supabase/types";
+import type { CareProvider, ClientStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
 
 export interface ActionResult {
   ok: boolean;
@@ -23,8 +23,8 @@ export interface JobInput {
   address: string;
   type: Skill;
   status: JobStatus;
-  date: string;
-  startTime: string;
+  date: string | null;
+  startTime: string | null;
   duration: number;
   price: number | null;
   staffId: string | null;
@@ -36,9 +36,15 @@ export interface JobInput {
 function validateJobInput(input: JobInput): string | null {
   if (!input.client.trim()) return "Client name is required.";
   if (!input.address.trim()) return "Address is required.";
-  if (!input.date) return "Date is required.";
-  if (!input.startTime) return "Start time is required.";
+  if (Boolean(input.date) !== Boolean(input.startTime)) return "Set both a date and a start time, or leave the job unscheduled.";
+  if (input.repeat !== "none" && !input.date) return "A date is required to repeat a job.";
   return null;
+}
+
+async function nextJobNum(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
+  const { data } = await supabase.from("jobs").select("num");
+  const max = (data ?? []).reduce((m, r) => Math.max(m, parseInt(r.num.replace(/\D/g, ""), 10) || 0), 999);
+  return `J-${max + 1}`;
 }
 
 export async function createJob(input: JobInput): Promise<ActionResult> {
@@ -63,13 +69,15 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
     client_id: input.clientId ?? null,
   };
 
-  const rows = [{ ...base, job_date: input.date }];
-  if (input.repeat !== "none") {
+  const firstNum = await nextJobNum(supabase);
+  const rows = [{ ...base, job_date: input.date, num: firstNum }];
+  if (input.repeat !== "none" && input.date) {
     const stepDays = input.repeat === "weekly" ? 7 : input.repeat === "fortnightly" ? 14 : 30;
     let d = parseISO(input.date);
+    const startNum = parseInt(firstNum.replace(/\D/g, ""), 10);
     for (let i = 1; i <= 6; i++) {
       d = addDays(d, stepDays);
-      rows.push({ ...base, job_date: fmtISO(d), status: "scheduled" });
+      rows.push({ ...base, job_date: fmtISO(d), status: "scheduled", num: `J-${startNum + i}` });
     }
   }
 
@@ -139,6 +147,15 @@ export async function updateJobChecklist(id: string, checklist: { t: string; don
 export async function updateJobNotes(id: string, notes: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("jobs").update({ notes }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function rescheduleJob(id: string, date: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("jobs").update({ job_date: date }).eq("id", id);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");
@@ -358,6 +375,52 @@ export async function addClient(input: ClientInput, properties: PropertyInput[])
   return { ok: true, id: client.id };
 }
 
+export async function bulkUpdateClientStatus(ids: string[], status: ClientStatus): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("clients").update({ status }).in("id", ids);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function bulkAddClientTag(ids: string[], tag: string): Promise<ActionResult> {
+  const cleanTag = tag.trim();
+  if (!cleanTag) return { ok: false, error: "Tag can't be empty." };
+
+  const supabase = await createClient();
+  const { data: rows, error: fetchError } = await supabase.from("clients").select("id, tags").in("id", ids);
+  if (fetchError) return { ok: false, error: fetchError.message };
+
+  const updates = (rows ?? [])
+    .filter((r) => !(r.tags ?? []).includes(cleanTag))
+    .map((r) => supabase.from("clients").update({ tags: [...(r.tags ?? []), cleanTag] }).eq("id", r.id));
+
+  const results = await Promise.all(updates);
+  const failed = results.find((r) => r.error);
+  if (failed?.error) return { ok: false, error: failed.error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function bulkRemoveClientTag(ids: string[], tag: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: rows, error: fetchError } = await supabase.from("clients").select("id, tags").in("id", ids);
+  if (fetchError) return { ok: false, error: fetchError.message };
+
+  const updates = (rows ?? [])
+    .filter((r) => (r.tags ?? []).includes(tag))
+    .map((r) => supabase.from("clients").update({ tags: (r.tags ?? []).filter((t: string) => t !== tag) }).eq("id", r.id));
+
+  const results = await Promise.all(updates);
+  const failed = results.find((r) => r.error);
+  if (failed?.error) return { ok: false, error: failed.error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function updateClient(id: string, input: ClientInput): Promise<ActionResult> {
   const err = validateClientInput(input);
   if (err) return { ok: false, error: err };
@@ -483,6 +546,7 @@ export interface ServiceInput {
   pricingType: PricingType;
   durationMinutes: number;
   defaultCrewId: string | null;
+  category: ServiceCategory | null;
   active: boolean;
 }
 
@@ -505,6 +569,7 @@ export async function addService(input: ServiceInput): Promise<ActionResult> {
     pricing_type: input.pricingType,
     duration_minutes: input.durationMinutes,
     default_crew_id: input.defaultCrewId,
+    category: input.category,
     active: input.active,
   });
 
@@ -528,6 +593,7 @@ export async function updateService(id: string, input: ServiceInput): Promise<Ac
       pricing_type: input.pricingType,
       duration_minutes: input.durationMinutes,
       default_crew_id: input.defaultCrewId,
+      category: input.category,
       active: input.active,
     })
     .eq("id", id);

@@ -57,12 +57,14 @@ export function AppShell({ role, children, viewerLabel }: AppShellProps) {
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         {/* Top bar */}
         <TopBar
+          role={role}
+          userName={userName}
+          bizName={bizName}
+          userInitials={initials}
           onMenuClick={() => setMobileNavOpen(true)}
           onSearch={setSearchQuery}
           searchValue={searchQuery}
-          onProfileClick={() => {
-            // TODO: Open profile menu
-          }}
+          onSignOut={handleSignOut}
         />
 
         {/* Page content */}

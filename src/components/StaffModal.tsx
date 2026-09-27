@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { inviteStaff, updateStaff, type StaffInput, type StaffUpdateInput } from "@/app/(app)/actions";
+import { Button } from "@/components/ui/Button";
+import { TextField, SelectField } from "@/components/forms";
 import type { Crew, JobRole, Skill, Staff } from "@/lib/supabase/types";
 
 const JOB_ROLES: JobRole[] = ["Owner", "Admin", "Manager", "Crew Leader", "Staff"];
@@ -58,56 +60,44 @@ export function StaffModal({
   return (
     <>
       <div onClick={onClose} className="fixed inset-0 bg-black/45 z-100" />
-      <div className="fixed top-0 right-0 bottom-0 w-full sm:w-[480px] bg-surface shadow-2xl overflow-y-auto p-6 z-101 flex flex-col gap-3.5">
-        <div className="font-serif font-semibold text-lg mb-1">{mode === "edit" ? "Edit Staff" : "Invite Staff"}</div>
+      <div className="fixed top-0 right-0 bottom-0 w-full sm:w-[480px] bg-card-bg shadow-2xl overflow-y-auto p-6 z-101 flex flex-col gap-3.5">
+        <div className="font-bold text-lg mb-1">{mode === "edit" ? "Edit Staff" : "Invite Staff"}</div>
 
-        <div>
-          <label className="block text-sm font-semibold mb-1">Name</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm" />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold mb-1">Phone</label>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm" />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold mb-1">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={mode === "edit"}
-            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm disabled:opacity-60"
-          />
-          {mode === "new" && <p className="text-xs text-ink-faint mt-1">We&rsquo;ll email an invite link here.</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-semibold mb-1">Skill</label>
-          <select value={skill} onChange={(e) => setSkill(e.target.value as Skill)} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
-            <option value="cleaning">Cleaning</option>
-            <option value="gardening">Gardening</option>
-            <option value="both">Cleaning + Gardening</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-semibold mb-1">Role</label>
-          <select value={jobRole} onChange={(e) => setJobRole(e.target.value as JobRole)} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
-            {JOB_ROLES.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-semibold mb-1">Crew</label>
-          <select value={crewId} onChange={(e) => setCrewId(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
-            <option value="">No crew (office)</option>
-            {crews.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
+        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <TextField label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <TextField
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={mode === "edit"}
+          help={mode === "new" ? "We'll email an invite link here." : undefined}
+        />
+        <SelectField
+          label="Skill"
+          value={skill}
+          onChange={(e) => setSkill(e.target.value as Skill)}
+          options={[
+            { value: "cleaning", label: "Cleaning" },
+            { value: "gardening", label: "Gardening" },
+            { value: "both", label: "Cleaning + Gardening" },
+          ]}
+        />
+        <SelectField
+          label="Role"
+          value={jobRole}
+          onChange={(e) => setJobRole(e.target.value as JobRole)}
+          options={JOB_ROLES.map((r) => ({ value: r, label: r }))}
+        />
+        <SelectField
+          label="Crew"
+          value={crewId}
+          onChange={(e) => setCrewId(e.target.value)}
+          options={[{ value: "", label: "No crew (office)" }, ...crews.map((c) => ({ value: c.id, label: c.name }))]}
+        />
         {mode === "edit" && (
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="staffActiveCk" checked={active} onChange={(e) => setActive(e.target.checked)} />
+            <input type="checkbox" id="staffActiveCk" checked={active} onChange={(e) => setActive(e.target.checked)} className="accent-brand" />
             <label htmlFor="staffActiveCk" className="text-sm">
               Active
             </label>
@@ -117,13 +107,13 @@ export function StaffModal({
         {error && <p className="text-sm text-danger">{error}</p>}
 
         <div className="flex gap-2.5 mt-1.5">
-          <button onClick={onClose} className="px-4 py-2.5 rounded-lg border border-border bg-white text-sm font-medium">
+          <Button variant="secondary" onClick={onClose}>
             Cancel
-          </button>
+          </Button>
           <div className="flex-1" />
-          <button onClick={save} disabled={pending} className="px-4.5 py-2.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-60">
+          <Button variant="primary" onClick={save} disabled={pending}>
             {pending ? "Saving…" : "Save"}
-          </button>
+          </Button>
         </div>
       </div>
     </>

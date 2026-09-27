@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { DataTable } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { SearchInput } from "@/components/ui/SearchInput";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { FilterTabs } from "@/components/ui/FilterTabs";
 import { calcTotals } from "@/lib/gst";
 import type { Column } from "@/components/ui/DataTable";
 import type { Client, GstMode, Invoice, InvoiceStatus } from "@/lib/supabase/types";
@@ -24,11 +26,15 @@ export function InvoicesPageClient({
   clients,
   itemsByInvoice,
   paidByInvoice,
+  jobNumById,
+  paidPast30,
 }: {
   invoices: Invoice[];
   clients: Client[];
   itemsByInvoice: Map<string, { qty: number; unit_price: number }[]>;
   paidByInvoice: Map<string, number>;
+  jobNumById: Record<string, string>;
+  paidPast30: number;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<(typeof TABS)[number]>("All");
@@ -50,6 +56,7 @@ export function InvoicesPageClient({
   const columns: Column<InvoiceRow>[] = [
     { key: "num", label: "Invoice", sortable: false },
     { key: "clientName", label: "Client", sortable: false },
+    { key: "job_id", label: "Job ref", sortable: false, render: (jobId: string | null) => <span className="text-ink-secondary">{jobId ? (jobNumById[jobId] ?? "—") : "—"}</span> },
     { key: "issue_date", label: "Issued", sortable: false },
     { key: "due_date", label: "Due", sortable: false },
     { key: "total", label: "Total", sortable: false, render: (t: number) => <span>${t.toFixed(2)}</span> },
@@ -62,35 +69,31 @@ export function InvoicesPageClient({
 
   return (
     <div className="min-h-screen bg-page-bg">
-      <div className="px-6 py-8 border-b border-line bg-card-bg">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-3xl font-bold text-ink-primary">Invoices</h1>
+      <PageHeader
+        title="Invoices"
+        actions={
           <Button variant="primary" size="md" onClick={() => router.push("/invoices/new")}>
             <Plus className="w-4 h-4" />
             Create invoice
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="px-6 py-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-[1600px] mx-auto">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <Stat label="Outstanding" value={`$${open.reduce((s, r) => s + r.balance, 0).toFixed(2)}`} sub={`${open.length} open invoices`} />
             <Stat label="Overdue" value={`$${overdue.reduce((s, r) => s + r.balance, 0).toFixed(2)}`} sub={`${overdue.length} past due`} danger />
+            <Stat label="Paid, past 30 days" value={`$${paidPast30.toFixed(2)}`} sub="Manually recorded payments" />
             <Stat label="Drafts" value={String(rows.filter((r) => r.status === "Draft").length)} sub="Not yet sent" />
-            <Stat label="Paid" value={String(rows.filter((r) => r.status === "Paid").length)} sub="Fully settled" />
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mb-6">
-            {TABS.map((t) => {
-              const count = t === "All" ? rows.length : rows.filter((r) => r.status === t).length;
-              const active = tab === t;
-              return (
-                <button key={t} onClick={() => setTab(t)} className="h-9 px-3.5 rounded-full text-sm font-semibold border" style={active ? { background: "var(--color-forest)", color: "#fff", borderColor: "var(--color-forest)" } : { background: "#fff", color: "var(--ink-primary)", borderColor: "var(--field-border)" }}>
-                  {t} <span className="opacity-70 text-xs">{count}</span>
-                </button>
-              );
-            })}
+            <FilterTabs
+              options={TABS.map((t) => ({ value: t, label: t, count: t === "All" ? rows.length : rows.filter((r) => r.status === t).length }))}
+              value={tab}
+              onChange={setTab}
+            />
             <div className="flex-1" />
             <SearchInput value={query} onChange={setQuery} placeholder="Search invoices…" className="max-w-xs" />
           </div>

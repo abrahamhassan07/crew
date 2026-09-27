@@ -6,6 +6,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import {
   addClient,
   addClientContact,
+  addClientNote,
   addProperty,
   removeClientContact,
   removeProperty,
@@ -16,6 +17,7 @@ import {
 } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { TextField, SelectField, TextAreaField } from "@/components/forms";
 import { AU_STATES } from "@/lib/validate";
 import type { CareProvider, Client, ClientContact, ClientStatus, Property, Skill } from "@/lib/supabase/types";
@@ -28,6 +30,14 @@ const STATUS_OPTIONS: { value: ClientStatus; label: string }[] = [
 ];
 
 const SOURCE_OPTIONS = ["Facebook", "Google", "Website", "Referral", "Phone Call", "Walk-in", "Other"];
+
+const TAG_SUGGESTIONS = ["Weekly mow", "Commercial", "Property manager", "Fortnightly clean", "Quote sent", "Gate code"];
+
+function splitName(fullName: string): [string, string] {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length <= 1) return [fullName, ""];
+  return [parts[0], parts.slice(1).join(" ")];
+}
 
 function blankProperty(): PropertyInput {
   return { street: "", line2: "", suburb: "", state: "VIC", postcode: "" };
@@ -52,7 +62,8 @@ export function ClientForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const [name, setName] = useState(client?.name ?? "");
+  const [firstName, setFirstName] = useState(() => splitName(client?.name ?? "")[0]);
+  const [lastName, setLastName] = useState(() => splitName(client?.name ?? "")[1]);
   const [company, setCompany] = useState(client?.company ?? "");
   const [phone, setPhone] = useState(client?.phone ?? "");
   const [email, setEmail] = useState(client?.email ?? "");
@@ -64,6 +75,7 @@ export function ClientForm({
   const [leadSource, setLeadSource] = useState(client?.lead_source ?? "");
   const [tags, setTags] = useState<string[]>(client?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
+  const [notes, setNotes] = useState("");
 
   // "new" mode: properties are local until the client is created.
   const [newProperties, setNewProperties] = useState<PropertyInput[]>([blankProperty()]);
@@ -76,10 +88,10 @@ export function ClientForm({
     if (t && !tags.includes(t)) setTags([...tags, t]);
   };
 
-  const save = () => {
+  const save = (createAnother = false) => {
     setError(null);
     const input: ClientInput = {
-      name,
+      name: `${firstName} ${lastName}`.trim(),
       company,
       address: client?.address ?? "",
       phone,
@@ -99,7 +111,26 @@ export function ClientForm({
           setError(result.error ?? "Could not create client.");
           return;
         }
-        router.push(`/clients/${result.id}`);
+        if (notes.trim()) await addClientNote(result.id, notes.trim());
+        if (createAnother) {
+          setFirstName("");
+          setLastName("");
+          setCompany("");
+          setPhone("");
+          setEmail("");
+          setJobType("both");
+          setCareProvider("");
+          setCaseManager("");
+          setHoursAllocated("");
+          setStatus("Lead");
+          setLeadSource("");
+          setTags([]);
+          setNotes("");
+          setNewProperties([blankProperty()]);
+          router.refresh();
+        } else {
+          router.push(`/clients/${result.id}`);
+        }
       } else {
         const result = await updateClient(client!.id, input);
         if (!result.ok) {
@@ -163,18 +194,19 @@ export function ClientForm({
 
   return (
     <div className="min-h-screen bg-page-bg">
-      <div className="px-6 py-8 border-b border-line bg-card-bg">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-ink-primary">{mode === "edit" ? `Edit ${client?.name ?? "client"}` : "New client"}</h1>
-        </div>
-      </div>
+      <PageHeader
+        title={mode === "edit" ? `Edit ${client?.name ?? "client"}` : "New client"}
+        subtitle="Fields marked * are required."
+        maxWidth="5xl"
+      />
 
       <div className="px-6 py-8">
-        <div className="max-w-4xl mx-auto flex flex-col gap-6">
+        <div className="max-w-5xl mx-auto flex flex-col gap-6">
           <Card className="p-6">
             <h2 className="text-lg font-bold text-ink-primary mb-4">Contact details</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <TextField label="Name" required value={name} onChange={(e) => setName(e.target.value)} />
+              <TextField label="First name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+              <TextField label="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
               <TextField label="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
               <TextField label="Phone" type="tel" placeholder="0412 345 678" value={phone} onChange={(e) => setPhone(e.target.value)} />
               <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -223,7 +255,32 @@ export function ClientForm({
                   className="flex-1 min-w-[140px] outline-none text-sm"
                 />
               </div>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                <span className="text-xs text-ink-muted">Suggestions:</span>
+                {TAG_SUGGESTIONS.filter((t) => !tags.includes(t)).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => addTag(t)}
+                    className="px-2 py-0.5 rounded-full border border-field-border text-xs text-ink-secondary hover:bg-page-bg transition-colors"
+                  >
+                    + {t}
+                  </button>
+                ))}
+              </div>
             </div>
+            {mode === "new" && (
+              <div className="mt-4">
+                <TextAreaField
+                  label="Notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Access instructions, pets, preferences…"
+                  help="Saved as the first note on this client's profile. Clients never see these."
+                />
+              </div>
+            )}
           </Card>
 
           <Card className="p-6">
@@ -387,7 +444,12 @@ export function ClientForm({
             <Button variant="secondary" onClick={() => router.back()}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={save} disabled={pending}>
+            {mode === "new" && (
+              <Button variant="secondary" onClick={() => save(true)} disabled={pending}>
+                {pending ? "Saving…" : "Save & create another"}
+              </Button>
+            )}
+            <Button variant="primary" onClick={() => save(false)} disabled={pending}>
               {pending ? "Saving…" : mode === "edit" ? "Save changes" : "Save client"}
             </Button>
           </div>

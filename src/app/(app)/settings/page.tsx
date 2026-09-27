@@ -2,21 +2,15 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/forms/TextField";
 import { SelectField } from "@/components/forms/SelectField";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-page-bg">
-      <div className="px-6 py-8 border-b border-line bg-card-bg">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-ink-primary">Settings</h1>
-          <p className="text-sm text-ink-secondary mt-1">
-            Manage your organisation settings and preferences.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Settings" subtitle="Manage your organisation settings and preferences." maxWidth="5xl" />
 
       <div className="px-6 py-8">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           {/* Business Settings */}
           <Card className="p-6 mb-6">
             <h2 className="text-xl font-bold text-ink-primary mb-4">

@@ -31,11 +31,12 @@ export type Staff = {
 
 export type Job = {
   id: string;
+  num: string;
   client_name: string;
   address: string;
   job_type: Skill;
-  job_date: string; // YYYY-MM-DD
-  start_time: string; // HH:MM:SS
+  job_date: string | null; // YYYY-MM-DD, null = unscheduled
+  start_time: string | null; // HH:MM:SS, null = unscheduled
   duration_minutes: number;
   assigned_staff_id: string | null;
   status: JobStatus;
@@ -114,6 +115,7 @@ export type Crew = {
 };
 
 export type PricingType = "Fixed" | "Hourly" | "Per m2" | "Per load";
+export type ServiceCategory = "Gardening" | "Cleaning" | "Other";
 
 export type RequestStatus = "New" | "Contacted" | "Quoted" | "Converted" | "Closed";
 
@@ -212,6 +214,7 @@ export type Service = {
   pricing_type: PricingType;
   duration_minutes: number;
   default_crew_id: string | null;
+  category: ServiceCategory | null;
   active: boolean;
   created_at: string;
 };

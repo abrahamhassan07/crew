@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { addCrew, deleteCrew, updateCrew, type CrewInput } from "@/app/(app)/actions";
+import { Button } from "@/components/ui/Button";
+import { TextField, SelectField } from "@/components/forms";
 import type { Crew, Staff } from "@/lib/supabase/types";
 
 const PRESET_COLORS: { hex: string; tint: string }[] = [
@@ -58,14 +60,11 @@ export function CrewModal({
     <>
       <div onClick={onClose} className="fixed inset-0 bg-black/45 z-100" />
       <div className="fixed inset-0 z-101 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl w-full max-w-sm p-5 flex flex-col gap-3.5">
+        <div className="bg-card-bg rounded-xl w-full max-w-sm p-5 flex flex-col gap-3.5">
           <div className="text-lg font-bold">{crew ? "Edit crew" : "New crew"}</div>
+          <TextField label="Crew name" value={name} onChange={(e) => setName(e.target.value)} />
           <div>
-            <label className="block text-sm font-semibold mb-1">Crew name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-field-border text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold mb-1">Colour</label>
+            <label className="block text-sm font-semibold text-ink-secondary mb-1.5">Colour</label>
             <div className="flex gap-2">
               {PRESET_COLORS.map((c) => (
                 <button
@@ -73,35 +72,32 @@ export function CrewModal({
                   type="button"
                   onClick={() => setColor(c.hex)}
                   className="w-8 h-8 rounded-full border-2"
-                  style={{ background: c.hex, borderColor: color === c.hex ? "#18313D" : "transparent" }}
+                  style={{ background: c.hex, borderColor: color === c.hex ? "var(--color-ink-primary)" : "transparent" }}
                   aria-label={c.hex}
                 />
               ))}
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-semibold mb-1">Crew lead</label>
-            <select value={leadStaffId} onChange={(e) => setLeadStaffId(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-field-border text-sm">
-              <option value="">No lead set</option>
-              {staffList.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            label="Crew lead"
+            value={leadStaffId}
+            onChange={(e) => setLeadStaffId(e.target.value)}
+            options={[{ value: "", label: "No lead set" }, ...staffList.map((s) => ({ value: s.id, label: s.name }))]}
+          />
           {error && <p className="text-sm text-danger">{error}</p>}
           <div className="flex gap-2.5 mt-1.5 items-center">
-            <button onClick={onClose} className="px-4 py-2.5 rounded-lg border border-field-border bg-white text-sm font-medium">
+            <Button variant="secondary" onClick={onClose}>
               Cancel
-            </button>
+            </Button>
             {crew && (
-              <button onClick={remove} disabled={pending} className="px-4 py-2.5 rounded-lg border border-danger text-danger text-sm font-semibold">
+              <Button variant="danger" onClick={remove} disabled={pending}>
                 Delete
-              </button>
+              </Button>
             )}
             <div className="flex-1" />
-            <button onClick={save} disabled={pending} className="px-4.5 py-2.5 rounded-lg bg-brand text-white text-sm font-semibold disabled:opacity-60">
+            <Button variant="primary" onClick={save} disabled={pending}>
               {pending ? "Saving…" : "Save"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

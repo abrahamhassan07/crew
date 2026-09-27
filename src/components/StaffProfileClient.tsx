@@ -18,8 +18,8 @@ interface AssignedJob {
   id: string;
   client_name: string;
   address: string;
-  job_date: string;
-  start_time: string;
+  job_date: string | null;
+  start_time: string | null;
   status: string;
 }
 

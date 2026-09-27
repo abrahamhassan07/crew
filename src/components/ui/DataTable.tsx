@@ -111,7 +111,7 @@ export function DataTable<T extends { id: string }>({
                   className={`border-b border-line-soft hover:bg-page-bg transition-colors ${
                     onRowClick ? "cursor-pointer" : ""
                   } ${selectedIds.has(row.id) ? "bg-ok-bg/30" : ""}`}
-                  onClick={() => !selectable && onRowClick?.(row)}
+                  onClick={() => onRowClick?.(row)}
                 >
                   {selectable && (
                     <td className="px-4 py-3 w-12">

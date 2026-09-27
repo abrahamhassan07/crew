@@ -21,18 +21,22 @@ export function QuoteEditor({
   clients,
   properties,
   services,
+  initialClientId,
+  initialRequestId,
 }: {
   quote: Quote | null;
   items: QuoteItem[];
   clients: Client[];
   properties: Property[];
   services: Service[];
+  initialClientId?: string;
+  initialRequestId?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const [clientId, setClientId] = useState(quote?.client_id ?? "");
+  const [clientId, setClientId] = useState(quote?.client_id ?? initialClientId ?? "");
   const [propertyId, setPropertyId] = useState(quote?.property_id ?? "");
   const [quoteDate, setQuoteDate] = useState(quote?.quote_date ?? new Date().toISOString().slice(0, 10));
   const [expiryDate, setExpiryDate] = useState(quote?.expiry_date ?? new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10));
@@ -48,7 +52,7 @@ export function QuoteEditor({
   const clientProperties = properties.filter((p) => p.client_id === clientId);
   const totals = calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), mode);
 
-  const input: QuoteInput = { clientId, propertyId: propertyId || null, quoteDate, expiryDate, mode, message, requestId: quote?.request_id ?? null, items: lines };
+  const input: QuoteInput = { clientId, propertyId: propertyId || null, quoteDate, expiryDate, mode, message, requestId: quote?.request_id ?? initialRequestId ?? null, items: lines };
 
   const commit = (status: "Draft" | "Sent" | "Approved" | "Declined") => {
     setError(null);

@@ -45,7 +45,7 @@ const NAV_GROUPS = [
   {
     title: "Management",
     items: [
-      { href: "/staff", label: "Staff", icon: Users, adminOnly: true },
+      { href: "/staff", label: "Crews & Staff", icon: Users, adminOnly: true },
       { href: "/services", label: "Services", icon: Briefcase, adminOnly: true },
       { href: "/equipment", label: "Equipment", icon: Wrench, adminOnly: true },
       { href: "/marketing", label: "Marketing", icon: Megaphone, adminOnly: true },
@@ -91,14 +91,14 @@ export function Sidebar({
       } ${isCollapsed ? "md:w-20" : ""}`}
     >
       {/* Logo */}
-      <div className={`h-16 flex items-center gap-2.5 px-4 border-b border-line-soft flex-shrink-0 ${isCollapsed ? "justify-center" : ""}`}>
+      <div className={`flex items-center gap-2.5 px-4 py-3.5 border-b border-line-soft flex-shrink-0 ${isCollapsed ? "justify-center" : ""}`}>
         <div className="w-8 h-8 rounded-md bg-forest flex items-center justify-center flex-shrink-0">
           <Sprout className="w-5 h-5 text-white" />
         </div>
         {!isCollapsed && (
           <div className="min-w-0 flex-1">
-            <div className="font-bold text-sm text-forest leading-tight truncate">Crew &</div>
-            <div className="font-bold text-sm text-forest leading-tight truncate">Grounds</div>
+            <div className="font-bold text-sm text-ink-primary leading-tight truncate">Crew & Grounds</div>
+            <div className="text-xs text-ink-muted leading-tight truncate">{bizName}</div>
           </div>
         )}
       </div>
@@ -124,7 +124,7 @@ export function Sidebar({
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                         isActive
                           ? "bg-ok-bg text-brand font-semibold"
-                          : "text-ink-secondary hover:bg-page-bg"
+                          : "text-[#0d0d0d] hover:bg-page-bg"
                       }`}
                       title={isCollapsed ? item.label : undefined}
                     >

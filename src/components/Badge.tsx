@@ -11,7 +11,7 @@ export function Badge({
 }) {
   return (
     <span
-      className="inline-block px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap"
+      className="inline-block px-2.5 py-1 rounded-full text-sm font-semibold whitespace-nowrap"
       style={{ background: tint, color, textDecoration: strikethrough ? "line-through" : "none" }}
     >
       {label}

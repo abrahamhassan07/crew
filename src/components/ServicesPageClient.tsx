@@ -6,16 +6,24 @@ import { addService, toggleServiceActive, updateService, type ServiceInput } fro
 import { Button } from "@/components/ui/Button";
 import { DataTable } from "@/components/ui/DataTable";
 import { SearchInput } from "@/components/ui/SearchInput";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { FilterTabs } from "@/components/ui/FilterTabs";
 import { TextField, SelectField, TextAreaField } from "@/components/forms";
 import { durationLabel } from "@/lib/design";
 import type { Column } from "@/components/ui/DataTable";
-import type { Crew, PricingType, Service } from "@/lib/supabase/types";
+import type { Crew, PricingType, Service, ServiceCategory } from "@/lib/supabase/types";
 
 const PRICING_TYPES: PricingType[] = ["Fixed", "Hourly", "Per m2", "Per load"];
 const UNIT_SUFFIX: Record<PricingType, string> = { Fixed: "", Hourly: "/hr", "Per m2": "/m²", "Per load": "/load" };
+const CATEGORIES: ServiceCategory[] = ["Gardening", "Cleaning", "Other"];
+const CATEGORY_STYLES: Record<ServiceCategory, string> = {
+  Gardening: "bg-ok-bg text-ok-fg",
+  Cleaning: "bg-info-bg text-info-fg",
+  Other: "bg-neutral-bg text-neutral-fg",
+};
 
 function blank(): ServiceInput {
-  return { name: "", description: "", price: 0, pricingType: "Fixed", durationMinutes: 60, defaultCrewId: null, active: true };
+  return { name: "", description: "", price: 0, pricingType: "Fixed", durationMinutes: 60, defaultCrewId: null, category: null, active: true };
 }
 
 export function ServicesPageClient({ services, crews }: { services: Service[]; crews: Crew[] }) {
@@ -72,6 +80,16 @@ export function ServicesPageClient({ services, crews }: { services: Service[]; c
     },
     { key: "pricing_type", label: "Pricing type", sortable: false },
     {
+      key: "category",
+      label: "Category",
+      sortable: false,
+      render: (category: ServiceCategory | null) => (
+        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${category ? CATEGORY_STYLES[category] : "bg-neutral-bg text-ink-muted"}`}>
+          {category ?? "Uncategorised"}
+        </span>
+      ),
+    },
+    {
       key: "duration_minutes",
       label: "Est. duration",
       sortable: false,
@@ -118,6 +136,7 @@ export function ServicesPageClient({ services, crews }: { services: Service[]; c
                 pricingType: row.pricing_type,
                 durationMinutes: row.duration_minutes,
                 defaultCrewId: row.default_crew_id,
+                category: row.category,
                 active: row.active,
               },
             })
@@ -131,36 +150,29 @@ export function ServicesPageClient({ services, crews }: { services: Service[]; c
 
   return (
     <div className="min-h-screen bg-page-bg">
-      <div className="px-6 py-8 border-b border-line bg-card-bg">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-ink-primary">Services</h1>
-            <p className="text-sm text-ink-secondary mt-1">Your price list. Defaults fill in automatically on jobs. Prices exclude GST.</p>
-          </div>
+      <PageHeader
+        title="Services"
+        subtitle="Your price list. Defaults fill in automatically on jobs. Prices exclude GST."
+        actions={
           <Button variant="primary" size="md" onClick={() => setModal({ id: null, input: blank() })}>
             <Plus className="w-4 h-4" />
             New service
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="px-6 py-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-[1600px] mx-auto">
           <div className="flex flex-wrap items-center gap-3 mb-6">
-            {(["All", "Active", "Inactive"] as const).map((t) => {
-              const count = t === "All" ? services.length : services.filter((s) => (t === "Active") === s.active).length;
-              const active = tab === t;
-              return (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className="h-9 px-3.5 rounded-full text-sm font-semibold border flex items-center gap-1.5"
-                  style={active ? { background: "var(--color-forest)", color: "#fff", borderColor: "var(--color-forest)" } : { background: "#fff", color: "var(--ink-primary)", borderColor: "var(--field-border)" }}
-                >
-                  {t} <span className="opacity-70 text-xs">{count}</span>
-                </button>
-              );
-            })}
+            <FilterTabs
+              options={(["All", "Active", "Inactive"] as const).map((t) => ({
+                value: t,
+                label: t,
+                count: t === "All" ? services.length : services.filter((s) => (t === "Active") === s.active).length,
+              }))}
+              value={tab}
+              onChange={setTab}
+            />
             <div className="flex-1" />
             <SearchInput value={query} onChange={setQuery} placeholder="Search services…" className="max-w-xs" />
           </div>
@@ -174,7 +186,7 @@ export function ServicesPageClient({ services, crews }: { services: Service[]; c
         <>
           <div onClick={() => setModal(null)} className="fixed inset-0 bg-black/45 z-100" />
           <div className="fixed inset-0 z-101 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="bg-card-bg rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between px-5 py-4 border-b border-line">
                 <span className="text-lg font-bold">{modal.id ? "Edit service" : "New service"}</span>
                 <button onClick={() => setModal(null)} aria-label="Close"><X className="w-5 h-5 text-ink-muted" /></button>
@@ -216,6 +228,14 @@ export function ServicesPageClient({ services, crews }: { services: Service[]; c
                   onChange={(e) => setModal({ ...modal, input: { ...modal.input, defaultCrewId: e.target.value || null } })}
                   options={crews.map((c) => ({ value: c.id, label: c.name }))}
                   placeholder="No crew"
+                />
+                <SelectField
+                  label="Category"
+                  help="Used to split hours by category in Reports."
+                  value={modal.input.category ?? ""}
+                  onChange={(e) => setModal({ ...modal, input: { ...modal.input, category: (e.target.value || null) as ServiceCategory | null } })}
+                  options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+                  placeholder="Uncategorised"
                 />
                 <label className="sm:col-span-2 flex items-center gap-2.5 text-sm cursor-pointer">
                   <input

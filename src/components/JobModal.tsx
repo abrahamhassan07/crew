@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { createJob, deleteJob, updateJob, type JobInput } from "@/app/(app)/actions";
+import { Button } from "@/components/ui/Button";
+import { TextField, SelectField, TextAreaField } from "@/components/forms";
 import type { Job, JobStatus, Recurrence, Skill } from "@/lib/supabase/types";
 
 const DURATIONS = [60, 90, 120, 150, 180, 240];
@@ -26,7 +28,7 @@ function toInput(job: Job | null, prefillDate?: string): JobInput {
       type: job.job_type,
       status: job.status,
       date: job.job_date,
-      startTime: job.start_time.slice(0, 5),
+      startTime: job.start_time ? job.start_time.slice(0, 5) : null,
       duration: job.duration_minutes,
       price: job.price,
       staffId: job.assigned_staff_id,
@@ -111,190 +113,137 @@ export function JobModal({
   return (
     <>
       <div onClick={onClose} className="fixed inset-0 bg-black/45 z-100" />
-      <div className="fixed top-0 right-0 bottom-0 w-full sm:w-[480px] bg-surface shadow-2xl overflow-y-auto p-6 z-101 flex flex-col gap-3.5">
-        <div className="font-serif font-semibold text-lg mb-1">
+      <div className="fixed top-0 right-0 bottom-0 w-full sm:w-[480px] bg-card-bg shadow-2xl overflow-y-auto p-6 z-101 flex flex-col gap-3.5">
+        <div className="font-bold text-lg mb-1">
           {mode === "edit" ? "Edit Job" : "New Job"}
         </div>
 
         {clientOptions.length > 0 && (
-          <Field label="Client">
-            <select
-              value={selectedClientId}
-              onChange={(e) => selectClient(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
-            >
-              <option value="">Custom / not in directory…</option>
-              {clientOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <SelectField
+            label="Client"
+            value={selectedClientId}
+            onChange={(e) => selectClient(e.target.value)}
+            options={[{ value: "", label: "Custom / not in directory…" }, ...clientOptions.map((c) => ({ value: c.id, label: c.name }))]}
+          />
         )}
 
-        <Field label="Client name *">
+        <TextField label="Client name" required value={form.client} onChange={(e) => set("client", e.target.value)} />
+
+        <TextField label="Address" required value={form.address} onChange={(e) => set("address", e.target.value)} />
+
+        <div className="flex gap-2.5">
+          <SelectField
+            label="Job type"
+            className="flex-1"
+            value={form.type}
+            onChange={(e) => set("type", e.target.value as Skill)}
+            options={[
+              { value: "cleaning", label: "Cleaning" },
+              { value: "gardening", label: "Gardening" },
+              { value: "both", label: "Cleaning + Gardening" },
+            ]}
+          />
+          <SelectField
+            label="Status"
+            className="flex-1"
+            value={form.status}
+            onChange={(e) => set("status", e.target.value as JobStatus)}
+            options={[
+              { value: "scheduled", label: "Scheduled" },
+              { value: "in_progress", label: "In Progress" },
+              { value: "completed", label: "Completed" },
+              { value: "cancelled", label: "Cancelled" },
+            ]}
+          />
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-ink-secondary -mb-1">
           <input
-            value={form.client}
-            onChange={(e) => set("client", e.target.value)}
-            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
+            type="checkbox"
+            checked={form.date == null}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setForm((f) => ({ ...f, date: null, startTime: null, repeat: "none" }));
+              } else {
+                setForm((f) => ({ ...f, date: prefillDate || new Date().toISOString().slice(0, 10), startTime: "09:00" }));
+              }
+            }}
+            className="accent-brand"
           />
-        </Field>
+          Leave unscheduled
+        </label>
 
-        <Field label="Address *">
-          <input
-            value={form.address}
-            onChange={(e) => set("address", e.target.value)}
-            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
+        {form.date != null && (
+          <div className="flex gap-2.5">
+            <TextField label="Date" required type="date" className="flex-1" value={form.date} onChange={(e) => set("date", e.target.value)} />
+            <TextField label="Start time" required type="time" className="flex-1" value={form.startTime ?? ""} onChange={(e) => set("startTime", e.target.value)} />
+          </div>
+        )}
+
+        <div className="flex gap-2.5">
+          <SelectField
+            label="Duration"
+            className="flex-1"
+            value={form.duration}
+            onChange={(e) => set("duration", Number(e.target.value))}
+            options={DURATIONS.map((d) => ({ value: String(d), label: d % 60 === 0 ? `${d / 60}h` : `${(d / 60).toFixed(1)}h` }))}
           />
-        </Field>
-
-        <div className="flex gap-2.5">
-          <Field label="Job type" className="flex-1">
-            <select
-              value={form.type}
-              onChange={(e) => set("type", e.target.value as Skill)}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
-            >
-              <option value="cleaning">Cleaning</option>
-              <option value="gardening">Gardening</option>
-              <option value="both">Cleaning + Gardening</option>
-            </select>
-          </Field>
-          <Field label="Status" className="flex-1">
-            <select
-              value={form.status}
-              onChange={(e) => set("status", e.target.value as JobStatus)}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
-            >
-              <option value="scheduled">Scheduled</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </Field>
-        </div>
-
-        <div className="flex gap-2.5">
-          <Field label="Date *" className="flex-1">
-            <input
-              type="date"
-              value={form.date}
-              onChange={(e) => set("date", e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
-            />
-          </Field>
-          <Field label="Start time *" className="flex-1">
-            <input
-              type="time"
-              value={form.startTime}
-              onChange={(e) => set("startTime", e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
-            />
-          </Field>
-        </div>
-
-        <div className="flex gap-2.5">
-          <Field label="Duration" className="flex-1">
-            <select
-              value={form.duration}
-              onChange={(e) => set("duration", Number(e.target.value))}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
-            >
-              {DURATIONS.map((d) => (
-                <option key={d} value={d}>
-                  {d % 60 === 0 ? `${d / 60}h` : `${(d / 60).toFixed(1)}h`}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Price ($)" className="flex-1">
-            <input
-              type="number"
-              value={form.price ?? ""}
-              onChange={(e) => set("price", e.target.value === "" ? null : Number(e.target.value))}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
-            />
-          </Field>
-        </div>
-
-        <div className="flex gap-2.5">
-          <Field label="Assigned staff" className="flex-1">
-            <select
-              value={form.staffId ?? ""}
-              onChange={(e) => set("staffId", e.target.value || null)}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
-            >
-              <option value="">Unassigned</option>
-              {staffOptions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Repeat" className="flex-1">
-            <select
-              value={form.repeat}
-              onChange={(e) => set("repeat", e.target.value as Recurrence)}
-              disabled={mode === "edit"}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm disabled:opacity-60"
-            >
-              <option value="none">Does not repeat</option>
-              <option value="weekly">Weekly</option>
-              <option value="fortnightly">Fortnightly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-          </Field>
-        </div>
-
-        <Field label="Notes">
-          <textarea
-            value={form.notes}
-            onChange={(e) => set("notes", e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm resize-y"
+          <TextField
+            label="Price ($)"
+            type="number"
+            className="flex-1"
+            value={form.price ?? ""}
+            onChange={(e) => set("price", e.target.value === "" ? null : Number(e.target.value))}
           />
-        </Field>
+        </div>
+
+        <div className="flex gap-2.5">
+          <SelectField
+            label="Assigned staff"
+            className="flex-1"
+            value={form.staffId ?? ""}
+            onChange={(e) => set("staffId", e.target.value || null)}
+            options={[{ value: "", label: "Unassigned" }, ...staffOptions.map((s) => ({ value: s.id, label: s.name }))]}
+          />
+          <SelectField
+            label="Repeat"
+            className="flex-1"
+            value={form.repeat}
+            onChange={(e) => set("repeat", e.target.value as Recurrence)}
+            disabled={mode === "edit" || form.date == null}
+            options={[
+              { value: "none", label: "Does not repeat" },
+              { value: "weekly", label: "Weekly" },
+              { value: "fortnightly", label: "Fortnightly" },
+              { value: "monthly", label: "Monthly" },
+            ]}
+          />
+        </div>
+
+        <TextAreaField label="Notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={3} />
 
         {error && <p className="text-sm text-danger">{error}</p>}
 
         <div className="flex gap-2.5 mt-1.5 items-center">
-          <button
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-lg border border-border bg-white text-sm font-medium"
-          >
+          <Button variant="secondary" onClick={onClose}>
             Cancel
-          </button>
+          </Button>
           {mode === "edit" && (
             <button
               onClick={remove}
               disabled={pending}
-              className="px-4 py-2.5 rounded-lg border text-sm font-semibold"
-              style={{ borderColor: "var(--color-danger-border)", background: "var(--color-danger-tint)", color: "var(--color-danger-text)" }}
+              className="px-4 py-2.5 rounded-md border text-sm font-semibold disabled:opacity-60"
+              style={{ borderColor: "var(--bad-fg)", background: "var(--bad-bg)", color: "var(--bad-fg)" }}
             >
               Delete
             </button>
           )}
           <div className="flex-1" />
-          <button
-            onClick={save}
-            disabled={pending}
-            className="px-4.5 py-2.5 rounded-lg bg-accent text-white text-sm font-semibold disabled:opacity-60"
-          >
+          <Button variant="primary" onClick={save} disabled={pending}>
             {pending ? "Saving…" : "Save"}
-          </button>
+          </Button>
         </div>
       </div>
     </>
-  );
-}
-
-function Field({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
-  return (
-    <div className={className}>
-      <label className="block text-sm font-semibold mb-1">{label}</label>
-      {children}
-    </div>
   );
 }

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { DataTable } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { SearchInput } from "@/components/ui/SearchInput";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { FilterTabs } from "@/components/ui/FilterTabs";
 import { calcTotals } from "@/lib/gst";
 import type { Column } from "@/components/ui/DataTable";
 import type { Client, GstMode, Quote, QuoteStatus } from "@/lib/supabase/types";
@@ -46,28 +48,24 @@ export function QuotesPageClient({ quotes, clients, itemTotals }: { quotes: Quot
 
   return (
     <div className="min-h-screen bg-page-bg">
-      <div className="px-6 py-8 border-b border-line bg-card-bg">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-3xl font-bold text-ink-primary">Quotes</h1>
+      <PageHeader
+        title="Quotes"
+        actions={
           <Button variant="primary" size="md" onClick={() => router.push("/quotes/new")}>
             <Plus className="w-4 h-4" />
             New quote
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="px-6 py-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-[1600px] mx-auto">
           <div className="flex flex-wrap items-center gap-2 mb-6">
-            {TABS.map((t) => {
-              const count = t === "All" ? rows.length : rows.filter((r) => r.status === t).length;
-              const active = tab === t;
-              return (
-                <button key={t} onClick={() => setTab(t)} className="h-9 px-3.5 rounded-full text-sm font-semibold border" style={active ? { background: "var(--color-forest)", color: "#fff", borderColor: "var(--color-forest)" } : { background: "#fff", color: "var(--ink-primary)", borderColor: "var(--field-border)" }}>
-                  {t} <span className="opacity-70 text-xs">{count}</span>
-                </button>
-              );
-            })}
+            <FilterTabs
+              options={TABS.map((t) => ({ value: t, label: t, count: t === "All" ? rows.length : rows.filter((r) => r.status === t).length }))}
+              value={tab}
+              onChange={setTab}
+            />
             <div className="flex-1" />
             <SearchInput value={query} onChange={setQuery} placeholder="Search quotes…" className="max-w-xs" />
           </div>

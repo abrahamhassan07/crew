@@ -7,6 +7,7 @@ import { StatCard, Card } from "@/components/ui/Card";
 import { NewJobQuickAction } from "@/components/NewJobQuickAction";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import {
   Calendar,
   Clock,
@@ -14,16 +15,28 @@ import {
   Briefcase,
   TrendingUp,
   Users,
-  UserPlus,
   FileClock,
   Receipt,
   AlertCircle,
   CheckCircle,
   Activity,
+  UserPlus2,
+  CheckCircle2,
 } from "lucide-react";
 
 function fmtAud(v: number) {
   return v.toLocaleString("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 0 });
+}
+
+function timeAgo(iso: string, now: Date) {
+  const diffMs = now.getTime() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 export default async function DashboardPage() {
@@ -51,10 +64,10 @@ export default async function DashboardPage() {
   const weekEndISO = fmtISO(weekEnd);
 
   const jobsToday = enriched.filter((j) => j.job_date === today);
-  const jobsThisWeek = enriched.filter((j) => j.job_date >= weekStartISO && j.job_date <= weekEndISO);
+  const jobsThisWeek = enriched.filter((j) => j.job_date && j.job_date >= weekStartISO && j.job_date <= weekEndISO);
   const unassignedActive = enriched.filter((j) => !j.assigned_staff_id && j.status !== "cancelled" && j.status !== "completed");
   const activeStaffCount = (staffList ?? []).filter((s) => s.active).length;
-  const overdueCount = enriched.filter((j) => j.job_date < today && j.status === "scheduled").length;
+  const overdueCount = enriched.filter((j) => j.job_date && j.job_date < today && j.status === "scheduled").length;
 
   // Revenue this month vs last month, from recorded payments.
   const now = new Date();
@@ -82,10 +95,8 @@ export default async function DashboardPage() {
   }, 0);
   const overdueInvoiceCount = (invoices ?? []).filter((i) => i.status === "Overdue").length;
 
-  // Active clients + new leads (past 30 days).
+  // Active clients.
   const activeClientCount = (clients ?? []).filter((c) => c.status === "Active").length;
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 864e5);
-  const newLeadsCount = (clients ?? []).filter((c) => c.status === "Lead" && new Date(c.created_at) >= thirtyDaysAgo).length;
 
   // Quotes awaiting approval.
   const quoteItemsByQuote = new Map<string, { qty: number; unit_price: number }[]>();
@@ -97,7 +108,24 @@ export default async function DashboardPage() {
   const sentQuotes = (quotes ?? []).filter((q) => q.status === "Sent");
   const sentQuotesValue = sentQuotes.reduce((s, q) => s + calcTotals(quoteItemsByQuote.get(q.id) ?? [], q.mode).total, 0);
 
-  const todaySchedule = jobsToday.slice().sort((a, b) => a.start_time.localeCompare(b.start_time));
+  const todaySchedule = jobsToday.slice().sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? ""));
+
+  // Recent activity feed: newest clients + newest completed jobs, merged.
+  type ActivityItem = { key: string; ts: string; icon: "client" | "job"; title: string; subtitle: string };
+  const recentClientActivity: ActivityItem[] = (clients ?? [])
+    .slice()
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, 3)
+    .map((c) => ({ key: `client-${c.id}`, ts: c.created_at, icon: "client", title: "New client added", subtitle: c.name }));
+  const recentJobActivity: ActivityItem[] = enriched
+    .filter((j) => j.status === "completed")
+    .slice()
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    .slice(0, 3)
+    .map((j) => ({ key: `job-${j.id}`, ts: j.updated_at, icon: "job", title: "Job completed", subtitle: `${j.typeLabel} for ${j.client_name}` }));
+  const recentActivity = [...recentClientActivity, ...recentJobActivity]
+    .sort((a, b) => b.ts.localeCompare(a.ts))
+    .slice(0, 4);
 
   const isAdmin = viewer.profile.role === "admin";
 
@@ -109,38 +137,25 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-page-bg">
-      {/* Page header */}
-      <div className="px-6 py-8 border-b border-line bg-card-bg">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold text-ink-muted mb-2">
-              {new Date().toLocaleDateString("en-AU", {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-              })}
-            </p>
-            <h1 className="text-3xl font-bold text-ink-primary">
-              {greeting}, {userName}
-            </h1>
-            <p className="text-sm text-ink-secondary mt-1">
-              Here&rsquo;s what&rsquo;s happening across your business today.
-            </p>
-          </div>
+      <PageHeader
+        eyebrow={new Date().toLocaleDateString("en-AU", { weekday: "long", month: "short", day: "numeric" })}
+        title={`${greeting}, ${userName}`}
+        subtitle="Here's what's happening across your business today."
+        actions={
           <Link href="/schedule">
             <Button variant="secondary" size="md">
               <Calendar className="w-4 h-4" />
               View schedule
             </Button>
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* Main content */}
       <div className="px-6 py-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-[1600px] mx-auto">
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
             {isAdmin && (
               <>
                 <StatCard
@@ -168,12 +183,6 @@ export default async function DashboardPage() {
                   value={activeClientCount}
                   icon={<Users className="w-4 h-4" />}
                   subtitle={`${activeStaffCount} staff available`}
-                />
-                <StatCard
-                  label="New leads"
-                  value={newLeadsCount}
-                  icon={<UserPlus className="w-4 h-4" />}
-                  subtitle="Past 30 days"
                 />
                 <StatCard
                   label="Quotes awaiting approval"
@@ -295,42 +304,61 @@ export default async function DashboardPage() {
               <Card className="p-5">
                 <h3 className="font-bold text-ink-primary mb-4">Quick actions</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <Link href="/clients/new">
-                    <button className="p-3 rounded-lg border border-line hover:border-brand hover:bg-ok-tint transition-all text-left">
-                      <div className="w-8 h-8 rounded-lg bg-ok-bg text-ok-fg flex items-center justify-center mb-2">
-                        <Users className="w-4 h-4" />
-                      </div>
-                      <span className="text-sm font-semibold text-ink-primary block">
-                        New client
-                      </span>
-                    </button>
+                  <Link href="/clients/new" className="block p-3 rounded-lg border border-line hover:border-brand hover:bg-ok-bg/40 transition-all text-left">
+                    <div className="w-8 h-8 rounded-lg bg-ok-bg text-ok-fg flex items-center justify-center mb-2">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-semibold text-ink-primary block">
+                      New client
+                    </span>
                   </Link>
 
                   <NewJobQuickAction />
 
-                  <Link href="/quotes/new">
-                    <button className="p-3 rounded-lg border border-line hover:border-brand hover:bg-ok-tint transition-all text-left">
-                      <div className="w-8 h-8 rounded-lg bg-ok-bg text-ok-fg flex items-center justify-center mb-2">
-                        <CheckCircle className="w-4 h-4" />
-                      </div>
-                      <span className="text-sm font-semibold text-ink-primary block">
-                        New quote
-                      </span>
-                    </button>
+                  <Link href="/quotes/new" className="block p-3 rounded-lg border border-line hover:border-brand hover:bg-ok-bg/40 transition-all text-left">
+                    <div className="w-8 h-8 rounded-lg bg-ok-bg text-ok-fg flex items-center justify-center mb-2">
+                      <CheckCircle className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-semibold text-ink-primary block">
+                      New quote
+                    </span>
                   </Link>
 
-                  <Link href="/invoices/new">
-                    <button className="p-3 rounded-lg border border-line hover:border-brand hover:bg-ok-tint transition-all text-left">
-                      <div className="w-8 h-8 rounded-lg bg-ok-bg text-ok-fg flex items-center justify-center mb-2">
-                        <TrendingUp className="w-4 h-4" />
-                      </div>
-                      <span className="text-sm font-semibold text-ink-primary block">
-                        New invoice
-                      </span>
-                    </button>
+                  <Link href="/invoices/new" className="block p-3 rounded-lg border border-line hover:border-brand hover:bg-ok-bg/40 transition-all text-left">
+                    <div className="w-8 h-8 rounded-lg bg-ok-bg text-ok-fg flex items-center justify-center mb-2">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-semibold text-ink-primary block">
+                      New invoice
+                    </span>
                   </Link>
                 </div>
               </Card>
+
+              {/* Recent activity */}
+              {isAdmin && recentActivity.length > 0 && (
+                <Card className="p-5">
+                  <h3 className="font-bold text-ink-primary mb-4">Recent activity</h3>
+                  <div className="flex flex-col gap-4">
+                    {recentActivity.map((item) => (
+                      <div key={item.key} className="flex items-start gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            item.icon === "client" ? "bg-info-bg text-info-fg" : "bg-ok-bg text-ok-fg"
+                          }`}
+                        >
+                          {item.icon === "client" ? <UserPlus2 className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-ink-primary">{item.title}</div>
+                          <div className="text-xs text-ink-muted truncate">{item.subtitle}</div>
+                          <div className="text-xs text-ink-muted mt-0.5">{timeAgo(item.ts, now)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
 
               {/* Alerts/Status */}
               {(overdueCount > 0 || unassignedActive.length > 0) && (
