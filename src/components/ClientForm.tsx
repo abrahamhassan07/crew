@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { TextField, SelectField, TextAreaField } from "@/components/forms";
+import { TextField, SelectField, TextAreaField, AddressAutocomplete, type ParsedAddress } from "@/components/forms";
 import { AU_STATES } from "@/lib/validate";
 import type { CareProvider, Client, ClientContact, ClientStatus, Property, Skill } from "@/lib/supabase/types";
 
@@ -460,10 +460,26 @@ export function ClientForm({
 }
 
 function PropertyFields({ value, onChange }: { value: PropertyInput; onChange: (v: PropertyInput) => void }) {
+  const handleAddressSelect = (address: ParsedAddress) => {
+    onChange({
+      ...value,
+      street: address.street || value.street,
+      suburb: address.suburb || value.suburb,
+      state: address.state || value.state,
+      postcode: address.postcode || value.postcode,
+    });
+  };
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
       <div className="sm:col-span-6">
-        <TextField label="Street address" required value={value.street} onChange={(e) => onChange({ ...value, street: e.target.value })} />
+        <AddressAutocomplete
+          label="Street address"
+          required
+          value={value.street}
+          onChange={(street) => onChange({ ...value, street })}
+          onAddressSelect={handleAddressSelect}
+        />
       </div>
       <div className="sm:col-span-6">
         <TextField label="Address line 2" value={value.line2} onChange={(e) => onChange({ ...value, line2: e.target.value })} />
