@@ -52,6 +52,7 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
   if (err) return { ok: false, error: err };
 
   const supabase = await createClient();
+  const viewer = await getViewer();
   const seriesId = input.repeat !== "none" ? randomUUID() : null;
 
   const base = {
@@ -67,6 +68,7 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
     recurrence: input.repeat,
     series_id: seriesId,
     client_id: input.clientId ?? null,
+    org_id: viewer.orgId,
   };
 
   const firstNum = await nextJobNum(supabase);
@@ -193,6 +195,7 @@ export async function inviteStaff(input: StaffInput): Promise<ActionResult> {
       active: true,
       crew_id: input.crewId,
       job_role: input.jobRole,
+      org_id: viewer.orgId,
     })
     .select("id")
     .single();
@@ -201,7 +204,7 @@ export async function inviteStaff(input: StaffInput): Promise<ActionResult> {
 
   const admin = createAdminClient();
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(input.email.trim(), {
-    data: { app_role: "staff", staff_id: staffRow.id },
+    data: { app_role: "staff", staff_id: staffRow.id, org_id: viewer.orgId },
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm?next=/set-password`,
   });
 
@@ -258,11 +261,13 @@ export interface CrewInput {
 export async function addCrew(input: CrewInput): Promise<ActionResult> {
   if (!input.name.trim()) return { ok: false, error: "Crew name is required." };
   const supabase = await createClient();
+  const viewer = await getViewer();
   const { error } = await supabase.from("crews").insert({
     name: input.name.trim(),
     color_hex: input.colorHex,
     tint_hex: input.tintHex,
     lead_staff_id: input.leadStaffId,
+    org_id: viewer.orgId,
   });
   if (error) return { ok: false, error: error.message };
 
@@ -334,6 +339,7 @@ export async function addClient(input: ClientInput, properties: PropertyInput[])
   if (err) return { ok: false, error: err };
 
   const supabase = await createClient();
+  const viewer = await getViewer();
   const { data: client, error } = await supabase
     .from("clients")
     .insert({
@@ -349,6 +355,7 @@ export async function addClient(input: ClientInput, properties: PropertyInput[])
       status: input.status,
       tags: input.tags,
       lead_source: input.leadSource.trim() || null,
+      org_id: viewer.orgId,
     })
     .select("id")
     .single();
@@ -364,6 +371,7 @@ export async function addClient(input: ClientInput, properties: PropertyInput[])
       suburb: p.suburb.trim(),
       state: p.state,
       postcode: p.postcode.trim(),
+      org_id: viewer.orgId,
     }));
 
   if (propRows.length) {
@@ -464,6 +472,7 @@ export async function addProperty(clientId: string, input: PropertyInput): Promi
   if (!/^\d{4}$/.test(input.postcode.trim())) return { ok: false, error: "Postcode must be 4 digits." };
 
   const supabase = await createClient();
+  const viewer = await getViewer();
   const { error } = await supabase.from("properties").insert({
     client_id: clientId,
     street: input.street.trim(),
@@ -471,6 +480,7 @@ export async function addProperty(clientId: string, input: PropertyInput): Promi
     suburb: input.suburb.trim(),
     state: input.state,
     postcode: input.postcode.trim(),
+    org_id: viewer.orgId,
   });
 
   if (error) return { ok: false, error: error.message };
@@ -499,12 +509,14 @@ export async function addClientContact(clientId: string, input: ClientContactInp
   if (!input.name.trim()) return { ok: false, error: "Name is required." };
 
   const supabase = await createClient();
+  const viewer = await getViewer();
   const { error } = await supabase.from("client_contacts").insert({
     client_id: clientId,
     name: input.name.trim(),
     phone: input.phone.trim() || null,
     email: input.email.trim() || null,
     role: input.role,
+    org_id: viewer.orgId,
   });
 
   if (error) return { ok: false, error: error.message };
@@ -531,6 +543,7 @@ export async function addClientNote(clientId: string, text: string): Promise<Act
     client_id: clientId,
     text: text.trim(),
     staff_id: viewer.staff?.id ?? null,
+    org_id: viewer.orgId,
   });
 
   if (error) return { ok: false, error: error.message };
@@ -562,6 +575,7 @@ export async function addService(input: ServiceInput): Promise<ActionResult> {
   if (err) return { ok: false, error: err };
 
   const supabase = await createClient();
+  const viewer = await getViewer();
   const { error } = await supabase.from("services").insert({
     name: input.name.trim(),
     description: input.description.trim(),
@@ -571,6 +585,7 @@ export async function addService(input: ServiceInput): Promise<ActionResult> {
     default_crew_id: input.defaultCrewId,
     category: input.category,
     active: input.active,
+    org_id: viewer.orgId,
   });
 
   if (error) return { ok: false, error: error.message };
@@ -639,6 +654,7 @@ export async function addRequest(input: RequestInput): Promise<ActionResult> {
   if (!input.clientId && !input.street.trim()) return { ok: false, error: "Street address is required." };
 
   const supabase = await createClient();
+  const viewer = await getViewer();
   const num = await nextRequestNum(supabase);
   const { error } = await supabase.from("requests").insert({
     num,
@@ -655,6 +671,7 @@ export async function addRequest(input: RequestInput): Promise<ActionResult> {
     description: input.description.trim() || "No description provided.",
     source: input.source,
     status: "New",
+    org_id: viewer.orgId,
   });
 
   if (error) return { ok: false, error: error.message };
@@ -674,6 +691,7 @@ export async function updateRequestStatus(id: string, status: RequestStatus): Pr
 
 export async function convertRequestToJob(requestId: string, date: string, startTime: string): Promise<CreateResult> {
   const supabase = await createClient();
+  const viewer = await getViewer();
   const { data: req, error: reqError } = await supabase.from("requests").select("*").eq("id", requestId).single();
   if (reqError || !req) return { ok: false, error: reqError?.message ?? "Request not found." };
 
@@ -684,7 +702,7 @@ export async function convertRequestToJob(requestId: string, date: string, start
   if (!clientId) {
     const { data: client, error: clientError } = await supabase
       .from("clients")
-      .insert({ name: req.name, phone: req.phone, email: req.email, address, status: "Lead", lead_source: req.source })
+      .insert({ name: req.name, phone: req.phone, email: req.email, address, status: "Lead", lead_source: req.source, org_id: viewer.orgId })
       .select("id, name, address")
       .single();
     if (clientError || !client) return { ok: false, error: clientError?.message ?? "Could not create client." };
@@ -703,6 +721,7 @@ export async function convertRequestToJob(requestId: string, date: string, start
       start_time: startTime,
       client_id: clientId,
       status: "scheduled",
+      org_id: viewer.orgId,
     })
     .select("id")
     .single();
@@ -745,6 +764,7 @@ export async function saveQuote(id: string | null, input: QuoteInput, status: Qu
   if (!input.items.length || input.items.some((i) => !i.serviceName.trim())) return { ok: false, error: "Every line item needs a name." };
 
   const supabase = await createClient();
+  const viewer = await getViewer();
   let quoteId = id;
 
   if (quoteId) {
@@ -776,6 +796,7 @@ export async function saveQuote(id: string | null, input: QuoteInput, status: Qu
         message: input.message,
         request_id: input.requestId,
         status,
+        org_id: viewer.orgId,
       })
       .select("id")
       .single();
@@ -791,6 +812,7 @@ export async function saveQuote(id: string | null, input: QuoteInput, status: Qu
     qty: i.qty,
     unit_price: i.unitPrice,
     sort_order: k,
+    org_id: viewer.orgId,
   }));
   const { error: itemsError } = await supabase.from("quote_items").insert(rows);
   if (itemsError) return { ok: false, error: itemsError.message };
@@ -805,6 +827,7 @@ export async function saveQuote(id: string | null, input: QuoteInput, status: Qu
 
 export async function convertQuoteToJob(quoteId: string): Promise<CreateResult> {
   const supabase = await createClient();
+  const viewer = await getViewer();
   const [{ data: quote }, { data: items }] = await Promise.all([
     supabase.from("quotes").select("*").eq("id", quoteId).single(),
     supabase.from("quote_items").select("*").eq("quote_id", quoteId),
@@ -835,6 +858,7 @@ export async function convertQuoteToJob(quoteId: string): Promise<CreateResult> 
       price,
       status: "scheduled",
       notes: `Created from ${quote.num}`,
+      org_id: viewer.orgId,
     })
     .select("id")
     .single();
@@ -877,6 +901,7 @@ export async function saveInvoice(id: string | null, input: InvoiceInput, status
   if (!input.items.length || input.items.some((i) => !i.serviceName.trim())) return { ok: false, error: "Every line item needs a name." };
 
   const supabase = await createClient();
+  const viewer = await getViewer();
   let invoiceId = id;
 
   if (invoiceId) {
@@ -909,6 +934,7 @@ export async function saveInvoice(id: string | null, input: InvoiceInput, status
         mode: input.mode,
         notes: input.notes,
         status,
+        org_id: viewer.orgId,
       })
       .select("id")
       .single();
@@ -924,6 +950,7 @@ export async function saveInvoice(id: string | null, input: InvoiceInput, status
     qty: i.qty,
     unit_price: i.unitPrice,
     sort_order: k,
+    org_id: viewer.orgId,
   }));
   const { error: itemsError } = await supabase.from("invoice_items").insert(rows);
   if (itemsError) return { ok: false, error: itemsError.message };
@@ -941,6 +968,38 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Pr
   return { ok: true };
 }
 
+export interface OrganizationInput {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  abn: string;
+}
+
+export async function updateOrganization(input: OrganizationInput): Promise<ActionResult> {
+  if (!input.name.trim()) return { ok: false, error: "Business name is required." };
+
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("organizations")
+    .update({
+      name: input.name.trim(),
+      email: input.email.trim() || null,
+      phone: input.phone.trim() || null,
+      address: input.address.trim() || null,
+      abn: input.abn.trim() || null,
+    })
+    .eq("id", viewer.orgId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export interface PaymentInput {
   amount: number;
   paidDate: string;
@@ -952,12 +1011,14 @@ export async function recordPayment(invoiceId: string, input: PaymentInput): Pro
   if (!(input.amount > 0)) return { ok: false, error: "Enter an amount greater than $0." };
 
   const supabase = await createClient();
+  const viewer = await getViewer();
   const { error } = await supabase.from("payments").insert({
     invoice_id: invoiceId,
     amount: input.amount,
     paid_date: input.paidDate,
     method: input.method,
     reference: input.reference.trim() || "—",
+    org_id: viewer.orgId,
   });
   if (error) return { ok: false, error: error.message };
 

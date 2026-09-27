@@ -12,17 +12,7 @@ import { TextField, SelectField, TextAreaField } from "@/components/forms";
 import { ToastBanner, useToast } from "@/components/Toast";
 import { calcTotals } from "@/lib/gst";
 import { fmtDateLabel } from "@/lib/design";
-import type { Client, GstMode, Invoice, InvoiceItem, InvoiceStatus, Payment, Property, Service } from "@/lib/supabase/types";
-
-// No business-profile table exists yet (Settings' Business Information save
-// button is a disabled stub) — placeholder branding until that's wired up.
-const BIZ = {
-  name: "Crew & Grounds",
-  abn: "12 345 678 901",
-  addr: "PO Box 123, Melbourne VIC 3000",
-  phone: "0400 000 000",
-  email: "hello@crewandgrounds.com.au",
-};
+import type { Client, GstMode, Invoice, InvoiceItem, InvoiceStatus, Organization, Payment, Property, Service } from "@/lib/supabase/types";
 
 interface JobOption {
   id: string;
@@ -49,6 +39,7 @@ export function InvoiceEditor({
   properties,
   services,
   jobs = [],
+  organization,
   startInEdit = false,
 }: {
   invoice: Invoice | null;
@@ -58,8 +49,16 @@ export function InvoiceEditor({
   properties: Property[];
   services: Service[];
   jobs?: JobOption[];
+  organization: Organization | null;
   startInEdit?: boolean;
 }) {
+  const BIZ = {
+    name: organization?.name ?? "Your business",
+    abn: organization?.abn ?? "—",
+    addr: organization?.address ?? "—",
+    phone: organization?.phone ?? "—",
+    email: organization?.email ?? "—",
+  };
   const router = useRouter();
   const { toast, showToast } = useToast();
   const [pending, startTransition] = useTransition();

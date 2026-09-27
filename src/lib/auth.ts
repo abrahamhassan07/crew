@@ -7,6 +7,7 @@ import type { Profile, Staff } from "@/lib/supabase/types";
 export interface Viewer {
   userId: string;
   email: string;
+  orgId: string;
   profile: Profile;
   staff: Staff | null;
 }
@@ -50,7 +51,7 @@ export const getViewer = cache(async (): Promise<Viewer> => {
 
   const { staff, ...profile } = profileWithStaff;
 
-  return { userId: user.id, email: user.email ?? "", profile, staff: staff ?? null };
+  return { userId: user.id, email: user.email ?? "", orgId: profile.org_id, profile, staff: staff ?? null };
 });
 
 export async function requireAdmin(): Promise<Viewer> {

@@ -8,6 +8,17 @@ export type Profile = {
   user_id: string;
   role: AppRole;
   staff_id: string | null;
+  org_id: string;
+  created_at: string;
+};
+
+export type Organization = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  abn: string | null;
   created_at: string;
 };
 
@@ -26,6 +37,7 @@ export type Staff = {
   job_role: JobRole;
   availability: boolean[];
   usual_hours: string;
+  org_id: string;
   created_at: string;
 };
 
@@ -53,6 +65,7 @@ export type Job = {
   title: string;
   quote_id: string | null;
   checklist: { t: string; done: boolean }[];
+  org_id: string;
 };
 
 export type ClientStatus = "Lead" | "Active" | "Inactive" | "Archived";
@@ -71,6 +84,7 @@ export type Client = {
   status: ClientStatus;
   tags: string[];
   lead_source: string | null;
+  org_id: string;
   created_at: string;
   updated_at: string;
 };
@@ -84,6 +98,7 @@ export type Property = {
   state: string;
   postcode: string;
   country: string;
+  org_id: string;
   created_at: string;
 };
 
@@ -94,6 +109,7 @@ export type ClientContact = {
   phone: string | null;
   email: string | null;
   role: string;
+  org_id: string;
   created_at: string;
 };
 
@@ -102,6 +118,7 @@ export type ClientNote = {
   client_id: string;
   text: string;
   staff_id: string | null;
+  org_id: string;
   created_at: string;
 };
 
@@ -111,6 +128,7 @@ export type Crew = {
   color_hex: string;
   tint_hex: string;
   lead_staff_id: string | null;
+  org_id: string;
   created_at: string;
 };
 
@@ -131,6 +149,7 @@ export type QuoteItem = {
   qty: number;
   unit_price: number;
   sort_order: number;
+  org_id: string;
 };
 
 export type Quote = {
@@ -145,6 +164,7 @@ export type Quote = {
   message: string;
   request_id: string | null;
   job_id: string | null;
+  org_id: string;
   created_at: string;
   updated_at: string;
 };
@@ -160,6 +180,7 @@ export type InvoiceItem = {
   qty: number;
   unit_price: number;
   sort_order: number;
+  org_id: string;
 };
 
 export type Payment = {
@@ -169,6 +190,7 @@ export type Payment = {
   paid_date: string;
   method: string;
   reference: string;
+  org_id: string;
   created_at: string;
 };
 
@@ -183,6 +205,7 @@ export type Invoice = {
   mode: GstMode;
   status: InvoiceStatus;
   notes: string;
+  org_id: string;
   created_at: string;
   updated_at: string;
 };
@@ -203,6 +226,7 @@ export type ServiceRequest = {
   preferred_date: string | null;
   description: string;
   source: string;
+  org_id: string;
   received_at: string;
 };
 
@@ -216,99 +240,106 @@ export type Service = {
   default_crew_id: string | null;
   category: ServiceCategory | null;
   active: boolean;
+  org_id: string;
   created_at: string;
 };
 
 export type Database = {
   public: {
     Tables: {
+      organizations: {
+        Row: Organization;
+        Insert: Partial<Organization> & Pick<Organization, "name">;
+        Update: Partial<Organization>;
+        Relationships: [];
+      };
       staff: {
         Row: Staff;
-        Insert: Partial<Staff> & Pick<Staff, "name" | "email">;
+        Insert: Partial<Staff> & Pick<Staff, "name" | "email" | "org_id">;
         Update: Partial<Staff>;
         Relationships: [];
       };
       profiles: {
         Row: Profile;
-        Insert: Partial<Profile> & Pick<Profile, "user_id">;
+        Insert: Partial<Profile> & Pick<Profile, "user_id" | "org_id">;
         Update: Partial<Profile>;
         Relationships: [];
       };
       jobs: {
         Row: Job;
-        Insert: Partial<Job> & Pick<Job, "client_name" | "address" | "job_date" | "start_time">;
+        Insert: Partial<Job> & Pick<Job, "client_name" | "address" | "job_date" | "start_time" | "org_id">;
         Update: Partial<Job>;
         Relationships: [];
       };
       clients: {
         Row: Client;
-        Insert: Partial<Client> & Pick<Client, "name">;
+        Insert: Partial<Client> & Pick<Client, "name" | "org_id">;
         Update: Partial<Client>;
         Relationships: [];
       };
       properties: {
         Row: Property;
-        Insert: Partial<Property> & Pick<Property, "client_id">;
+        Insert: Partial<Property> & Pick<Property, "client_id" | "org_id">;
         Update: Partial<Property>;
         Relationships: [];
       };
       client_contacts: {
         Row: ClientContact;
-        Insert: Partial<ClientContact> & Pick<ClientContact, "client_id" | "name">;
+        Insert: Partial<ClientContact> & Pick<ClientContact, "client_id" | "name" | "org_id">;
         Update: Partial<ClientContact>;
         Relationships: [];
       };
       client_notes: {
         Row: ClientNote;
-        Insert: Partial<ClientNote> & Pick<ClientNote, "client_id" | "text">;
+        Insert: Partial<ClientNote> & Pick<ClientNote, "client_id" | "text" | "org_id">;
         Update: Partial<ClientNote>;
         Relationships: [];
       };
       crews: {
         Row: Crew;
-        Insert: Partial<Crew> & Pick<Crew, "name">;
+        Insert: Partial<Crew> & Pick<Crew, "name" | "org_id">;
         Update: Partial<Crew>;
         Relationships: [];
       };
       services: {
         Row: Service;
-        Insert: Partial<Service> & Pick<Service, "name">;
+        Insert: Partial<Service> & Pick<Service, "name" | "org_id">;
         Update: Partial<Service>;
         Relationships: [];
       };
       requests: {
         Row: ServiceRequest;
-        Insert: Partial<ServiceRequest> & Pick<ServiceRequest, "num" | "name">;
+        Insert: Partial<ServiceRequest> & Pick<ServiceRequest, "num" | "name" | "org_id">;
         Update: Partial<ServiceRequest>;
         Relationships: [];
       };
       quotes: {
         Row: Quote;
-        Insert: Partial<Quote> & Pick<Quote, "num" | "client_id">;
+        Insert: Partial<Quote> & Pick<Quote, "num" | "client_id" | "org_id">;
         Update: Partial<Quote>;
         Relationships: [];
       };
       quote_items: {
         Row: QuoteItem;
-        Insert: Partial<QuoteItem> & Pick<QuoteItem, "quote_id">;
+        Insert: Partial<QuoteItem> & Pick<QuoteItem, "quote_id" | "org_id">;
         Update: Partial<QuoteItem>;
         Relationships: [];
       };
       invoices: {
         Row: Invoice;
-        Insert: Partial<Invoice> & Pick<Invoice, "num" | "client_id">;
+        Insert: Partial<Invoice> & Pick<Invoice, "num" | "client_id" | "org_id">;
         Update: Partial<Invoice>;
         Relationships: [];
       };
       invoice_items: {
         Row: InvoiceItem;
-        Insert: Partial<InvoiceItem> & Pick<InvoiceItem, "invoice_id">;
+        Insert: Partial<InvoiceItem> & Pick<InvoiceItem, "invoice_id" | "org_id">;
         Update: Partial<InvoiceItem>;
         Relationships: [];
       };
       payments: {
         Row: Payment;
-        Insert: Partial<Payment> & Pick<Payment, "invoice_id" | "amount">;
+        Insert: Partial<Payment> & Pick<Payment, "invoice_id" | "amount" | "org_id">;
         Update: Partial<Payment>;
         Relationships: [];
       };

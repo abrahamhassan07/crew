@@ -1,9 +1,8 @@
 import { Sprout } from "lucide-react";
-import { LoginForm } from "./LoginForm";
+import { SignupForm } from "./SignupForm";
 
-export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+export default async function SignupPage({ searchParams }: PageProps<"/signup">) {
   const params = await searchParams;
-  const next = typeof params.next === "string" ? params.next : "/";
   const oauthError = typeof params.error === "string" ? params.error : undefined;
 
   return (
@@ -23,10 +22,10 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
           <div className="max-w-md">
             <h2 className="font-serif font-semibold text-4xl text-white leading-tight mb-4">
-              Scheduling made simpler.
+              Run your business, your way.
             </h2>
             <p className="text-white/70 text-base leading-relaxed">
-              Manage jobs, staff, clients and invoices — all in one place.
+              A fully separate account for your business — jobs, staff, clients and invoices, all in one place.
             </p>
           </div>
 
@@ -40,16 +39,16 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             <div className="w-11 h-11 rounded-full bg-ok-bg text-ok-fg flex items-center justify-center mb-5">
               <Sprout className="w-5 h-5" />
             </div>
-            <h1 className="font-serif font-semibold text-2xl text-ink-primary mb-1">Welcome back</h1>
-            <p className="text-sm text-ink-muted">Log in to your Crew &amp; Grounds account</p>
+            <h1 className="font-serif font-semibold text-2xl text-ink-primary mb-1">Create your business</h1>
+            <p className="text-sm text-ink-muted">Set up a new, fully separate account for your business</p>
           </div>
 
-          <LoginForm next={next} oauthError={oauthError} />
+          <SignupForm oauthError={oauthError} />
 
           <p className="text-sm text-ink-muted text-center mt-6">
-            New business?{" "}
-            <a href="/signup" className="text-brand font-semibold">
-              Sign up
+            Already have an account?{" "}
+            <a href="/login" className="text-brand font-semibold">
+              Log in
             </a>
           </p>
         </div>
