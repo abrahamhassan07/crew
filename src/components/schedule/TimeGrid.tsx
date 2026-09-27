@@ -25,14 +25,14 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
   const nowPx = nowOffsetPx();
 
   return (
-    <div className="bg-card-bg border border-line rounded-lg overflow-hidden">
+    <div className="bg-card-bg border border-line rounded-lg overflow-x-auto">
       {/* Day headers */}
       <div className="flex border-b border-line sticky top-0 bg-card-bg z-10">
         <div className="w-14 shrink-0" />
         {days.map((day) => (
           <div
             key={day.iso}
-            className={`flex-1 min-w-[140px] text-center py-2.5 border-l border-line-soft ${day.isToday ? "bg-ok-bg/40" : ""}`}
+            className={`flex-1 min-w-[90px] text-center py-2.5 border-l border-line-soft ${day.isToday ? "bg-ok-bg/40" : ""}`}
           >
             <div className={`text-[11px] font-bold uppercase tracking-wide ${day.isToday ? "text-brand" : "text-ink-muted"}`}>
               {day.dayName}
@@ -43,8 +43,8 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
         ))}
       </div>
 
-      {/* Scrollable grid body */}
-      <div className="flex overflow-x-auto">
+      {/* Grid body — scrolls horizontally together with the header via the outer container */}
+      <div className="flex">
         {/* Hour labels */}
         <div className="w-14 shrink-0 relative" style={{ height: GRID_HEIGHT_PX }}>
           {GRID_HOURS.map((h, i) => (
@@ -61,7 +61,7 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
         {days.map((day) => (
           <div
             key={day.iso}
-            className="flex-1 min-w-[140px] relative border-l border-line-soft"
+            className="flex-1 min-w-[90px] relative border-l border-line-soft"
             style={{ height: GRID_HEIGHT_PX }}
             onClick={(e) => {
               if (e.target === e.currentTarget) onSlotClick(day.iso);

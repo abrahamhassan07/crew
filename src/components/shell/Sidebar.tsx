@@ -91,7 +91,7 @@ export function Sidebar({
       } ${isCollapsed ? "md:w-20" : ""}`}
     >
       {/* Logo */}
-      <div className={`flex items-center gap-2.5 px-4 py-3.5 border-b border-line-soft flex-shrink-0 ${isCollapsed ? "justify-center" : ""}`}>
+      <div className={`h-16 flex items-center gap-2.5 px-4 border-b border-line flex-shrink-0 ${isCollapsed ? "justify-center" : ""}`}>
         <div className="w-8 h-8 rounded-md bg-forest flex items-center justify-center flex-shrink-0">
           <Sprout className="w-5 h-5 text-white" />
         </div>

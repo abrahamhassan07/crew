@@ -142,7 +142,6 @@ export function TopBar({
         aria-label="Notifications"
       >
         <Bell className="w-5 h-5" />
-        <span className="absolute top-1 right-1 w-3 h-3 bg-danger-red rounded-full" />
       </button>
 
       {/* Profile menu */}

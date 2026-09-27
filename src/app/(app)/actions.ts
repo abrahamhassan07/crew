@@ -383,6 +383,46 @@ export async function addClient(input: ClientInput, properties: PropertyInput[])
   return { ok: true, id: client.id };
 }
 
+export interface ClientImportRow {
+  name: string;
+  company: string;
+  phone: string;
+  email: string;
+  address: string;
+  status: ClientStatus;
+  tags: string[];
+}
+
+export interface ImportResult extends ActionResult {
+  count?: number;
+}
+
+export async function importClients(rows: ClientImportRow[]): Promise<ImportResult> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Not authorized." };
+
+  const valid = rows.filter((r) => r.name.trim());
+  if (!valid.length) return { ok: false, error: "No valid rows to import — every row needs a Name." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("clients").insert(
+    valid.map((r) => ({
+      name: r.name.trim(),
+      company: r.company.trim() || null,
+      phone: r.phone.trim() || null,
+      email: r.email.trim() || null,
+      address: r.address.trim() || null,
+      status: r.status,
+      tags: r.tags,
+      org_id: viewer.orgId,
+    }))
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true, count: valid.length };
+}
+
 export async function bulkUpdateClientStatus(ids: string[], status: ClientStatus): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("clients").update({ status }).in("id", ids);

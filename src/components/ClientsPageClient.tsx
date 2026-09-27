@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 import { StatCard } from "@/components/ui/Card";
+import { ImportClientsModal } from "@/components/ImportClientsModal";
 import type { Client, ClientStatus } from "@/lib/supabase/types";
 
 const STATUSES: (ClientStatus | "All")[] = ["All", "Lead", "Active", "Inactive", "Archived"];
@@ -74,6 +75,7 @@ export function ClientsPageClient({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkTagMenu, setShowBulkTagMenu] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState("");
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const rows: ClientRow[] = useMemo(
     () => clients.map((c) => ({ ...c, lastActivity: lastActivityByClient[c.id] ?? c.updated_at ?? c.created_at })),
@@ -223,6 +225,15 @@ export function ClientsPageClient({
                 <>
                   <button type="button" aria-label="Close menu" className="fixed inset-0 z-40 cursor-default" onClick={() => setShowMoreActions(false)} />
                   <div className="absolute right-0 top-11 z-50 w-56 bg-card-bg border border-line rounded-lg shadow-lg py-1.5">
+                    <button
+                      onClick={() => {
+                        setShowMoreActions(false);
+                        setShowImportModal(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-ink-primary hover:bg-page-bg transition-colors"
+                    >
+                      Import clients from CSV
+                    </button>
                     <button
                       onClick={() => {
                         setShowMoreActions(false);
@@ -402,6 +413,15 @@ export function ClientsPageClient({
           )}
         </div>
       </div>
+
+      {showImportModal && (
+        <ImportClientsModal
+          onClose={() => {
+            setShowImportModal(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
