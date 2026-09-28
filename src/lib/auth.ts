@@ -8,6 +8,8 @@ export interface Viewer {
   userId: string;
   email: string;
   orgId: string;
+  /** From signup/OAuth metadata (email signup's "Your name" field, or Google's profile name) — null if neither was ever captured. */
+  name: string | null;
   profile: Profile;
   staff: Staff | null;
 }
@@ -50,8 +52,10 @@ export const getViewer = cache(async (): Promise<Viewer> => {
   }
 
   const { staff, ...profile } = profileWithStaff;
+  const metadata = user.user_metadata ?? {};
+  const name = (metadata.full_name as string | undefined) || (metadata.name as string | undefined) || null;
 
-  return { userId: user.id, email: user.email ?? "", orgId: profile.org_id, profile, staff: staff ?? null };
+  return { userId: user.id, email: user.email ?? "", orgId: profile.org_id, name, profile, staff: staff ?? null };
 });
 
 export async function requireAdmin(): Promise<Viewer> {

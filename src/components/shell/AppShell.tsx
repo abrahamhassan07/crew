@@ -9,10 +9,19 @@ import { TopBar } from "./TopBar";
 interface AppShellProps {
   role: "admin" | "staff";
   children: React.ReactNode;
-  viewerLabel: string;
+  userName: string;
+  bizName: string;
+  roleLabel: string;
 }
 
-export function AppShell({ role, children, viewerLabel }: AppShellProps) {
+function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "?";
+  if (words.length === 1) return words[0].charAt(0).toUpperCase();
+  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
+}
+
+export function AppShell({ role, children, userName, bizName, roleLabel }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,11 +34,7 @@ export function AppShell({ role, children, viewerLabel }: AppShellProps) {
     router.push("/login");
   };
 
-  // Extract initials and name from viewerLabel
-  const isOwner = viewerLabel.includes("Owner");
-  const initials = isOwner ? "CG" : viewerLabel.split(" ")[0].charAt(0);
-  const userName = isOwner ? "Owner" : viewerLabel.split(" ")[0];
-  const bizName = isOwner ? "Crew & Grounds" : "Staff";
+  const initials = initialsOf(userName);
 
   return (
     <div className="flex h-screen bg-page-bg overflow-hidden">
@@ -50,6 +55,7 @@ export function AppShell({ role, children, viewerLabel }: AppShellProps) {
         userInitials={initials}
         userName={userName}
         bizName={bizName}
+        roleLabel={roleLabel}
         onSignOut={handleSignOut}
       />
 

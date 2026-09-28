@@ -69,6 +69,7 @@ interface SidebarProps {
   userInitials: string;
   userName: string;
   bizName: string;
+  roleLabel: string;
   onSignOut: () => void;
 }
 
@@ -80,6 +81,7 @@ export function Sidebar({
   userInitials,
   userName,
   bizName,
+  roleLabel,
   onSignOut,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -158,7 +160,7 @@ export function Sidebar({
           {!isCollapsed && (
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-ink-primary truncate">{userName}</div>
-              <div className="text-xs text-ink-muted truncate">{bizName}</div>
+              <div className="text-xs text-ink-muted truncate">{roleLabel}</div>
             </div>
           )}
         </div>
