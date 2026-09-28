@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
 import { addDays, fmtISO, parseISO, STAFF_HUES } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
-import type { CareProvider, ClientStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
+import type { CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
 
 export interface ActionResult {
   ok: boolean;
@@ -662,6 +662,74 @@ export async function updateService(id: string, input: ServiceInput): Promise<Ac
 export async function toggleServiceActive(id: string, active: boolean): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("services").update({ active }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export interface EquipmentInput {
+  name: string;
+  model: string;
+  serial: string;
+  crewId: string | null;
+  status: EquipmentStatus;
+  nextServiceDate: string | null;
+}
+
+function validateEquipmentInput(input: EquipmentInput): string | null {
+  if (!input.name.trim()) return "Name is required.";
+  return null;
+}
+
+export async function addEquipment(input: EquipmentInput): Promise<ActionResult> {
+  const err = validateEquipmentInput(input);
+  if (err) return { ok: false, error: err };
+
+  const viewer = await getViewer();
+  const supabase = await createClient();
+  const { error } = await supabase.from("equipment").insert({
+    name: input.name.trim(),
+    model: input.model.trim(),
+    serial: input.serial.trim(),
+    crew_id: input.crewId,
+    status: input.status,
+    next_service_date: input.nextServiceDate,
+    org_id: viewer.orgId,
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function updateEquipment(id: string, input: EquipmentInput): Promise<ActionResult> {
+  const err = validateEquipmentInput(input);
+  if (err) return { ok: false, error: err };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("equipment")
+    .update({
+      name: input.name.trim(),
+      model: input.model.trim(),
+      serial: input.serial.trim(),
+      crew_id: input.crewId,
+      status: input.status,
+      next_service_date: input.nextServiceDate,
+    })
+    .eq("id", id);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function deleteEquipment(id: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("equipment").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");

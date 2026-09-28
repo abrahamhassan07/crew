@@ -244,6 +244,20 @@ export type Service = {
   created_at: string;
 };
 
+export type EquipmentStatus = "In service" | "Needs service" | "Out of service";
+
+export type Equipment = {
+  id: string;
+  name: string;
+  model: string;
+  serial: string;
+  crew_id: string | null;
+  status: EquipmentStatus;
+  next_service_date: string | null;
+  org_id: string;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -341,6 +355,12 @@ export type Database = {
         Row: Payment;
         Insert: Partial<Payment> & Pick<Payment, "invoice_id" | "amount" | "org_id">;
         Update: Partial<Payment>;
+        Relationships: [];
+      };
+      equipment: {
+        Row: Equipment;
+        Insert: Partial<Equipment> & Pick<Equipment, "name" | "org_id">;
+        Update: Partial<Equipment>;
         Relationships: [];
       };
     };

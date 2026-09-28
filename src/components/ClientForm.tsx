@@ -214,6 +214,75 @@ export function ClientForm({
           </Card>
 
           <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-ink-primary">Properties</h2>
+              {mode === "new" && (
+                <Button variant="ghost" size="sm" onClick={() => setNewProperties([...newProperties, blankProperty()])}>
+                  <Plus className="w-4 h-4" />
+                  Add property
+                </Button>
+              )}
+              {mode === "edit" && !addingProperty && (
+                <Button variant="ghost" size="sm" onClick={() => setAddingProperty(blankProperty())}>
+                  <Plus className="w-4 h-4" />
+                  Add property
+                </Button>
+              )}
+            </div>
+
+            {mode === "new" ? (
+              <div className="flex flex-col gap-4">
+                {newProperties.map((p, i) => (
+                  <div key={i} className="border border-line rounded-lg p-4 bg-page-bg/40">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-semibold text-ink-primary">{newProperties.length > 1 ? `Property ${i + 1}` : "Primary property"}</span>
+                      {newProperties.length > 1 && (
+                        <button type="button" onClick={() => setNewProperties(newProperties.filter((_, k) => k !== i))} className="text-danger text-sm font-semibold flex items-center gap-1">
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <PropertyFields
+                      value={p}
+                      onChange={(next) => setNewProperties(newProperties.map((x, k) => (k === i ? next : x)))}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {properties.map((p) => (
+                  <div key={p.id} className="border border-line rounded-lg p-4 bg-page-bg/40 flex items-start justify-between gap-4">
+                    <div className="text-sm text-ink-primary">
+                      <div>{p.street}{p.line2 ? `, ${p.line2}` : ""}</div>
+                      <div className="text-ink-secondary">{p.suburb} {p.state} {p.postcode}</div>
+                    </div>
+                    <button type="button" onClick={() => deleteExistingProperty(p.id)} className="text-danger text-sm font-semibold flex items-center gap-1 shrink-0">
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                {addingProperty && (
+                  <div className="border border-line rounded-lg p-4 bg-page-bg/40">
+                    <PropertyFields value={addingProperty} onChange={setAddingProperty} />
+                    <div className="flex justify-end gap-2 mt-3">
+                      <Button variant="secondary" size="sm" onClick={() => setAddingProperty(null)}>
+                        Cancel
+                      </Button>
+                      <Button variant="primary" size="sm" onClick={saveNewProperty} disabled={pending}>
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {!properties.length && !addingProperty && <p className="text-sm text-ink-muted">No properties yet.</p>}
+              </div>
+            )}
+          </Card>
+
+          <Card className="p-6">
             <h2 className="text-lg font-bold text-ink-primary mb-4">Lead & status</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <SelectField
@@ -317,75 +386,6 @@ export function ClientForm({
                 onChange={(e) => setHoursAllocated(e.target.value)}
               />
             </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-ink-primary">Properties</h2>
-              {mode === "new" && (
-                <Button variant="ghost" size="sm" onClick={() => setNewProperties([...newProperties, blankProperty()])}>
-                  <Plus className="w-4 h-4" />
-                  Add property
-                </Button>
-              )}
-              {mode === "edit" && !addingProperty && (
-                <Button variant="ghost" size="sm" onClick={() => setAddingProperty(blankProperty())}>
-                  <Plus className="w-4 h-4" />
-                  Add property
-                </Button>
-              )}
-            </div>
-
-            {mode === "new" ? (
-              <div className="flex flex-col gap-4">
-                {newProperties.map((p, i) => (
-                  <div key={i} className="border border-line rounded-lg p-4 bg-page-bg/40">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-semibold text-ink-primary">{newProperties.length > 1 ? `Property ${i + 1}` : "Primary property"}</span>
-                      {newProperties.length > 1 && (
-                        <button type="button" onClick={() => setNewProperties(newProperties.filter((_, k) => k !== i))} className="text-danger text-sm font-semibold flex items-center gap-1">
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    <PropertyFields
-                      value={p}
-                      onChange={(next) => setNewProperties(newProperties.map((x, k) => (k === i ? next : x)))}
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {properties.map((p) => (
-                  <div key={p.id} className="border border-line rounded-lg p-4 bg-page-bg/40 flex items-start justify-between gap-4">
-                    <div className="text-sm text-ink-primary">
-                      <div>{p.street}{p.line2 ? `, ${p.line2}` : ""}</div>
-                      <div className="text-ink-secondary">{p.suburb} {p.state} {p.postcode}</div>
-                    </div>
-                    <button type="button" onClick={() => deleteExistingProperty(p.id)} className="text-danger text-sm font-semibold flex items-center gap-1 shrink-0">
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                {addingProperty && (
-                  <div className="border border-line rounded-lg p-4 bg-page-bg/40">
-                    <PropertyFields value={addingProperty} onChange={setAddingProperty} />
-                    <div className="flex justify-end gap-2 mt-3">
-                      <Button variant="secondary" size="sm" onClick={() => setAddingProperty(null)}>
-                        Cancel
-                      </Button>
-                      <Button variant="primary" size="sm" onClick={saveNewProperty} disabled={pending}>
-                        Add
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {!properties.length && !addingProperty && <p className="text-sm text-ink-muted">No properties yet.</p>}
-              </div>
-            )}
           </Card>
 
           {mode === "edit" && (
