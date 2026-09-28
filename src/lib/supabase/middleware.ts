@@ -31,21 +31,30 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Server Action invocations POST back to the current page URL and expect
+  // a normal action response, not an HTTP redirect — redirecting one here
+  // corrupts the client's fetch-based RPC (manifests as bogus, rapid-fire
+  // redirect loops). Each action already enforces its own auth via
+  // getViewer()/requireAdmin(), so it's safe to just let these through.
+  const isServerAction = request.headers.has("next-action");
+
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
 
-  if (!user && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", path);
-    return NextResponse.redirect(url);
-  }
+  if (!isServerAction) {
+    if (!user && !isPublic) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("next", path);
+      return NextResponse.redirect(url);
+    }
 
-  if (user && (path === "/login" || path === "/signup")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    url.search = "";
-    return NextResponse.redirect(url);
+    if (user && (path === "/login" || path === "/signup")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;
