@@ -2,7 +2,7 @@
 
 import type { EnrichedJob } from "@/lib/design";
 import type { Crew } from "@/lib/supabase/types";
-import { GRID_HEIGHT_PX, GRID_HOURS, HOUR_PX, blockHeight, blockTop, fmtHourLabel, nowOffsetPx } from "./scheduleTime";
+import { GRID_HEIGHT_PX, GRID_HOURS, HOUR_PX, blockHeight, blockTop, fmtHourLabel, layoutOverlaps, nowOffsetPx } from "./scheduleTime";
 
 export interface GridDay {
   iso: string;
@@ -87,41 +87,47 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
               </div>
             )}
 
-            {/* Job blocks */}
-            {day.jobs.map((job) => {
-              const crew = job.crew_id ? crewById.get(job.crew_id) : undefined;
-              const bg = crew?.tint_hex ?? job.typeTintHex;
-              const border = crew?.color_hex ?? job.staffColorHex;
-              return (
-                <button
-                  key={job.id}
-                  draggable={canEdit}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData("application/x-job-id", job.id);
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onJobClick(job.id);
-                  }}
-                  className="absolute left-1 right-1 rounded-md px-2 py-1 text-left overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-                  style={{
-                    top: blockTop(job.start_time ?? "00:00"),
-                    height: blockHeight(job.duration_minutes),
-                    background: bg,
-                    borderLeft: `3px solid ${border}`,
-                    opacity: job.status === "cancelled" ? 0.5 : 1,
-                  }}
-                  title={`${job.timeLabel} · ${job.client_name} · ${job.typeLabel}`}
-                >
-                  <div className="text-[11px] font-bold text-ink-primary truncate flex items-center gap-1">
-                    {job.status === "completed" && <span>✓</span>}
-                    {job.status === "in_progress" && <span>▶</span>}
-                    {job.timeLabel}
-                  </div>
-                  <div className="text-[11px] font-semibold text-ink-primary truncate leading-tight">{job.client_name}</div>
-                </button>
-              );
-            })}
+            {/* Job blocks — overlapping jobs are laid out side-by-side instead of stacking */}
+            {(() => {
+              const layout = layoutOverlaps(day.jobs);
+              return day.jobs.map((job) => {
+                const crew = job.crew_id ? crewById.get(job.crew_id) : undefined;
+                const bg = crew?.tint_hex ?? job.typeTintHex;
+                const border = crew?.color_hex ?? job.staffColorHex;
+                const { col, cols } = layout.get(job.id) ?? { col: 0, cols: 1 };
+                return (
+                  <button
+                    key={job.id}
+                    draggable={canEdit}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("application/x-job-id", job.id);
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onJobClick(job.id);
+                    }}
+                    className="absolute rounded-md px-2 py-1 text-left overflow-hidden hover:shadow-md hover:z-10 transition-shadow cursor-pointer"
+                    style={{
+                      top: blockTop(job.start_time ?? "00:00"),
+                      height: blockHeight(job.duration_minutes),
+                      left: `calc(${(col / cols) * 100}% + 2px)`,
+                      width: `calc(${100 / cols}% - 4px)`,
+                      background: bg,
+                      borderLeft: `3px solid ${border}`,
+                      opacity: job.status === "cancelled" ? 0.5 : 1,
+                    }}
+                    title={`${job.timeLabel} · ${job.client_name} · ${job.typeLabel}`}
+                  >
+                    <div className="text-[11px] font-bold text-ink-primary truncate flex items-center gap-1">
+                      {job.status === "completed" && <span>✓</span>}
+                      {job.status === "in_progress" && <span>▶</span>}
+                      {job.timeLabel}
+                    </div>
+                    <div className="text-[11px] font-semibold text-ink-primary truncate leading-tight">{job.client_name}</div>
+                  </button>
+                );
+              });
+            })()}
           </div>
         ))}
       </div>
