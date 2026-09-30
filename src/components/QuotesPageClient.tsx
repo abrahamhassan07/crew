@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -25,6 +25,17 @@ export function QuotesPageClient({ quotes, clients, itemTotals }: { quotes: Quot
   const router = useRouter();
   const [tab, setTab] = useState<(typeof TABS)[number]>("All");
   const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<string>("quote_date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(key);
+      setSortOrder("asc");
+    }
+  };
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "—";
 
@@ -37,13 +48,36 @@ export function QuotesPageClient({ quotes, clients, itemTotals }: { quotes: Quot
     (r) => (tab === "All" || r.status === tab) && (!query.trim() || (r.num + " " + r.clientName).toLowerCase().includes(query.toLowerCase()))
   );
 
+  const sorted = useMemo(() => {
+    const dir = sortOrder === "asc" ? 1 : -1;
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      switch (sortBy) {
+        case "num":
+          return dir * ((parseInt(a.num.replace(/\D/g, ""), 10) || 0) - (parseInt(b.num.replace(/\D/g, ""), 10) || 0));
+        case "clientName":
+          return dir * a.clientName.localeCompare(b.clientName);
+        case "expiry_date":
+          return dir * a.expiry_date.localeCompare(b.expiry_date);
+        case "total":
+          return dir * (a.total - b.total);
+        case "status":
+          return dir * a.status.localeCompare(b.status);
+        case "quote_date":
+        default:
+          return dir * a.quote_date.localeCompare(b.quote_date);
+      }
+    });
+    return arr;
+  }, [filtered, sortBy, sortOrder]);
+
   const columns: Column<QuoteRow>[] = [
-    { key: "num", label: "Quote", sortable: false },
-    { key: "clientName", label: "Client", sortable: false },
-    { key: "quote_date", label: "Quote date", sortable: false },
-    { key: "expiry_date", label: "Expiry", sortable: false },
-    { key: "total", label: "Total (inc. GST)", sortable: false, render: (t: number) => <span className="font-semibold">${t.toFixed(2)}</span> },
-    { key: "status", label: "Status", sortable: false, render: (s: QuoteStatus) => <StatusBadge status={badgeStatus(s)} label={s} showDot /> },
+    { key: "num", label: "Quote", sortable: true },
+    { key: "clientName", label: "Client", sortable: true },
+    { key: "quote_date", label: "Quote date", sortable: true },
+    { key: "expiry_date", label: "Expiry", sortable: true },
+    { key: "total", label: "Total (inc. GST)", sortable: true, render: (t: number) => <span className="font-semibold">${t.toFixed(2)}</span> },
+    { key: "status", label: "Status", sortable: true, render: (s: QuoteStatus) => <StatusBadge status={badgeStatus(s)} label={s} showDot /> },
   ];
 
   return (
@@ -69,7 +103,14 @@ export function QuotesPageClient({ quotes, clients, itemTotals }: { quotes: Quot
             <div className="flex-1" />
             <SearchInput value={query} onChange={setQuery} placeholder="Search quotes…" className="max-w-xs" />
           </div>
-          <DataTable columns={columns} data={filtered} onRowClick={(q) => router.push(`/quotes/${q.id}`)} />
+          <DataTable
+            columns={columns}
+            data={sorted}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+            onRowClick={(q) => router.push(`/quotes/${q.id}`)}
+          />
           {!filtered.length && <div className="text-center py-8 text-ink-muted">No quotes match.</div>}
         </div>
       </div>

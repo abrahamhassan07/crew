@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -39,6 +39,17 @@ export function InvoicesPageClient({
   const router = useRouter();
   const [tab, setTab] = useState<(typeof TABS)[number]>("All");
   const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<string>("issue_date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(key);
+      setSortOrder("asc");
+    }
+  };
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "—";
 
@@ -53,15 +64,45 @@ export function InvoicesPageClient({
     (r) => (tab === "All" || r.status === tab) && (!query.trim() || (r.num + " " + r.clientName).toLowerCase().includes(query.toLowerCase()))
   );
 
+  const sorted = useMemo(() => {
+    const dir = sortOrder === "asc" ? 1 : -1;
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      switch (sortBy) {
+        case "num":
+          return dir * ((parseInt(a.num.replace(/\D/g, ""), 10) || 0) - (parseInt(b.num.replace(/\D/g, ""), 10) || 0));
+        case "clientName":
+          return dir * a.clientName.localeCompare(b.clientName);
+        case "job_id": {
+          const an = a.job_id ? (jobNumById[a.job_id] ?? "") : "";
+          const bn = b.job_id ? (jobNumById[b.job_id] ?? "") : "";
+          return dir * an.localeCompare(bn);
+        }
+        case "due_date":
+          return dir * a.due_date.localeCompare(b.due_date);
+        case "total":
+          return dir * (a.total - b.total);
+        case "balance":
+          return dir * (a.balance - b.balance);
+        case "status":
+          return dir * a.status.localeCompare(b.status);
+        case "issue_date":
+        default:
+          return dir * a.issue_date.localeCompare(b.issue_date);
+      }
+    });
+    return arr;
+  }, [filtered, sortBy, sortOrder, jobNumById]);
+
   const columns: Column<InvoiceRow>[] = [
-    { key: "num", label: "Invoice", sortable: false },
-    { key: "clientName", label: "Client", sortable: false },
-    { key: "job_id", label: "Job ref", sortable: false, render: (jobId: string | null) => <span className="text-ink-secondary">{jobId ? (jobNumById[jobId] ?? "—") : "—"}</span> },
-    { key: "issue_date", label: "Issued", sortable: false },
-    { key: "due_date", label: "Due", sortable: false },
-    { key: "total", label: "Total", sortable: false, render: (t: number) => <span>${t.toFixed(2)}</span> },
-    { key: "balance", label: "Balance", sortable: false, render: (b: number) => <span className="font-semibold">${b.toFixed(2)}</span> },
-    { key: "status", label: "Status", sortable: false, render: (s: InvoiceStatus) => <StatusBadge status={badgeStatus(s)} label={s} showDot /> },
+    { key: "num", label: "Invoice", sortable: true },
+    { key: "clientName", label: "Client", sortable: true },
+    { key: "job_id", label: "Job ref", sortable: true, render: (jobId: string | null) => <span className="text-ink-secondary">{jobId ? (jobNumById[jobId] ?? "—") : "—"}</span> },
+    { key: "issue_date", label: "Issued", sortable: true },
+    { key: "due_date", label: "Due", sortable: true },
+    { key: "total", label: "Total", sortable: true, render: (t: number) => <span>${t.toFixed(2)}</span> },
+    { key: "balance", label: "Balance", sortable: true, render: (b: number) => <span className="font-semibold">${b.toFixed(2)}</span> },
+    { key: "status", label: "Status", sortable: true, render: (s: InvoiceStatus) => <StatusBadge status={badgeStatus(s)} label={s} showDot /> },
   ];
 
   const open = rows.filter((r) => ["Sent", "Partially Paid", "Overdue"].includes(r.status));
