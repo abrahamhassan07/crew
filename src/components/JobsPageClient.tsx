@@ -101,17 +101,19 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
     },
     {
       key: "crew_id",
-      label: "Crew",
-      render: (crewId: string | null) => {
+      label: "Crew / Staff",
+      render: (crewId: string | null, row: EnrichedJob) => {
         const crew = crewId ? crewById.get(crewId) : undefined;
-        return crew ? (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: crew.color_hex }} />
-            {crew.name}
-          </div>
-        ) : (
-          <span className="text-ink-muted">Unassigned</span>
-        );
+        if (crew) {
+          return (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: crew.color_hex }} />
+              {crew.name}
+            </div>
+          );
+        }
+        if (row.assigned_staff_id) return <span className="text-sm">{row.staffName}</span>;
+        return <span className="text-ink-muted">Unassigned</span>;
       },
     },
     {
