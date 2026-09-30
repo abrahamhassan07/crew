@@ -17,13 +17,6 @@ type JobStatusFilter = "All" | "Unscheduled" | "Scheduled" | "In Progress" | "Co
 
 const STATUS_TABS: JobStatusFilter[] = ["All", "Unscheduled", "Scheduled", "In Progress", "Completed", "Cancelled"];
 
-const SORT_OPTIONS = [
-  { value: "date-desc", label: "Date (latest first)" },
-  { value: "date-asc", label: "Date (earliest first)" },
-  { value: "num-desc", label: "Job number (newest first)" },
-  { value: "price-desc", label: "Price (high to low)" },
-];
-
 function jobDisplayStatus(job: EnrichedJob): JobStatusFilter {
   if (!job.job_date && job.status === "scheduled") return "Unscheduled";
   if (job.status === "in_progress") return "In Progress";
@@ -37,8 +30,18 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
   const { openNewJob } = useJobModal();
   const [tab, setTab] = useState<JobStatusFilter>("All");
   const [crewFilter, setCrewFilter] = useState<string>("all");
-  const [sort, setSort] = useState<string>("date-desc");
+  const [sortBy, setSortBy] = useState<string>("job_date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [query, setQuery] = useState("");
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(key);
+      setSortOrder(key === "num" ? "desc" : "asc");
+    }
+  };
 
   const crewById = new Map(crews.map((c) => [c.id, c]));
   const serviceById = new Map(services.map((s) => [s.id, s]));
@@ -57,26 +60,29 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
 
   const sorted = useMemo(() => {
     const rows = [...filtered];
+    const dir = sortOrder === "asc" ? 1 : -1;
     rows.sort((a, b) => {
-      switch (sort) {
-        case "date-asc":
-          return (a.job_date ?? "9999-99-99").localeCompare(b.job_date ?? "9999-99-99") || (a.start_time ?? "").localeCompare(b.start_time ?? "");
-        case "num-desc":
-          return (parseInt(b.num.replace(/\D/g, ""), 10) || 0) - (parseInt(a.num.replace(/\D/g, ""), 10) || 0);
-        case "price-desc":
-          return (b.price ?? 0) - (a.price ?? 0);
-        case "date-desc":
+      switch (sortBy) {
+        case "num":
+          return dir * ((parseInt(a.num.replace(/\D/g, ""), 10) || 0) - (parseInt(b.num.replace(/\D/g, ""), 10) || 0));
+        case "price":
+          return dir * ((a.price ?? 0) - (b.price ?? 0));
+        case "job_date":
         default:
-          return (b.job_date ?? "").localeCompare(a.job_date ?? "") || (b.start_time ?? "").localeCompare(a.start_time ?? "");
+          return (
+            dir * (a.job_date ?? "9999-99-99").localeCompare(b.job_date ?? "9999-99-99") ||
+            dir * (a.start_time ?? "").localeCompare(b.start_time ?? "")
+          );
       }
     });
     return rows;
-  }, [filtered, sort]);
+  }, [filtered, sortBy, sortOrder]);
 
   const columns: Column<EnrichedJob>[] = [
     {
       key: "num",
       label: "Job",
+      sortable: true,
       render: (num: string, row: EnrichedJob) => (
         <div className="flex items-center gap-1.5 font-semibold">
           {num}
@@ -119,6 +125,7 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
     {
       key: "job_date",
       label: "Date & time",
+      sortable: true,
       render: (_: string | null, row: EnrichedJob) => (
         <div>
           <div className="font-medium">{row.job_date ? row.dateLabel : "Not scheduled"}</div>
@@ -133,6 +140,7 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
     {
       key: "price",
       label: "Price (ex. GST)",
+      sortable: true,
       render: (price: number | null) => <span className="font-semibold">{price != null ? `$${price.toFixed(2)}` : "—"}</span>,
     },
     {
@@ -181,17 +189,6 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
                 </option>
               ))}
             </select>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-              className="h-9 px-3 rounded-md border border-field-border text-sm bg-card-bg text-ink-primary"
-            >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div className="mb-6">
@@ -202,7 +199,14 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
             Showing {sorted.length} job{sorted.length !== 1 ? "s" : ""}
           </div>
 
-          <DataTable columns={columns} data={sorted} onRowClick={(job) => router.push(`/jobs/${job.id}`)} />
+          <DataTable
+            columns={columns}
+            data={sorted}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+            onRowClick={(job) => router.push(`/jobs/${job.id}`)}
+          />
 
           {sorted.length === 0 && (
             <div className="text-center py-8 text-ink-muted">No jobs match your filters.</div>
