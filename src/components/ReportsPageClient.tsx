@@ -324,16 +324,19 @@ export function ReportsPageClient({
             <Card className="p-5">
               <h2 className="text-base font-bold text-ink-primary">Revenue</h2>
               <div className="text-xs text-ink-muted mb-4">Payments received, AUD inc. GST</div>
-              <div className="flex items-end gap-2 h-[200px]">
-                {revBars.map((b) => (
-                  <div key={b.label} className="flex-1 h-full flex flex-col justify-end items-center min-w-0" title={`${b.label}: ${fmtAud0(b.value)}`}>
-                    <span className="text-[11px] font-bold text-ink-secondary mb-1 whitespace-nowrap">{fmtAudK(b.value)}</span>
-                    <div className="w-[72%] max-w-[44px] bg-brand rounded-t" style={{ height: `${Math.max(2, b.heightPct)}%` }} />
-                    <span className="text-[11px] text-ink-muted mt-1.5 whitespace-nowrap">{b.label}</span>
-                  </div>
-                ))}
-                {revTotal === 0 && <div className="w-full text-center text-sm text-ink-muted">No payments recorded in this period.</div>}
-              </div>
+              {revTotal === 0 ? (
+                <div className="h-[200px] flex items-center justify-center text-sm text-ink-muted">No payments recorded in this period.</div>
+              ) : (
+                <div className="flex items-end gap-2 h-[200px]">
+                  {revBars.map((b) => (
+                    <div key={b.label} className="flex-1 h-full flex flex-col justify-end items-center min-w-0" title={`${b.label}: ${fmtAud0(b.value)}`}>
+                      <span className="text-[11px] font-bold text-ink-secondary mb-1 whitespace-nowrap">{fmtAudK(b.value)}</span>
+                      <div className="w-[72%] max-w-[44px] bg-brand rounded-t" style={{ height: `${Math.max(2, b.heightPct)}%` }} />
+                      <span className="text-[11px] text-ink-muted mt-1.5 whitespace-nowrap">{b.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
 
             <Card className="p-5">
