@@ -112,7 +112,7 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
                       e.stopPropagation();
                       onJobClick(job.id);
                     }}
-                    className="absolute rounded-md px-2 py-1 text-left overflow-hidden hover:shadow-lg hover:z-20 transition-shadow cursor-pointer shadow-sm"
+                    className="absolute flex flex-col items-stretch justify-start rounded-md px-2 py-1 text-left overflow-hidden hover:shadow-lg hover:z-20 transition-shadow cursor-pointer shadow-sm"
                     style={{
                       top: blockTop(job.start_time ?? "00:00"),
                       height,
