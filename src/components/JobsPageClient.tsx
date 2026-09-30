@@ -61,12 +61,28 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
   const sorted = useMemo(() => {
     const rows = [...filtered];
     const dir = sortOrder === "asc" ? 1 : -1;
+    const crewOrStaffName = (j: EnrichedJob) => {
+      if (j.crew_id) return crewById.get(j.crew_id)?.name ?? "";
+      return j.assigned_staff_id ? j.staffName : "";
+    };
+    const serviceName = (j: EnrichedJob) => (j.service_id ? (serviceById.get(j.service_id)?.name ?? "") : "");
+
     rows.sort((a, b) => {
       switch (sortBy) {
         case "num":
           return dir * ((parseInt(a.num.replace(/\D/g, ""), 10) || 0) - (parseInt(b.num.replace(/\D/g, ""), 10) || 0));
+        case "client_name":
+          return dir * a.client_name.localeCompare(b.client_name);
+        case "service_id":
+          return dir * serviceName(a).localeCompare(serviceName(b));
+        case "crew_id":
+          return dir * crewOrStaffName(a).localeCompare(crewOrStaffName(b));
+        case "durationLabel":
+          return dir * (a.duration_minutes - b.duration_minutes);
         case "price":
           return dir * ((a.price ?? 0) - (b.price ?? 0));
+        case "status":
+          return dir * jobDisplayStatus(a).localeCompare(jobDisplayStatus(b));
         case "job_date":
         default:
           return (
@@ -76,7 +92,7 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
       }
     });
     return rows;
-  }, [filtered, sortBy, sortOrder]);
+  }, [filtered, sortBy, sortOrder, crewById, serviceById]);
 
   const columns: Column<EnrichedJob>[] = [
     {
@@ -93,6 +109,7 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
     {
       key: "client_name",
       label: "Client & property",
+      sortable: true,
       render: (name: string, row: EnrichedJob) => (
         <div>
           <div className="font-semibold">{name}</div>
@@ -103,11 +120,13 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
     {
       key: "service_id",
       label: "Service",
+      sortable: true,
       render: (serviceId: string | null) => <span>{serviceId ? (serviceById.get(serviceId)?.name ?? "—") : "—"}</span>,
     },
     {
       key: "crew_id",
       label: "Crew / Staff",
+      sortable: true,
       render: (crewId: string | null, row: EnrichedJob) => {
         const crew = crewId ? crewById.get(crewId) : undefined;
         if (crew) {
@@ -136,6 +155,7 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
     {
       key: "durationLabel",
       label: "Duration",
+      sortable: true,
     },
     {
       key: "price",
@@ -146,6 +166,7 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
     {
       key: "status",
       label: "Status",
+      sortable: true,
       render: (_: string, row: EnrichedJob) => {
         const display = jobDisplayStatus(row);
         const statusKey =
