@@ -165,19 +165,19 @@ export function ClientsPageClient({
     {
       key: "phone",
       label: "Phone",
-      sortable: false,
+      sortable: true,
       render: (phone: string) => <span>{phone || "—"}</span>,
     },
     {
       key: "email",
       label: "Email",
-      sortable: false,
+      sortable: true,
       render: (email: string) => <span className="text-ink-secondary">{email || "—"}</span>,
     },
     {
       key: "address",
       label: "Address",
-      sortable: false,
+      sortable: true,
       render: (address: string) => <span className="text-ink-secondary">{address || "—"}</span>,
     },
     {
