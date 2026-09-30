@@ -86,6 +86,10 @@ export function todayISO() {
 }
 export { DAYS, MONTHS };
 
+export function formatPropertyAddress(p: { street: string; line2: string; suburb: string; state: string; postcode: string }): string {
+  return `${p.street}${p.line2 ? `, ${p.line2}` : ""}, ${p.suburb} ${p.state} ${p.postcode}`;
+}
+
 export interface EnrichedJob extends Job {
   staffName: string;
   staffColorHex: string;

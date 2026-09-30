@@ -6,8 +6,29 @@ import { createClient } from "@/lib/supabase/client";
 import { JobModal, type ClientOption, type StaffOption } from "@/components/JobModal";
 import { StaffJobDrawer } from "@/components/StaffJobDrawer";
 import { ToastBanner, useToast } from "@/components/Toast";
+import { formatPropertyAddress } from "@/lib/design";
 import type { AppRole } from "@/lib/supabase/types";
 import type { Job } from "@/lib/supabase/types";
+
+/**
+ * clients.address is a legacy flat field left over from before the
+ * properties table existed — it's empty for virtually every client added
+ * through the app now, so pull the address from their first property
+ * instead (same "primary property" convention as the client profile page).
+ */
+async function loadClientOptions(supabase: ReturnType<typeof createClient>): Promise<ClientOption[]> {
+  const [{ data: clients }, { data: properties }] = await Promise.all([
+    supabase.from("clients").select("id, name, address, job_type").order("name"),
+    supabase.from("properties").select("client_id, street, line2, suburb, state, postcode").order("created_at"),
+  ]);
+
+  const primaryAddressByClient = new Map<string, string>();
+  for (const p of properties ?? []) {
+    if (!primaryAddressByClient.has(p.client_id)) primaryAddressByClient.set(p.client_id, formatPropertyAddress(p));
+  }
+
+  return (clients ?? []).map((c) => ({ ...c, address: primaryAddressByClient.get(c.id) ?? c.address }));
+}
 
 interface JobModalState {
   mode: "new" | "edit";
@@ -51,10 +72,10 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
         const supabase = createClient();
         Promise.all([
           supabase.from("staff").select("id, name").eq("active", true).order("name"),
-          supabase.from("clients").select("id, name, address, job_type").order("name"),
-        ]).then(([staffRes, clientsRes]) => {
+          loadClientOptions(supabase),
+        ]).then(([staffRes, clientOpts]) => {
           setStaffOptions(staffRes.data ?? []);
-          setClientOptions(clientsRes.data ?? []);
+          setClientOptions(clientOpts);
           setLoading(false);
         });
       }
@@ -72,15 +93,12 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
         role === "admin"
           ? supabase.from("staff").select("id, name").eq("active", true).order("name")
           : Promise.resolve({ data: [] as StaffOption[] });
-      const clientsPromise =
-        role === "admin"
-          ? supabase.from("clients").select("id, name, address, job_type").order("name")
-          : Promise.resolve({ data: [] as ClientOption[] });
+      const clientsPromise = role === "admin" ? loadClientOptions(supabase) : Promise.resolve([] as ClientOption[]);
 
-      Promise.all([jobPromise, staffPromise, clientsPromise]).then(([jobRes, staffRes, clientsRes]) => {
+      Promise.all([jobPromise, staffPromise, clientsPromise]).then(([jobRes, staffRes, clientOpts]) => {
         setJob(jobRes.data ?? null);
         setStaffOptions(staffRes.data ?? []);
-        setClientOptions(clientsRes.data ?? []);
+        setClientOptions(clientOpts);
         setLoading(false);
       });
     },
