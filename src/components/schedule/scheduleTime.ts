@@ -27,6 +27,25 @@ export function fmtHourLabel(hour: number) {
   return `${h12} ${ampm}`;
 }
 
+function fmtClock(mins: number): { label: string; ampm: "am" | "pm" } {
+  const h = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  const ampm = h >= 12 ? "pm" : "am";
+  let h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return { label: m === 0 ? `${h12}` : `${h12}:${String(m).padStart(2, "0")}`, ampm };
+}
+
+/** "9 – 11am" when both ends share a period, "11:30am – 1pm" otherwise. */
+export function fmtTimeRangeLabel(startTime: string | null, durationMinutes: number): string {
+  if (!startTime) return "";
+  const startMin = timeToMinutes(startTime);
+  const start = fmtClock(startMin);
+  const end = fmtClock(startMin + durationMinutes);
+  if (start.ampm === end.ampm) return `${start.label} – ${end.label}${end.ampm}`;
+  return `${start.label}${start.ampm} – ${end.label}${end.ampm}`;
+}
+
 export function nowOffsetPx(): number | null {
   const now = new Date();
   const mins = now.getHours() * 60 + now.getMinutes();

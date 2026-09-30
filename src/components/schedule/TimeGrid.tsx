@@ -2,7 +2,7 @@
 
 import type { EnrichedJob } from "@/lib/design";
 import type { Crew } from "@/lib/supabase/types";
-import { GRID_HEIGHT_PX, GRID_HOURS, HOUR_PX, blockHeight, blockTop, fmtHourLabel, layoutOverlaps, nowOffsetPx } from "./scheduleTime";
+import { GRID_HEIGHT_PX, GRID_HOURS, HOUR_PX, blockHeight, blockTop, fmtHourLabel, fmtTimeRangeLabel, layoutOverlaps, nowOffsetPx } from "./scheduleTime";
 
 export interface GridDay {
   iso: string;
@@ -87,7 +87,9 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
               </div>
             )}
 
-            {/* Job blocks — overlapping jobs are laid out side-by-side instead of stacking */}
+            {/* Job blocks — overlapping jobs cascade left-to-right (each nearly
+                full width, later ones layered on top), Google Calendar-style,
+                so there's room for time/client/address instead of a thin sliver */}
             {(() => {
               const layout = layoutOverlaps(day.jobs);
               return day.jobs.map((job) => {
@@ -95,6 +97,10 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
                 const bg = crew?.tint_hex ?? job.typeTintHex;
                 const border = crew?.color_hex ?? job.staffColorHex;
                 const { col, cols } = layout.get(job.id) ?? { col: 0, cols: 1 };
+                const stepPct = cols > 1 ? Math.min(30, 60 / (cols - 1)) : 0;
+                const leftPct = col * stepPct;
+                const height = blockHeight(job.duration_minutes);
+                const showAddress = height >= 60;
                 return (
                   <button
                     key={job.id}
@@ -106,14 +112,16 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
                       e.stopPropagation();
                       onJobClick(job.id);
                     }}
-                    className="absolute rounded-md px-2 py-1 text-left overflow-hidden hover:shadow-md hover:z-10 transition-shadow cursor-pointer"
+                    className="absolute rounded-md px-2 py-1 text-left overflow-hidden hover:shadow-lg hover:z-20 transition-shadow cursor-pointer shadow-sm"
                     style={{
                       top: blockTop(job.start_time ?? "00:00"),
-                      height: blockHeight(job.duration_minutes),
-                      left: `calc(${(col / cols) * 100}% + 2px)`,
-                      width: `calc(${100 / cols}% - 4px)`,
+                      height,
+                      left: `calc(${leftPct}% + 2px)`,
+                      width: `calc(${100 - leftPct}% - 4px)`,
+                      zIndex: col + 1,
                       background: bg,
                       borderLeft: `3px solid ${border}`,
+                      boxShadow: col > 0 ? "0 0 0 2px var(--color-card-bg)" : undefined,
                       opacity: job.status === "cancelled" ? 0.5 : 1,
                     }}
                     title={`${job.timeLabel} · ${job.client_name} · ${job.typeLabel}`}
@@ -121,9 +129,10 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
                     <div className="text-[11px] font-bold text-ink-primary truncate flex items-center gap-1">
                       {job.status === "completed" && <span>✓</span>}
                       {job.status === "in_progress" && <span>▶</span>}
-                      {job.timeLabel}
+                      {fmtTimeRangeLabel(job.start_time, job.duration_minutes) || job.timeLabel}
                     </div>
                     <div className="text-[11px] font-semibold text-ink-primary truncate leading-tight">{job.client_name}</div>
+                    {showAddress && <div className="text-[10px] text-ink-secondary truncate leading-tight mt-0.5">{job.address}</div>}
                   </button>
                 );
               });
