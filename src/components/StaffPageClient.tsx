@@ -43,6 +43,17 @@ export function StaffPageClient({
   const [activeTab, setActiveTab] = useState<"Active" | "Inactive" | "All">("Active");
   const [roleFilter, setRoleFilter] = useState<JobRole | "all">("all");
   const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<string>("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(key);
+      setSortOrder("asc");
+    }
+  };
 
   const onSaved = (message: string) => {
     setModal(null);
@@ -69,6 +80,29 @@ export function StaffPageClient({
     });
   }, [staffList, activeTab, roleFilter, query]);
 
+  const sortedStaff = useMemo(() => {
+    const dir = sortOrder === "asc" ? 1 : -1;
+    const arr = [...filteredStaff];
+    arr.sort((a, b) => {
+      switch (sortBy) {
+        case "job_role":
+          return dir * a.job_role.localeCompare(b.job_role);
+        case "crew_id":
+          return dir * crewName(a.crew_id).localeCompare(crewName(b.crew_id));
+        case "email":
+          return dir * a.email.localeCompare(b.email);
+        case "upcomingCount":
+          return dir * (a.upcomingCount - b.upcomingCount);
+        case "active":
+          return dir * (Number(a.active) - Number(b.active));
+        case "name":
+        default:
+          return dir * a.name.localeCompare(b.name);
+      }
+    });
+    return arr;
+  }, [filteredStaff, sortBy, sortOrder, crews]);
+
   const columns: Column<StaffRow>[] = [
     {
       key: "name",
@@ -89,13 +123,13 @@ export function StaffPageClient({
     {
       key: "job_role",
       label: "Role",
-      sortable: false,
+      sortable: true,
       render: (role: JobRole) => <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${ROLE_STYLES[role]}`}>{role}</span>,
     },
     {
       key: "crew_id",
       label: "Crew",
-      sortable: false,
+      sortable: true,
       render: (id: string | null) => (
         <div className="flex items-center gap-2 text-sm">
           <span className="w-2 h-2 rounded-full" style={{ background: crewColor(id) }} />
@@ -106,7 +140,7 @@ export function StaffPageClient({
     {
       key: "email",
       label: "Contact",
-      sortable: false,
+      sortable: true,
       render: (email: string, row) => (
         <div className="text-sm">
           {row.phone && <div className="font-medium">{row.phone}</div>}
@@ -142,7 +176,7 @@ export function StaffPageClient({
     {
       key: "active",
       label: "Status",
-      sortable: false,
+      sortable: true,
       render: (active: boolean) => <StatusBadge status={active ? "active" : "inactive"} label={active ? "Active" : "Inactive"} showDot />,
     },
   ];
@@ -259,7 +293,14 @@ export function StaffPageClient({
             </div>
           </div>
 
-          <DataTable columns={columns} data={filteredStaff} onRowClick={(s) => router.push(`/staff/${s.id}`)} />
+          <DataTable
+            columns={columns}
+            data={sortedStaff}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+            onRowClick={(s) => router.push(`/staff/${s.id}`)}
+          />
 
           {filteredStaff.length === 0 && (
             <div className="text-center py-8 text-ink-muted">
