@@ -133,7 +133,7 @@ export default async function DashboardPage() {
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const userName = viewer.staff?.name || "there";
+  const userName = (viewer.staff?.name || viewer.name || "there").split(" ")[0];
 
   return (
     <div className="min-h-screen bg-page-bg">
