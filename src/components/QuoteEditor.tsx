@@ -102,6 +102,9 @@ export function QuoteEditor({
             {quote && <StatusBadge status={quote.status.toLowerCase() as "draft" | "sent" | "approved" | "declined" | "expired" | "cancelled"} label={quote.status} showDot />}
           </div>
           <div className="flex gap-2 flex-wrap">
+            {!quote && (
+              <Button variant="secondary" onClick={() => router.push("/quotes")} disabled={pending}>Cancel</Button>
+            )}
             {(!quote || quote.status === "Draft") && (
               <Button variant="secondary" onClick={() => commit("Draft")} disabled={pending}>Save draft</Button>
             )}
