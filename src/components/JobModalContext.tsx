@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { JobModal, type ClientOption, type StaffOption } from "@/components/JobModal";
 import { StaffJobDrawer } from "@/components/StaffJobDrawer";
@@ -51,6 +51,7 @@ export function useJobModal() {
 
 export function JobModalProvider({ role, children }: { role: AppRole; children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { toast, showToast } = useToast();
   const [state, setState] = useState<JobModalState | null>(null);
   const [job, setJob] = useState<Job | null>(null);
@@ -109,9 +110,16 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
     (message: string) => {
       close();
       showToast(message);
-      router.refresh();
+      // A delete from the job's own detail page (/jobs/[id]) leaves that
+      // page pointed at a job that no longer exists — refreshing it just
+      // 404s. Send the user back to the list instead in that one case.
+      if (message === "Job deleted" && pathname.startsWith("/jobs/")) {
+        router.push("/jobs");
+      } else {
+        router.refresh();
+      }
     },
-    [close, showToast, router],
+    [close, showToast, router, pathname],
   );
 
   const value = useMemo(() => ({ openNewJob, openJob }), [openNewJob, openJob]);
