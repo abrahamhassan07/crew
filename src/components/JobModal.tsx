@@ -71,7 +71,7 @@ export function JobModal({
   onSaved: (message: string) => void;
 }) {
   const [form, setForm] = useState<JobInput>(() => toInput(job, prefillDate));
-  const [selectedClientId, setSelectedClientId] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState(job?.client_id ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -81,8 +81,11 @@ export function JobModal({
   const selectClient = (clientId: string) => {
     setSelectedClientId(clientId);
     const client = clientOptions.find((c) => c.id === clientId);
-    if (!client) return;
-    setForm((f) => ({ ...f, client: client.name, address: client.address ?? f.address, type: client.job_type }));
+    if (!client) {
+      setForm((f) => ({ ...f, clientId: null }));
+      return;
+    }
+    setForm((f) => ({ ...f, clientId: client.id, client: client.name, address: client.address ?? f.address, type: client.job_type }));
   };
 
   const save = () => {
