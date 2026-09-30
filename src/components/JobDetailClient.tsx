@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Calendar, Clock, DollarSign, HardHat, MapPin, Phone } from "lucide-react";
 import { updateJobChecklist, updateJobNotes, updateJobStatus } from "@/app/(app)/actions";
+import { useJobModal } from "@/components/JobModalContext";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -25,6 +26,7 @@ function badgeStatus(status: JobStatus): "scheduled" | "in-progress" | "complete
 
 export function JobDetailClient({ job }: { job: EnrichedJob }) {
   const router = useRouter();
+  const { openJob } = useJobModal();
   const [pending, startTransition] = useTransition();
   const [checklist, setChecklist] = useState(job.checklist ?? []);
   const [notes, setNotes] = useState(job.notes);
@@ -70,6 +72,9 @@ export function JobDetailClient({ job }: { job: EnrichedJob }) {
               <h1 className="text-2xl font-bold text-ink-primary mt-2">{job.title || `${job.job_type} job`}</h1>
               <div className="text-sm text-ink-secondary mt-1">{job.client_name}</div>
             </div>
+            <Button variant="secondary" size="md" onClick={() => openJob(job.id)}>
+              Edit job
+            </Button>
           </div>
         </div>
       </div>

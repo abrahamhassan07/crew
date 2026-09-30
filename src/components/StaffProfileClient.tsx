@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { updateStaff, type StaffUpdateInput } from "@/app/(app)/actions";
+import { deleteStaff, updateStaff, type StaffUpdateInput } from "@/app/(app)/actions";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -28,6 +29,7 @@ export function StaffProfileClient({ staff, crews, assignedJobs }: { staff: Staf
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  const [name, setName] = useState(staff.name);
   const [phone, setPhone] = useState(staff.phone ?? "");
   const [email, setEmail] = useState(staff.email);
   const [skill, setSkill] = useState<Skill>(staff.skill);
@@ -40,7 +42,7 @@ export function StaffProfileClient({ staff, crews, assignedJobs }: { staff: Staf
   const save = () => {
     setError(null);
     const input: StaffUpdateInput = {
-      name: staff.name,
+      name,
       phone,
       email,
       skill,
@@ -60,11 +62,23 @@ export function StaffProfileClient({ staff, crews, assignedJobs }: { staff: Staf
     });
   };
 
+  const remove = () => {
+    if (!confirm(`Remove ${staff.name}? This also revokes their login access. This can't be undone.`)) return;
+    startTransition(async () => {
+      const result = await deleteStaff(staff.id);
+      if (!result.ok) {
+        setError(result.error ?? "Could not remove staff member.");
+        return;
+      }
+      router.push("/staff");
+    });
+  };
+
   const toggleActive = (checked: boolean) => {
     setActive(checked);
     startTransition(async () => {
       await updateStaff(staff.id, {
-        name: staff.name,
+        name,
         phone,
         email,
         skill,
@@ -88,10 +102,10 @@ export function StaffProfileClient({ staff, crews, assignedJobs }: { staff: Staf
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full text-white flex items-center justify-center font-bold text-lg shrink-0" style={{ background: staffColorHex(staff.color_hue) }}>
-                {initialsOf(staff.name)}
+                {initialsOf(name)}
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-ink-primary">{staff.name}</h1>
+                <h1 className="text-2xl font-bold text-ink-primary">{name}</h1>
                 <div className="flex items-center gap-2 mt-1">
                   <StatusBadge status={active ? "active" : "inactive"} label={active ? "Active" : "Inactive"} showDot />
                   <span className="text-sm text-ink-secondary">{jobRole}</span>
@@ -110,6 +124,7 @@ export function StaffProfileClient({ staff, crews, assignedJobs }: { staff: Staf
         <div className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-6 items-start">
           <Card className="p-6 flex-1 w-full flex flex-col gap-4">
             <h2 className="text-base font-bold text-ink-primary">Details</h2>
+            <TextField label="Name" required value={name} onChange={(e) => setName(e.target.value)} />
             <TextField label="Mobile" value={phone} onChange={(e) => setPhone(e.target.value)} />
             <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <SelectField label="Skill" value={skill} onChange={(e) => setSkill(e.target.value as Skill)} options={[{ value: "cleaning", label: "Cleaning" }, { value: "gardening", label: "Gardening" }, { value: "both", label: "Cleaning + Gardening" }]} />
@@ -133,7 +148,16 @@ export function StaffProfileClient({ staff, crews, assignedJobs }: { staff: Staf
               </div>
             </div>
             {error && <p className="text-sm text-danger">{error}</p>}
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+              <button
+                type="button"
+                onClick={remove}
+                disabled={pending}
+                className="text-sm font-semibold text-danger flex items-center gap-1.5 disabled:opacity-60"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Remove staff member
+              </button>
               <Button variant="primary" onClick={save} disabled={pending}>Save changes</Button>
             </div>
           </Card>

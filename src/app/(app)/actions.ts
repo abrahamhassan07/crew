@@ -306,6 +306,27 @@ export async function toggleStaffActive(id: string, active: boolean): Promise<Ac
   return { ok: true };
 }
 
+export async function deleteStaff(id: string): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Not authorized." };
+
+  const supabase = await createClient();
+  const { data: staffRow } = await supabase.from("staff").select("user_id").eq("id", id).single();
+
+  const { error } = await supabase.from("staff").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  // Revoke their login too — a staff member without a staff row otherwise
+  // keeps an active account with no way to be assigned jobs again.
+  if (staffRow?.user_id) {
+    const admin = createAdminClient();
+    await admin.auth.admin.deleteUser(staffRow.user_id);
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export interface ClientInput {
   name: string;
   company: string;
