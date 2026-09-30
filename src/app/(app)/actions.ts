@@ -954,6 +954,15 @@ export async function saveQuote(id: string | null, input: QuoteInput, status: Qu
   return { ok: true, id: quoteId };
 }
 
+export async function updateQuoteStatus(id: string, status: QuoteStatus): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("quotes").update({ status }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function convertQuoteToJob(quoteId: string): Promise<CreateResult> {
   const supabase = await createClient();
   const viewer = await getViewer();

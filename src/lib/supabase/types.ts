@@ -138,7 +138,7 @@ export type ServiceCategory = "Gardening" | "Cleaning" | "Other";
 export type RequestStatus = "New" | "Contacted" | "Quoted" | "Converted" | "Closed";
 
 export type GstMode = "inclusive" | "exclusive";
-export type QuoteStatus = "Draft" | "Sent" | "Approved" | "Declined" | "Expired";
+export type QuoteStatus = "Draft" | "Sent" | "Approved" | "Declined" | "Expired" | "Cancelled";
 
 export type QuoteItem = {
   id: string;

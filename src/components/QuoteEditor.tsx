@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
-import { convertQuoteToJob, saveQuote, type QuoteInput, type QuoteLineInput } from "@/app/(app)/actions";
+import { convertQuoteToJob, saveQuote, updateQuoteStatus, type QuoteInput, type QuoteLineInput } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -79,6 +79,18 @@ export function QuoteEditor({
     });
   };
 
+  const cancel = () => {
+    if (!quote) return;
+    startTransition(async () => {
+      const result = await updateQuoteStatus(quote.id, "Cancelled");
+      if (!result.ok) {
+        setError(result.error ?? "Could not cancel quote.");
+        return;
+      }
+      router.refresh();
+    });
+  };
+
   const setLine = (i: number, next: QuoteLineInput) => setLines(lines.map((l, k) => (k === i ? next : l)));
 
   return (
@@ -87,7 +99,7 @@ export function QuoteEditor({
         <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-ink-primary">{quote ? quote.num : "New quote"}</h1>
-            {quote && <StatusBadge status={quote.status.toLowerCase() as "draft" | "sent" | "approved" | "declined" | "expired"} label={quote.status} showDot />}
+            {quote && <StatusBadge status={quote.status.toLowerCase() as "draft" | "sent" | "approved" | "declined" | "expired" | "cancelled"} label={quote.status} showDot />}
           </div>
           <div className="flex gap-2 flex-wrap">
             {(!quote || quote.status === "Draft") && (
@@ -108,6 +120,9 @@ export function QuoteEditor({
               ) : (
                 <Button variant="primary" onClick={convert} disabled={pending}>Convert to job</Button>
               )
+            )}
+            {quote && !quote.job_id && ["Draft", "Sent", "Approved"].includes(quote.status) && (
+              <Button variant="secondary" onClick={cancel} disabled={pending}>Cancel quote</Button>
             )}
           </div>
         </div>

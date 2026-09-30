@@ -13,12 +13,12 @@ import { calcTotals } from "@/lib/gst";
 import type { Column } from "@/components/ui/DataTable";
 import type { Client, GstMode, Quote, QuoteStatus } from "@/lib/supabase/types";
 
-const TABS: (QuoteStatus | "All")[] = ["All", "Draft", "Sent", "Approved", "Declined", "Expired"];
+const TABS: (QuoteStatus | "All")[] = ["All", "Draft", "Sent", "Approved", "Declined", "Expired", "Cancelled"];
 
 type QuoteRow = Quote & { clientName: string; total: number };
 
 function badgeStatus(s: QuoteStatus) {
-  return s.toLowerCase() as "draft" | "sent" | "approved" | "declined" | "expired";
+  return s.toLowerCase() as "draft" | "sent" | "approved" | "declined" | "expired" | "cancelled";
 }
 
 export function QuotesPageClient({ quotes, clients, itemTotals }: { quotes: Quote[]; clients: Client[]; itemTotals: Map<string, { qty: number; unit_price: number; mode: GstMode }[]> }) {
