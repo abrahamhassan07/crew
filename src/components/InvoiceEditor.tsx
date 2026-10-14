@@ -75,7 +75,7 @@ export function InvoiceEditor({
   const [dueDate, setDueDate] = useState(invoice?.due_date ?? new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10));
   const gstRegistered = organization?.gst_registered ?? true;
   const [mode, setMode] = useState<GstMode>(invoice?.mode ?? (gstRegistered ? "exclusive" : "none"));
-  const [notes, setNotes] = useState(invoice?.notes ?? "Please use the invoice number as your payment reference.");
+  const [notes, setNotes] = useState(invoice?.notes ?? (organization?.payment_details?.trim() || "Please use the invoice number as your payment reference."));
   const [lines, setLines] = useState<InvoiceLineInput[]>(
     initialItems.length
       ? initialItems.map((i) => ({ serviceId: i.service_id, serviceName: i.service_name, description: i.description, qty: i.qty, unitPrice: i.unit_price }))
@@ -487,7 +487,13 @@ export function InvoiceEditor({
             </Card>
 
             <Card className="p-6">
-              <TextAreaField label="Payment instructions" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <TextAreaField
+                label="Payment instructions"
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                help={organization?.payment_details?.trim() ? undefined : "Tip: save your bank details once under Settings > Payment details and they will fill in here automatically."}
+              />
             </Card>
           </div>
 

@@ -1213,10 +1213,12 @@ export interface OrganizationInput {
   address: string;
   abn: string;
   gstRegistered: boolean;
+  paymentDetails: string;
 }
 
 export async function updateOrganization(input: OrganizationInput): Promise<ActionResult> {
   if (!input.name.trim()) return { ok: false, error: "Business name is required." };
+  if (input.paymentDetails.length > 1000) return { ok: false, error: "Keep payment details under 1000 characters." };
 
   const viewer = await getViewer();
   if (viewer.profile.role !== "admin") return { ok: false, error: "Not authorized." };
@@ -1231,6 +1233,7 @@ export async function updateOrganization(input: OrganizationInput): Promise<Acti
       address: input.address.trim() || null,
       abn: input.abn.trim() || null,
       gst_registered: input.gstRegistered,
+      payment_details: input.paymentDetails.trim() || null,
     })
     .eq("id", viewer.orgId);
 

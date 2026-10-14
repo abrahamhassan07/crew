@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/forms/TextField";
 import { SelectField } from "@/components/forms/SelectField";
+import { TextAreaField } from "@/components/forms/TextAreaField";
 import { PageHeader } from "@/components/ui/PageHeader";
 import type { Organization } from "@/lib/supabase/types";
 
@@ -17,6 +18,7 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
     address: organization.address ?? "",
     abn: organization.abn ?? "",
     gstRegistered: organization.gst_registered ?? true,
+    paymentDetails: organization.payment_details ?? "",
   });
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -89,6 +91,20 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
                 defaultValue="Australia/Melbourne"
               />
             </div>
+          </Card>
+
+          {/* Invoice payment details */}
+          <Card className="p-6 mb-6">
+            <h2 className="text-xl font-bold text-ink-primary mb-1">Payment details</h2>
+            <p className="text-sm text-ink-muted mb-4">How clients should pay you. This is pre-filled into the payment instructions on every new invoice (you can still change it per invoice).</p>
+            <TextAreaField
+              label="Payment instructions"
+              rows={5}
+              maxLength={1000}
+              placeholder={"Account name: Your Business\nBSB: 000-000\nAccount number: 00000000\nPlease use the invoice number as your payment reference."}
+              value={input.paymentDetails}
+              onChange={(e) => setInput({ ...input, paymentDetails: e.target.value })}
+            />
           </Card>
 
           {/* Pricing Settings */}

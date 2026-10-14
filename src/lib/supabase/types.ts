@@ -20,6 +20,7 @@ export type Organization = {
   address: string | null;
   abn: string | null;
   gst_registered: boolean;
+  payment_details: string | null;
   plan: string | null;
   team_size: string | null;
   billing_interval: "month" | "year" | null;
