@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
+import { isValidEmail } from "@/lib/validate";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
 import { renderDocumentPdf } from "@/lib/pdf";
 import { addDays, fmtISO, parseISO, STAFF_HUES } from "@/lib/design";
@@ -884,8 +885,17 @@ export interface QuoteLineInput {
   unitPrice: number;
 }
 
+export interface NewClientInput {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+}
+
 export interface QuoteInput {
   clientId: string;
+  /** Used when the quote is for someone not in the client list yet: they're created as a Lead. */
+  newClient?: NewClientInput | null;
   propertyId: string | null;
   quoteDate: string;
   expiryDate: string;
@@ -895,13 +905,44 @@ export interface QuoteInput {
   items: QuoteLineInput[];
 }
 
-export async function saveQuote(id: string | null, input: QuoteInput, status: QuoteStatus): Promise<CreateResult> {
-  if (!input.clientId) return { ok: false, error: "Choose a client." };
-  if (!input.items.length || input.items.some((i) => !i.serviceName.trim())) return { ok: false, error: "Every line item needs a name." };
+export async function saveQuote(id: string | null, rawInput: QuoteInput, status: QuoteStatus): Promise<CreateResult> {
+  if (!rawInput.clientId && !rawInput.newClient) return { ok: false, error: "Choose a client, or enter the new client's name." };
+  if (!rawInput.items.length || rawInput.items.some((i) => !i.serviceName.trim())) return { ok: false, error: "Every line item needs a name." };
 
   const supabase = await createClient();
   const viewer = await getViewer();
   let quoteId = id;
+  let input = rawInput;
+  let createdClientId: string | null = null;
+
+  if (!input.clientId && input.newClient) {
+    const name = input.newClient.name.trim();
+    const email = input.newClient.email.trim();
+    if (!name) return { ok: false, error: "Enter the new client's name." };
+    if (email && !isValidEmail(email)) return { ok: false, error: "That email address doesn't look right." };
+
+    // Avoid accidental duplicates: if they're already in the list, make the user pick them.
+    const escaped = name.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const { data: existing } = await supabase.from("clients").select("id").ilike("name", escaped).limit(1);
+    if (existing?.length) return { ok: false, error: `A client named "${name}" already exists. Choose them from the client list.` };
+
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .insert({
+        name,
+        email: email || null,
+        phone: input.newClient.phone.trim() || null,
+        address: input.newClient.address.trim() || null,
+        status: "Lead",
+        lead_source: "Quote",
+        org_id: viewer.orgId,
+      })
+      .select("id")
+      .single();
+    if (clientError || !client) return { ok: false, error: clientError?.message ?? "Could not create the client." };
+    createdClientId = client.id;
+    input = { ...input, clientId: client.id, propertyId: null };
+  }
 
   if (quoteId) {
     const { error } = await supabase
@@ -916,7 +957,10 @@ export async function saveQuote(id: string | null, input: QuoteInput, status: Qu
         status,
       })
       .eq("id", quoteId);
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
+      return { ok: false, error: error.message };
+    }
     await supabase.from("quote_items").delete().eq("quote_id", quoteId);
   } else {
     const num = await nextQuoteNum(supabase);
@@ -936,7 +980,10 @@ export async function saveQuote(id: string | null, input: QuoteInput, status: Qu
       })
       .select("id")
       .single();
-    if (error || !data) return { ok: false, error: error?.message ?? "Could not create quote." };
+    if (error || !data) {
+      if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
+      return { ok: false, error: error?.message ?? "Could not create quote." };
+    }
     quoteId = data.id;
   }
 

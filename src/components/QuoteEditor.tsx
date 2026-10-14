@@ -41,6 +41,8 @@ export function QuoteEditor({
   const [error, setError] = useState<string | null>(null);
 
   const [clientId, setClientId] = useState(quote?.client_id ?? initialClientId ?? "");
+  const [isNewClient, setIsNewClient] = useState(false);
+  const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", address: "" });
   const [propertyId, setPropertyId] = useState(quote?.property_id ?? "");
   const [quoteDate, setQuoteDate] = useState(quote?.quote_date ?? new Date().toISOString().slice(0, 10));
   const [expiryDate, setExpiryDate] = useState(quote?.expiry_date ?? new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10));
@@ -56,7 +58,7 @@ export function QuoteEditor({
   const clientProperties = properties.filter((p) => p.client_id === clientId);
   const totals = calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), mode);
 
-  const input: QuoteInput = { clientId, propertyId: propertyId || null, quoteDate, expiryDate, mode, message, requestId: quote?.request_id ?? initialRequestId ?? null, items: lines };
+  const input: QuoteInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, quoteDate, expiryDate, mode, message, requestId: quote?.request_id ?? initialRequestId ?? null, items: lines };
 
   const commit = (status: "Draft" | "Sent" | "Approved" | "Declined") => {
     setError(null);
@@ -181,8 +183,33 @@ export function QuoteEditor({
         <div className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-6 items-start">
           <div className="flex-[2] w-full flex flex-col gap-6">
             <Card className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SelectField label="Client" required disabled={locked} value={clientId} onChange={(e) => { setClientId(e.target.value); setPropertyId(""); }} options={clients.map((c) => ({ value: c.id, label: c.name }))} placeholder="Select a client" />
-              <SelectField label="Service address" disabled={locked} value={propertyId} onChange={(e) => setPropertyId(e.target.value)} options={clientProperties.map((p) => ({ value: p.id, label: `${p.street}, ${p.suburb}` }))} placeholder="No property selected" />
+              <SelectField
+                label="Client"
+                required
+                disabled={locked}
+                value={isNewClient ? "__new__" : clientId}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setIsNewClient(v === "__new__");
+                  setClientId(v === "__new__" ? "" : v);
+                  setPropertyId("");
+                }}
+                options={[...(!quote || quote.status === "Draft" ? [{ value: "__new__", label: "+ New client (not in the list)…" }] : []), ...clients.map((c) => ({ value: c.id, label: c.name }))]}
+                placeholder="Select a client"
+              />
+              {isNewClient ? (
+                <div className="flex items-end text-xs text-ink-muted pb-2">They&rsquo;ll be added to your Clients list as a Lead when you save.</div>
+              ) : (
+                <SelectField label="Service address" disabled={locked} value={propertyId} onChange={(e) => setPropertyId(e.target.value)} options={clientProperties.map((p) => ({ value: p.id, label: `${p.street}, ${p.suburb}` }))} placeholder="No property selected" />
+              )}
+              {isNewClient && (
+                <>
+                  <TextField label="Client name" required value={newClient.name} onChange={(e) => setNewClient({ ...newClient, name: e.target.value })} />
+                  <TextField label="Email" type="email" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} />
+                  <TextField label="Phone" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} />
+                  <TextField label="Address" value={newClient.address} onChange={(e) => setNewClient({ ...newClient, address: e.target.value })} />
+                </>
+              )}
               <TextField label="Quote date" type="date" disabled={locked} value={quoteDate} onChange={(e) => setQuoteDate(e.target.value)} />
               <TextField label="Expiry date" type="date" disabled={locked} value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
             </Card>
