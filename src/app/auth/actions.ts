@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createOwnerStaff } from "@/lib/provision";
 
 export interface GoogleProvisionResult {
   ok: boolean;
@@ -41,8 +42,12 @@ export async function provisionAfterGoogleSignIn(businessName?: string): Promise
     return { ok: false, error: "could-not-create-business" };
   }
 
-  const { error: profileError } = await admin.from("profiles").insert({ user_id: user.id, role: "admin", org_id: org.id });
+  const ownerName = String(user.user_metadata?.full_name || user.user_metadata?.name || "");
+  const staffId = await createOwnerStaff(admin, org.id, ownerName, user.email ?? "", user.id);
+
+  const { error: profileError } = await admin.from("profiles").insert({ user_id: user.id, role: "admin", org_id: org.id, staff_id: staffId });
   if (profileError) {
+    await admin.from("organizations").delete().eq("id", org.id);
     await admin.auth.admin.deleteUser(user.id);
     return { ok: false, error: "could-not-create-business" };
   }

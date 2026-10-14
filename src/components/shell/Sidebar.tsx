@@ -19,7 +19,6 @@ import {
   ChevronsRight,
   Sprout,
   Wrench,
-  Megaphone,
   CreditCard,
 } from "lucide-react";
 
@@ -50,7 +49,6 @@ const NAV_GROUPS = [
       { href: "/staff", label: "Crews & Staff", icon: Users, adminOnly: true },
       { href: "/services", label: "Services", icon: Briefcase, adminOnly: true },
       { href: "/equipment", label: "Equipment", icon: Wrench, adminOnly: true },
-      { href: "/marketing", label: "Marketing", icon: Megaphone, adminOnly: true },
       { href: "/reports", label: "Reports", icon: FileText, adminOnly: true },
     ],
   },

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Plus, Send, Trash2 } from "lucide-react";
-import { convertQuoteToJob, emailQuote, saveQuote, updateQuoteStatus, type QuoteInput, type QuoteLineInput } from "@/app/(app)/actions";
+import { checkCanSendDocuments, convertQuoteToJob, emailQuote, saveQuote, updateQuoteStatus, type QuoteInput, type QuoteLineInput } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -63,6 +63,13 @@ export function QuoteEditor({
   const commit = (status: "Draft" | "Sent" | "Approved" | "Declined") => {
     setError(null);
     startTransition(async () => {
+      if (status === "Sent") {
+        const ready = await checkCanSendDocuments();
+        if (!ready.ok) {
+          setError(ready.error ?? "Can't send yet.");
+          return;
+        }
+      }
       const result = await saveQuote(quote?.id ?? null, input, status);
       if (!result.ok) {
         setError(result.error ?? "Could not save quote.");

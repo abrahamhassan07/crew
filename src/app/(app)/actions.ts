@@ -893,7 +893,7 @@ export async function convertRequestToJob(requestId: string, date: string, start
 
 async function nextQuoteNum(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
   const { data } = await supabase.from("quotes").select("num");
-  const max = (data ?? []).reduce((m, r) => Math.max(m, parseInt(r.num.replace(/\D/g, ""), 10) || 0), 2040);
+  const max = (data ?? []).reduce((m, r) => Math.max(m, parseInt(r.num.replace(/\D/g, ""), 10) || 0), 1000);
   return `Q-${max + 1}`;
 }
 
@@ -1094,7 +1094,7 @@ export async function convertQuoteToJob(quoteId: string): Promise<CreateResult> 
 
 async function nextInvoiceNum(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
   const { data } = await supabase.from("invoices").select("num");
-  const max = (data ?? []).reduce((m, r) => Math.max(m, parseInt(r.num.replace(/\D/g, ""), 10) || 0), 3140);
+  const max = (data ?? []).reduce((m, r) => Math.max(m, parseInt(r.num.replace(/\D/g, ""), 10) || 0), 1000);
   return `INV-${max + 1}`;
 }
 
@@ -1405,5 +1405,17 @@ export async function updateFeedbackStatus(id: string, status: FeedbackStatus): 
 
   revalidatePath("/feedback");
   revalidatePath("/admin/feedback");
+  return { ok: true };
+}
+
+/** Called before marking a quote/invoice as sent, so nothing is marked Sent when it can't be emailed. */
+export async function checkCanSendDocuments(): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Only admins can send documents." };
+  const supabase = await createClient();
+  const { data: org } = await supabase.from("organizations").select("email").eq("id", viewer.orgId).single();
+  if (!org?.email?.trim()) {
+    return { ok: false, error: "Add your business email under Settings > Business Information first, so your client's replies reach you." };
+  }
   return { ok: true };
 }

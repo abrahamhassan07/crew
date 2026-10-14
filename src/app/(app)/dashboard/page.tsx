@@ -8,6 +8,7 @@ import { NewJobQuickAction } from "@/components/NewJobQuickAction";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { GettingStarted, type GettingStartedProps } from "@/components/GettingStarted";
 import {
   Calendar,
   Clock,
@@ -129,6 +130,25 @@ export default async function DashboardPage() {
 
   const isAdmin = viewer.profile.role === "admin";
 
+  // First-run checklist (admins only). It disappears once every step is done.
+  let gettingStarted: GettingStartedProps | null = null;
+  if (isAdmin) {
+    const head = { count: "exact" as const, head: true };
+    const [{ data: org }, { count: clientCount }, { count: quoteCount }, { count: invoiceCount }] = await Promise.all([
+      supabase.from("organizations").select("email, phone, payment_details").eq("id", viewer.orgId).single(),
+      supabase.from("clients").select("id", head),
+      supabase.from("quotes").select("id", head),
+      supabase.from("invoices").select("id", head),
+    ]);
+    gettingStarted = {
+      hasBusinessDetails: !!(org?.email?.trim() && org?.phone?.trim()),
+      hasPaymentDetails: !!org?.payment_details?.trim(),
+      hasClient: (clientCount ?? 0) > 0,
+      hasQuote: (quoteCount ?? 0) > 0,
+      hasInvoice: (invoiceCount ?? 0) > 0,
+    };
+  }
+
   // Greeting
   const hour = new Date().getHours();
   const greeting =
@@ -154,6 +174,8 @@ export default async function DashboardPage() {
       {/* Main content */}
       <div className="px-6 py-8">
         <div className="max-w-[1600px] mx-auto">
+          {gettingStarted && <GettingStarted {...gettingStarted} />}
+
           {/* KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
             {isAdmin && (

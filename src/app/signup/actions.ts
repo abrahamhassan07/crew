@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { createOwnerStaff } from "@/lib/provision";
 
 export interface SignUpState {
   error?: string;
@@ -31,18 +32,25 @@ export async function signUp(_prevState: SignUpState | undefined, formData: Form
     return { error: orgError?.message ?? "Could not create your business." };
   }
 
+  // The owner is also assignable staff; handle_new_user() links this row to the login.
+  const staffId = await createOwnerStaff(admin, org.id, name, email);
+
   const supabase = await createClient();
-  const { error: signUpError } = await supabase.auth.signUp({
+  const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { app_role: "admin", org_id: org.id, name },
+      data: { app_role: "admin", org_id: org.id, name, ...(staffId ? { staff_id: staffId } : {}) },
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm?next=/dashboard`,
     },
   });
 
-  if (signUpError) {
-    return { error: signUpError.message };
+  // Supabase answers a sign-up for an already-registered email with a fake success
+  // (no identities) so it can't be used to discover accounts; don't leave a stray business behind.
+  const alreadyRegistered = !signUpError && data.user?.identities?.length === 0;
+  if (signUpError || alreadyRegistered) {
+    await admin.from("organizations").delete().eq("id", org.id);
+    return { error: alreadyRegistered ? "An account with this email already exists. Try logging in instead." : signUpError!.message };
   }
 
   return { done: true };

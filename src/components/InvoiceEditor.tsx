@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, ChevronLeft, Download, Info, Pencil, Plus, Send, Sprout, Trash2, Wallet } from "lucide-react";
-import { emailInvoice, recordPayment, saveInvoice, updateInvoiceStatus, type InvoiceInput, type InvoiceLineInput, type PaymentInput } from "@/app/(app)/actions";
+import { checkCanSendDocuments, emailInvoice, recordPayment, saveInvoice, updateInvoiceStatus, type InvoiceInput, type InvoiceLineInput, type PaymentInput } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -119,6 +119,11 @@ export function InvoiceEditor({
   const sendByEmail = (markSent: boolean) => {
     if (!invoice) return;
     startTransition(async () => {
+      const ready = await checkCanSendDocuments();
+      if (!ready.ok) {
+        showToast(ready.error ?? "Can't send yet.");
+        return;
+      }
       if (markSent) await updateInvoiceStatus(invoice.id, "Sent");
       const sent = await emailInvoice(invoice.id);
       showToast(sent.ok ? `${invoice.num} emailed to ${sent.sentTo}` : `${markSent ? `${invoice.num} marked as sent, but the` : "The"} email wasn't sent: ${sent.error}`);
