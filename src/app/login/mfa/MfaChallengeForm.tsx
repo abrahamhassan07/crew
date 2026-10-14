@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export function MfaChallengeForm({ next, supportEmail }: { next: string; supportEmail: string }) {
+export function MfaChallengeForm({ next, supportEmail, onSignOut }: { next: string; supportEmail: string; onSignOut?: () => void }) {
   const router = useRouter();
   const [factorId, setFactorId] = useState<string | null>(null);
   const [code, setCode] = useState("");
@@ -48,7 +48,8 @@ export function MfaChallengeForm({ next, supportEmail }: { next: string; support
 
   const signOut = async () => {
     await createClient().auth.signOut();
-    router.replace("/login");
+    if (onSignOut) onSignOut();
+    else router.replace("/login");
   };
 
   return (

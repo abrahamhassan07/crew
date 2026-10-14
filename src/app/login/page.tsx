@@ -1,4 +1,3 @@
-import { Sprout } from "lucide-react";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
@@ -36,22 +35,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="w-11 h-11 rounded-full bg-ok-bg text-ok-fg flex items-center justify-center mb-5">
-              <Sprout className="w-5 h-5" />
-            </div>
-            <h1 className="font-serif font-semibold text-2xl text-ink-primary mb-1">Welcome back</h1>
-            <p className="text-sm text-ink-muted">Log in to your Crew &amp; Grounds account</p>
-          </div>
-
           <LoginForm next={next} oauthError={oauthError} />
-
-          <p className="text-sm text-ink-muted text-center mt-6">
-            New business?{" "}
-            <a href="/signup" className="text-brand font-semibold">
-              Sign up
-            </a>
-          </p>
 
           <p className="text-xs text-ink-muted text-center mt-4">
             <a href="/terms" className="hover:text-ink-primary">Terms</a>

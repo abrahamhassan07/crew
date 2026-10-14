@@ -1,8 +1,10 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Sprout } from "lucide-react";
 import { signIn } from "./actions";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { MfaChallengeForm } from "./mfa/MfaChallengeForm";
 
 const OAUTH_ERRORS: Record<string, string> = {
   "oauth-failed": "Google sign-in failed. Please try again.",
@@ -12,8 +14,26 @@ const OAUTH_ERRORS: Record<string, string> = {
 export function LoginForm({ next, oauthError }: { next: string; oauthError?: string }) {
   const [state, formAction, pending] = useActionState(signIn, undefined);
   const [googleError, setGoogleError] = useState<string | null>(null);
+  const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@crewandgrounds.com";
+
+  // Password accepted and the account has two-factor on: swap the form for the code step.
+  const needsCode = !!state?.mfa;
+  const heading = needsCode ? "Two-factor sign-in" : "Welcome back";
+  const subheading = needsCode ? "Enter the 6-digit code from your authenticator app" : "Log in to your Crew & Grounds account";
 
   return (
+    <>
+      <div className="flex flex-col items-center text-center mb-8">
+        <div className="w-11 h-11 rounded-full bg-ok-bg text-ok-fg flex items-center justify-center mb-5">
+          <Sprout className="w-5 h-5" />
+        </div>
+        <h1 className="font-serif font-semibold text-2xl text-ink-primary mb-1">{heading}</h1>
+        <p className="text-sm text-ink-muted">{subheading}</p>
+      </div>
+
+      {needsCode ? (
+        <MfaChallengeForm next={next.startsWith("/") ? next : "/"} supportEmail={supportEmail} onSignOut={() => window.location.reload()} />
+      ) : (
     <div className="flex flex-col gap-4">
       <GoogleSignInButton next={next} onError={setGoogleError} />
 
@@ -67,5 +87,16 @@ export function LoginForm({ next, oauthError }: { next: string; oauthError?: str
         </button>
       </form>
     </div>
+      )}
+
+      {!needsCode && (
+        <p className="text-sm text-ink-muted text-center mt-6">
+          New business?{" "}
+          <a href="/signup" className="text-brand font-semibold">
+            Sign up
+          </a>
+        </p>
+      )}
+    </>
   );
 }
