@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { Check, Info, Tag } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ToastBanner, useToast } from "@/components/Toast";
+import { PLANS, TEAM_SIZES, priceFor } from "@/lib/plans";
 
 // Persists a single string value to localStorage and keeps every subscriber
 // in the tab in sync (localStorage's own "storage" event only fires in
@@ -49,76 +50,6 @@ function useLocalStorageState(key: string, defaultValue: string): [string, (next
   return [value, setValue];
 }
 
-const TEAM_SIZES = [
-  { k: "1", label: "Just me", users: 1, mult: 1 },
-  { k: "2-5", label: "2–5 users", users: 5, mult: 1.8 },
-  { k: "6-10", label: "6–10 users", users: 10, mult: 3 },
-  { k: "11-20", label: "11–20 users", users: 20, mult: 5 },
-  { k: "21+", label: "21+ users", users: 999, mult: 8 },
-] as const;
-
-interface Plan {
-  k: string;
-  rank: number;
-  name: string;
-  base: number;
-  max: number;
-  blurb: string;
-  lead: string;
-  features: string[];
-}
-
-const PLANS: Plan[] = [
-  {
-    k: "starter",
-    rank: 1,
-    name: "Starter",
-    base: 39,
-    max: 5,
-    blurb: "For sole traders getting organised with quoting, scheduling and invoicing.",
-    lead: "What's included",
-    features: [
-      "Client records with multiple properties",
-      "Quotes and tax invoices with GST",
-      "Day, week and month scheduling",
-      "Service catalogue and price list",
-      "Basic reporting",
-    ],
-  },
-  {
-    k: "growth",
-    rank: 2,
-    name: "Growth",
-    base: 99,
-    max: 999,
-    blurb: "For growing teams running multiple crews and recurring work.",
-    lead: "Everything in Starter, plus",
-    features: [
-      "Crew scheduling with drag and drop",
-      "Recurring jobs and visit series",
-      "Job checklists and before/after photos",
-      "Booking requests from your website",
-      "Automated quote follow-ups",
-    ],
-  },
-  {
-    k: "professional",
-    rank: 3,
-    name: "Professional",
-    base: 189,
-    max: 999,
-    blurb: "For established operators who need deeper insight and control.",
-    lead: "Everything in Growth, plus",
-    features: [
-      "Crew utilisation and profitability reports",
-      "Equipment tracking and service reminders",
-      "Custom roles and permissions",
-      "Marketing campaigns and review requests",
-      "Priority support",
-    ],
-  },
-];
-
 type CompareCell = number | string;
 interface CompareRow {
   section?: string;
@@ -145,36 +76,57 @@ const COMPARE: CompareRow[] = [
   { label: "Support", cells: ["Email", "Email & chat", "Priority"] },
 ];
 
-function priceFor(plan: Plan, team: (typeof TEAM_SIZES)[number], annual: boolean) {
-  const monthly = Math.round(plan.base * team.mult);
-  const now = annual ? Math.round(monthly * 0.8) : monthly;
-  return { monthly, now };
+export interface SubscriptionPageProps {
+  currentPlan: string | null;
+  status: string | null;
+  renews: string | null;
+  trialDaysLeft: number | null;
+  exempt: boolean;
+  checkoutResult: string | null;
 }
 
-export function SubscriptionPageClient() {
+export function SubscriptionPageClient({ currentPlan, status, renews, trialDaysLeft, exempt, checkoutResult }: SubscriptionPageProps) {
   const { toast, showToast } = useToast();
   const [teamKey, setTeamKey] = useLocalStorageState("crew_subscription_team", "1");
   const [annualStr, setAnnualStr] = useLocalStorageState("crew_subscription_annual", "true");
-  const [currentPlan, setCurrentPlan] = useLocalStorageState("crew_subscription_plan", "growth");
+  const [busy, setBusy] = useState(false);
   const [confirmKey, setConfirmKey] = useState<string | null>(null);
   const annual = annualStr === "true";
   const setAnnual = (v: boolean) => setAnnualStr(String(v));
 
   const team = TEAM_SIZES.find((t) => t.k === teamKey) ?? TEAM_SIZES[0];
   const curRank = PLANS.find((p) => p.k === currentPlan)?.rank ?? 0;
+  const subscribed = !!status && ["active", "trialing", "past_due"].includes(status);
+
+  const go = async (url: string, body?: object) => {
+    setBusy(true);
+    try {
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) {
+        showToast(data.error ?? "Something went wrong. Please try again.");
+        setBusy(false);
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      showToast("Couldn't reach the billing service. Please try again.");
+      setBusy(false);
+    }
+  };
   const confirmPlan = PLANS.find((p) => p.k === confirmKey) ?? null;
 
   const cards = useMemo(
     () =>
       PLANS.map((p) => {
         const { monthly, now } = priceFor(p, team, annual);
-        const isCurrent = p.k === currentPlan;
+        const isCurrent = subscribed && p.k === currentPlan;
         const recommended = p.k === "growth";
         const tooBig = team.users > p.max;
         const isUpgrade = p.rank > curRank;
         return { plan: p, monthly, now, isCurrent, recommended, tooBig, isUpgrade };
       }),
-    [team, annual, currentPlan, curRank]
+    [team, annual, currentPlan, curRank, subscribed]
   );
 
   const confirmPrice = confirmPlan ? priceFor(confirmPlan, team, annual) : null;
@@ -183,16 +135,35 @@ export function SubscriptionPageClient() {
     <div className="min-h-screen bg-page-bg">
       <div className="px-6 py-8">
         <div className="max-w-[1360px] mx-auto">
-          <div className="flex items-start gap-2.5 px-4 py-3 bg-warn-bg border border-warn-fg/25 rounded-lg text-sm text-warn-fg mb-6">
-            <Info className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>
-              <strong>Placeholder pricing.</strong> Plan names, prices and limits below are configurable and will be replaced when final Crew &amp; Grounds plans are
-              supplied. Plan changes here are simulated and no payment is taken.
-            </span>
-          </div>
+          {checkoutResult === "success" && (
+            <div className="px-4 py-3 bg-ok-bg text-ok-fg rounded-lg text-sm font-semibold mb-6">Thanks! Your subscription is being set up and will show here in a moment.</div>
+          )}
+          {exempt ? (
+            <div className="flex items-start gap-2.5 px-4 py-3 bg-info-bg text-info-fg rounded-lg text-sm mb-6">
+              <Info className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>Your account is on a complimentary plan, so there&rsquo;s nothing to pay. The plans below are what new businesses see.</span>
+            </div>
+          ) : subscribed ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-card-bg border border-line rounded-lg text-sm mb-6">
+              <span>
+                <strong className="capitalize">{currentPlan ?? "Your"} plan</strong> · {status === "past_due" ? "payment overdue" : status === "trialing" ? "trial" : "active"}
+                {renews ? ` · renews ${new Date(renews).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}` : ""}
+              </span>
+              <Button variant="secondary" disabled={busy} onClick={() => go("/api/billing/portal")}>Manage billing</Button>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2.5 px-4 py-3 bg-info-bg text-info-fg rounded-lg text-sm mb-6">
+              <Info className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                {trialDaysLeft != null
+                  ? `You're on a free trial with ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left. Pick a plan any time — you won't be charged until your trial ends.`
+                  : "Your free trial has ended. Choose a plan to keep using Crew & Grounds."}
+              </span>
+            </div>
+          )}
 
           <h1 className="text-3xl font-extrabold tracking-tight text-ink-primary">Choose your plan</h1>
-          <p className="text-base text-ink-secondary mt-2 mb-6 max-w-2xl">Pick the plan and team size that suit your business. You can change plans at any time.</p>
+          <p className="text-base text-ink-secondary mt-2 mb-6 max-w-2xl">Pick the plan and team size that suit your business. You can change or cancel any time from Manage billing.</p>
 
           <div className="flex flex-wrap items-center gap-3.5 mb-7">
             <label className="flex items-center gap-2.5">
@@ -285,11 +256,11 @@ export function SubscriptionPageClient() {
                 <Button
                   variant={isCurrent || tooBig ? "secondary" : isUpgrade ? "primary" : "secondary"}
                   size="lg"
-                  disabled={isCurrent || tooBig}
-                  onClick={() => setConfirmKey(plan.k)}
+                  disabled={isCurrent || tooBig || exempt}
+                  onClick={() => (subscribed ? go("/api/billing/portal") : setConfirmKey(plan.k))}
                   className="mt-5.5 w-full"
                 >
-                  {isCurrent ? "Current plan" : tooBig ? "Not available for this team size" : isUpgrade ? `Upgrade to ${plan.name}` : `Switch to ${plan.name}`}
+                  {isCurrent ? "Current plan" : tooBig ? "Not available for this team size" : subscribed ? (isUpgrade ? `Upgrade to ${plan.name}` : `Switch to ${plan.name}`) : `Choose ${plan.name}`}
                 </Button>
               </div>
             ))}
@@ -346,26 +317,20 @@ export function SubscriptionPageClient() {
           <div onClick={() => setConfirmKey(null)} className="fixed inset-0 bg-black/45 z-100" />
           <div className="fixed inset-0 z-101 flex items-center justify-center p-4">
             <div className="bg-card-bg rounded-xl w-full max-w-sm p-6">
-              <div className="text-lg font-extrabold mb-1.5">Switch to {confirmPlan.name}?</div>
+              <div className="text-lg font-extrabold mb-1.5">Subscribe to {confirmPlan.name}?</div>
               <div className="text-sm text-ink-secondary leading-relaxed mb-1.5">
-                ${confirmPrice.now}/mo, {(team.users === 1 ? "1 user" : team.label).toLowerCase()}, {annual ? "billed annually" : "billed monthly"}.
+                ${confirmPrice.now}/mo, {(team.users === 1 ? "1 user" : team.label).toLowerCase()}, {annual ? `billed annually ($${confirmPrice.now * 12}/yr)` : "billed monthly"}.
               </div>
               <div className="text-xs text-ink-muted leading-relaxed mb-5">
-                Prototype only: this updates your plan indicator. No billing provider is connected and no payment will be taken.
+                You&rsquo;ll be taken to our payment partner, Stripe, to enter your card.
+                {trialDaysLeft != null && trialDaysLeft > 1 ? ` Your free trial continues — you won't be charged until it ends.` : ""}
               </div>
               <div className="flex justify-end gap-2.5">
-                <Button variant="secondary" onClick={() => setConfirmKey(null)}>
+                <Button variant="secondary" onClick={() => setConfirmKey(null)} disabled={busy}>
                   Cancel
                 </Button>
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    setCurrentPlan(confirmPlan.k);
-                    setConfirmKey(null);
-                    showToast(`Plan switched to ${confirmPlan.name} (simulated, no payment taken)`);
-                  }}
-                >
-                  Confirm plan change
+                <Button variant="primary" disabled={busy} onClick={() => go("/api/billing/checkout", { plan: confirmPlan.k, team: team.k, annual })}>
+                  {busy ? "Redirecting…" : "Continue to payment"}
                 </Button>
               </div>
             </div>

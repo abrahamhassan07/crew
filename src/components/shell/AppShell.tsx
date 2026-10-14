@@ -9,6 +9,7 @@ import { TopBar } from "./TopBar";
 interface AppShellProps {
   role: "admin" | "staff";
   children: React.ReactNode;
+  banner?: React.ReactNode;
   userName: string;
   bizName: string;
   roleLabel: string;
@@ -21,7 +22,7 @@ function initialsOf(name: string): string {
   return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 }
 
-export function AppShell({ role, children, userName, bizName, roleLabel }: AppShellProps) {
+export function AppShell({ role, children, userName, bizName, roleLabel, banner }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -75,6 +76,7 @@ export function AppShell({ role, children, userName, bizName, roleLabel }: AppSh
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">
+          {banner}
           <div className="w-full">{children}</div>
         </main>
       </div>
