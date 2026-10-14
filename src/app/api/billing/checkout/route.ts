@@ -42,14 +42,11 @@ export async function POST(req: Request) {
       line_items: [
         {
           quantity: 1,
-          // A GST 10% *inclusive* tax rate makes Stripe's invoices show the GST amount; optional until the rate exists.
-          ...(process.env.STRIPE_GST_TAX_RATE_ID ? { tax_rates: [process.env.STRIPE_GST_TAX_RATE_ID] } : {}),
           price_data: {
             currency: "aud",
             unit_amount: perMonth * (annual ? 12 : 1) * 100,
             recurring: { interval: annual ? "year" : "month" },
             product_data: { name: `Crew & Grounds ${plan.name} (${team.label})` },
-            tax_behavior: "inclusive",
           },
         },
       ],

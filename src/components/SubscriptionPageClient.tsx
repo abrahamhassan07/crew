@@ -208,7 +208,7 @@ export function SubscriptionPageClient({ currentPlan, status, renews, trialDaysL
             </span>
 
             <div className="flex-1" />
-            <span className="text-sm text-ink-secondary">Prices in AUD, inc. GST</span>
+            <span className="text-sm text-ink-secondary">Prices in AUD</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4.5 mb-10">
