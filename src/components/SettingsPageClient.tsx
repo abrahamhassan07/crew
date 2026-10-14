@@ -9,6 +9,7 @@ import { SelectField } from "@/components/forms/SelectField";
 import { TextAreaField } from "@/components/forms/TextAreaField";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { isValidAbn } from "@/lib/validate";
+import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, PLACEHOLDERS, templateFor, type EmailKind } from "@/lib/emailTemplates";
 import type { Organization } from "@/lib/supabase/types";
 
 export function SettingsPageClient({ organization }: { organization: Organization }) {
@@ -20,6 +21,10 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
     abn: organization.abn ?? "",
     gstRegistered: organization.gst_registered ?? true,
     paymentDetails: organization.payment_details ?? "",
+    quoteEmailSubject: templateFor(organization, "quote").subject,
+    quoteEmailBody: templateFor(organization, "quote").body,
+    invoiceEmailSubject: templateFor(organization, "invoice").subject,
+    invoiceEmailBody: templateFor(organization, "invoice").body,
   });
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -107,6 +112,45 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
               value={input.paymentDetails}
               onChange={(e) => setInput({ ...input, paymentDetails: e.target.value })}
             />
+          </Card>
+
+          {/* Email templates */}
+          <Card className="p-6 mb-6">
+            <h2 className="text-xl font-bold text-ink-primary mb-1">Email templates</h2>
+            <p className="text-sm text-ink-muted mb-5">
+              The wording used when you email a quote or invoice. You can still edit each email before it&rsquo;s sent. Words in {"{braces}"} are filled in for each client.
+            </p>
+            {(["quote", "invoice"] as EmailKind[]).map((kind) => {
+              const subjectKey = kind === "quote" ? "quoteEmailSubject" : "invoiceEmailSubject";
+              const bodyKey = kind === "quote" ? "quoteEmailBody" : "invoiceEmailBody";
+              return (
+                <div key={kind} className="mb-6 last:mb-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-bold text-ink-primary">{kind === "quote" ? "Quote email" : "Invoice email"}</h3>
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-brand"
+                      onClick={() => setInput({ ...input, [subjectKey]: DEFAULT_TEMPLATES[kind].subject, [bodyKey]: DEFAULT_TEMPLATES[kind].body })}
+                    >
+                      Reset to default
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    <TextField label="Subject" maxLength={MAX_SUBJECT} value={input[subjectKey]} onChange={(e) => setInput({ ...input, [subjectKey]: e.target.value })} />
+                    <TextAreaField label="Message" rows={9} maxLength={MAX_BODY} value={input[bodyKey]} onChange={(e) => setInput({ ...input, [bodyKey]: e.target.value })} />
+                  </div>
+                  <p className="text-xs text-ink-muted mt-2">
+                    Available:{" "}
+                    {PLACEHOLDERS[kind].map((p, i) => (
+                      <span key={p.key}>
+                        {i > 0 && ", "}
+                        <code className="text-ink-secondary">{`{${p.key}}`}</code> ({p.help})
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              );
+            })}
           </Card>
 
           {/* Pricing Settings */}

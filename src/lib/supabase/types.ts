@@ -21,6 +21,10 @@ export type Organization = {
   abn: string | null;
   gst_registered: boolean;
   payment_details: string | null;
+  quote_email_subject: string | null;
+  quote_email_body: string | null;
+  invoice_email_subject: string | null;
+  invoice_email_body: string | null;
   plan: string | null;
   team_size: string | null;
   billing_interval: "month" | "year" | null;

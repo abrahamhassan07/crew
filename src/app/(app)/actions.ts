@@ -11,6 +11,7 @@ import { formatAbn, isValidAbn, isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
 import { renderDocumentPdf } from "@/lib/pdf";
+import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, renderTemplate, templateFor, type EmailDraft, type EmailKind } from "@/lib/emailTemplates";
 import { addDays, fmtISO, parseISO, STAFF_HUES, todayISO } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
 import type { FeedbackKind, FeedbackStatus, CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
@@ -1074,6 +1075,11 @@ export async function updateQuoteStatus(id: string, status: QuoteStatus): Promis
   const { error } = await supabase.from("quotes").update({ status }).eq("id", id);
   if (error) return { ok: false, error: error.message };
 
+  if (status === "Sent") {
+    const { data: quote } = await supabase.from("quotes").select("request_id").eq("id", id).single();
+    if (quote?.request_id) await supabase.from("requests").update({ status: "Quoted" }).eq("id", quote.request_id);
+  }
+
   revalidatePath("/", "layout");
   return { ok: true };
 }
@@ -1246,11 +1252,21 @@ export interface OrganizationInput {
   abn: string;
   gstRegistered: boolean;
   paymentDetails: string;
+  quoteEmailSubject: string;
+  quoteEmailBody: string;
+  invoiceEmailSubject: string;
+  invoiceEmailBody: string;
 }
 
 export async function updateOrganization(input: OrganizationInput): Promise<ActionResult> {
   if (!input.name.trim()) return { ok: false, error: "Business name is required." };
   if (input.paymentDetails.length > 1000) return { ok: false, error: "Keep payment details under 1000 characters." };
+  for (const [label, subject, body] of [["quote", input.quoteEmailSubject, input.quoteEmailBody], ["invoice", input.invoiceEmailSubject, input.invoiceEmailBody]] as const) {
+    if (subject.length > MAX_SUBJECT) return { ok: false, error: `Keep the ${label} email subject under ${MAX_SUBJECT} characters.` };
+    if (body.length > MAX_BODY) return { ok: false, error: `Keep the ${label} email message under ${MAX_BODY} characters.` };
+  }
+  // A template left identical to the built-in wording is stored as NULL so future default improvements reach it.
+  const custom = (text: string, fallback: string) => (text.trim() && text.trim() !== fallback.trim() ? text.trim() : null);
   const abn = input.abn.trim();
   if (abn && !isValidAbn(abn)) return { ok: false, error: "That ABN doesn't look right. An ABN has 11 digits (you can look yours up at abr.business.gov.au)." };
 
@@ -1268,6 +1284,10 @@ export async function updateOrganization(input: OrganizationInput): Promise<Acti
       abn: abn ? formatAbn(abn) : null,
       gst_registered: input.gstRegistered,
       payment_details: input.paymentDetails.trim() || null,
+      quote_email_subject: custom(input.quoteEmailSubject, DEFAULT_TEMPLATES.quote.subject),
+      quote_email_body: custom(input.quoteEmailBody, DEFAULT_TEMPLATES.quote.body),
+      invoice_email_subject: custom(input.invoiceEmailSubject, DEFAULT_TEMPLATES.invoice.subject),
+      invoice_email_body: custom(input.invoiceEmailBody, DEFAULT_TEMPLATES.invoice.body),
     })
     .eq("id", viewer.orgId);
 
@@ -1319,14 +1339,62 @@ export async function recordPayment(invoiceId: string, input: PaymentInput): Pro
 // ---------------------------------------------------------------------------
 // Emailing quotes and invoices to the client as a PDF attachment
 // ---------------------------------------------------------------------------
-async function emailDocument(loaded: LoadedDoc | null, kind: "quote" | "invoice"): Promise<ActionResult & { sentTo?: string }> {
+function buildEmail(loaded: LoadedDoc, kind: EmailKind) {
+  const { doc, total } = loaded;
+  const org = doc.org;
+  const gstNote = doc.mode === "none" ? "" : " (inc. GST)";
+  const documentName = kind === "quote" ? "quote" : doc.kind === "Tax Invoice" ? "tax invoice" : "invoice";
+  const values: Record<string, string> = {
+    first_name: (doc.client?.name ?? "").split(" ")[0] || "there",
+    number: doc.num,
+    document: documentName,
+    total: `$${total.toFixed(2)}${gstNote}`,
+    valid_until: kind === "quote" ? doc.dates[1]?.value ?? "" : "",
+    due_date: kind === "invoice" ? doc.dates[1]?.value ?? "" : "",
+    message: kind === "quote" ? doc.note ?? "" : "",
+    business: org?.name ?? "",
+    signature: [org?.name, org?.phone, org?.email].filter(Boolean).join("\n"),
+  };
+  const template = templateFor(org, kind);
+  const subject = renderTemplate(template.subject, values);
+  return {
+    to: doc.client?.email?.trim() ?? "",
+    subject: subject.charAt(0).toUpperCase() + subject.slice(1),
+    body: renderTemplate(template.body, values),
+  };
+}
+
+/** What the "Review email" step shows before a quote or invoice is sent. */
+export async function getEmailDraft(kind: EmailKind, id: string): Promise<ActionResult & { draft?: EmailDraft }> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Only admins can send documents." };
+  const loaded = kind === "quote" ? await loadQuoteDoc(id) : await loadInvoiceDoc(id);
+  if (!loaded) return { ok: false, error: `${kind === "quote" ? "Quote" : "Invoice"} not found.` };
+  const email = buildEmail(loaded, kind);
+  if (!email.to) return { ok: false, error: `${loaded.doc.client?.name ?? "This client"} has no email address on file.` };
+  return { ok: true, draft: { ...email, clientName: loaded.doc.client?.name ?? "", attachmentName: loaded.filename } };
+}
+
+export interface EmailOverride {
+  subject: string;
+  body: string;
+}
+
+async function emailDocument(loaded: LoadedDoc | null, kind: EmailKind, override?: EmailOverride): Promise<ActionResult & { sentTo?: string }> {
   const viewer = await getViewer();
   if (viewer.profile.role !== "admin") return { ok: false, error: "Only admins can send documents." };
   if (!loaded) return { ok: false, error: `${kind === "quote" ? "Quote" : "Invoice"} not found.` };
 
-  const { doc, total } = loaded;
-  const to = doc.client?.email?.trim();
+  const { doc } = loaded;
+  const built = buildEmail(loaded, kind);
+  const to = built.to;
   if (!to) return { ok: false, error: `${doc.client?.name ?? "This client"} has no email address on file.` };
+
+  const subject = (override?.subject ?? built.subject).trim();
+  const body = (override?.body ?? built.body).trim();
+  if (!subject) return { ok: false, error: "The email needs a subject." };
+  if (!body) return { ok: false, error: "The email needs a message." };
+  if (subject.length > MAX_SUBJECT || body.length > MAX_BODY) return { ok: false, error: "That email is too long." };
 
   const org = doc.org;
   if (!org?.email?.trim()) {
@@ -1350,24 +1418,13 @@ async function emailDocument(loaded: LoadedDoc | null, kind: "quote" | "invoice"
     }
   }
 
-  const orgName = org.name;
-  const firstName = (doc.client?.name ?? "").split(" ")[0] || "there";
-  const dateLine = doc.dates[1] ? `${doc.dates[1].label.toLowerCase()} ${doc.dates[1].value}` : "";
-  const gstNote = doc.mode === "none" ? "" : " (inc. GST)";
-  const intro =
-    kind === "quote"
-      ? `Please find attached quote ${doc.num} for $${total.toFixed(2)}${gstNote}, valid until ${doc.dates[1]?.value ?? ""}.`
-      : `Please find attached ${doc.kind === "Tax Invoice" ? "tax invoice" : "invoice"} ${doc.num} for $${total.toFixed(2)}${gstNote}, ${dateLine}.`;
-  const outro = kind === "quote" ? "To accept this quote, just reply to this email." : "Please get in touch if you have any questions about this invoice.";
-  const signature = [orgName, org?.phone, org?.email].filter(Boolean).join("\n");
-
   const pdf = await renderDocumentPdf(doc);
   const result = await sendEmail({
     to,
-    subject: `${kind === "quote" ? "Quote" : doc.kind === "Tax Invoice" ? "Tax invoice" : "Invoice"} ${doc.num} from ${orgName}`,
-    text: `Hi ${firstName},\n\n${intro}\n\n${kind === "quote" && doc.note ? `${doc.note}\n\n` : ""}${outro}\n\nThanks,\n${signature}\n`,
-    fromName: orgName,
-    replyTo: org?.email,
+    subject,
+    text: `${body}\n`,
+    fromName: org.name,
+    replyTo: org.email,
     attachments: [{ filename: loaded.filename, content: pdf }],
   });
   if (!result.ok) return { ok: false, error: result.error };
@@ -1375,12 +1432,12 @@ async function emailDocument(loaded: LoadedDoc | null, kind: "quote" | "invoice"
   return { ok: true, sentTo: to };
 }
 
-export async function emailQuote(id: string) {
-  return emailDocument(await loadQuoteDoc(id), "quote");
+export async function emailQuote(id: string, override?: EmailOverride) {
+  return emailDocument(await loadQuoteDoc(id), "quote", override);
 }
 
-export async function emailInvoice(id: string) {
-  return emailDocument(await loadInvoiceDoc(id), "invoice");
+export async function emailInvoice(id: string, override?: EmailOverride) {
+  return emailDocument(await loadInvoiceDoc(id), "invoice", override);
 }
 
 // ---------------------------------------------------------------------------

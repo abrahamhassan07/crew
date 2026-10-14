@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, ChevronLeft, Download, Info, Pencil, Plus, Send, Sprout, Trash2, Wallet } from "lucide-react";
-import { checkCanSendDocuments, emailInvoice, recordPayment, saveInvoice, updateInvoiceStatus, type InvoiceInput, type InvoiceLineInput, type PaymentInput } from "@/app/(app)/actions";
+import { checkCanSendDocuments, emailInvoice, getEmailDraft, recordPayment, saveInvoice, updateInvoiceStatus, type InvoiceInput, type InvoiceLineInput, type PaymentInput } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
+import { SendEmailModal } from "@/components/SendEmailModal";
+import type { EmailDraft } from "@/lib/emailTemplates";
 import { ToastBanner, useToast } from "@/components/Toast";
 import { calcTotals } from "@/lib/gst";
 import { daysFromToday, fmtDateLabel, todayISO } from "@/lib/design";
@@ -94,10 +96,10 @@ export function InvoiceEditor({
 
   const input: InvoiceInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, jobId: jobId || null, issueDate, dueDate, mode, notes, items: lines };
 
-  const commit = (status: "Draft" | "Sent") => {
+  const commitDraft = () => {
     setError(null);
     startTransition(async () => {
-      const result = await saveInvoice(invoice?.id ?? null, input, status);
+      const result = await saveInvoice(invoice?.id ?? null, input, "Draft");
       if (!result.ok) {
         setError(result.error ?? "Could not save invoice.");
         return;
@@ -116,6 +118,42 @@ export function InvoiceEditor({
     });
   };
 
+  // The "Review email" step. markSent: the invoice is still a draft and becomes Sent once the email goes out.
+  const [review, setReview] = useState<{ id: string; num: string; draft: EmailDraft; markSent: boolean; fromEditor: boolean } | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
+  const openReview = async (id: string, num: string, markSent: boolean, fromEditor: boolean) => {
+    const loaded = await getEmailDraft("invoice", id);
+    if (!loaded.ok || !loaded.draft) return loaded.error ?? "Could not prepare the email.";
+    setReviewError(null);
+    setReview({ id, num, draft: loaded.draft, markSent, fromEditor });
+    return null;
+  };
+
+  // Edit-mode "Send": save first (as a draft until the email actually goes), then review.
+  const startSend = () => {
+    setError(null);
+    startTransition(async () => {
+      const ready = await checkCanSendDocuments();
+      if (!ready.ok) {
+        setError(ready.error ?? "Can't send yet.");
+        return;
+      }
+      const alreadySent = !!invoice && invoice.status !== "Draft";
+      const result = await saveInvoice(invoice?.id ?? null, input, alreadySent ? invoice!.status : "Draft");
+      if (!result.ok) {
+        setError(result.error ?? "Could not save invoice.");
+        return;
+      }
+      const problem = await openReview(result.id!, invoice?.num ?? "Invoice", !alreadySent, true);
+      if (problem) {
+        setError(problem);
+        if (!invoice) router.push(`/invoices/${result.id}`);
+      }
+    });
+  };
+
+  // View-mode Send (markSent) and Resend.
   const sendByEmail = (markSent: boolean) => {
     if (!invoice) return;
     startTransition(async () => {
@@ -124,12 +162,47 @@ export function InvoiceEditor({
         showToast(ready.error ?? "Can't send yet.");
         return;
       }
-      if (markSent) await updateInvoiceStatus(invoice.id, "Sent");
-      const sent = await emailInvoice(invoice.id);
-      showToast(sent.ok ? `${invoice.num} emailed to ${sent.sentTo}` : `${markSent ? `${invoice.num} marked as sent, but the` : "The"} email wasn't sent: ${sent.error}`);
+      const problem = await openReview(invoice.id, invoice.num, markSent, false);
+      if (problem) showToast(problem);
+    });
+  };
+
+  const sendReviewed = (subject: string, body: string) => {
+    if (!review) return;
+    setReviewError(null);
+    startTransition(async () => {
+      if (review.markSent) {
+        const marked = await updateInvoiceStatus(review.id, "Sent");
+        if (!marked.ok) {
+          setReviewError(marked.error ?? "Could not update the invoice.");
+          return;
+        }
+      }
+      const sent = await emailInvoice(review.id, { subject, body });
+      if (!sent.ok) {
+        if (review.markSent) await updateInvoiceStatus(review.id, "Draft");
+        setReviewError(sent.error ?? "Could not send the email.");
+        return;
+      }
+      const { id, num, fromEditor } = review;
+      setReview(null);
+      showToast(`${num} emailed to ${sent.sentTo}`);
+      if (fromEditor) router.push(`/invoices/${id}`);
       router.refresh();
     });
   };
+
+  const cancelReview = () => {
+    const id = review?.id;
+    const fromEditor = review?.fromEditor;
+    setReview(null);
+    // A brand-new invoice was already saved as a draft; show it rather than leave an unsaved form open.
+    if (fromEditor && !invoice && id) router.push(`/invoices/${id}`);
+  };
+
+  const reviewModal = review && (
+    <SendEmailModal draft={review.draft} confirmLabel="Send email" pending={pending} error={reviewError} onSend={sendReviewed} onCancel={cancelReview} />
+  );
 
   const savePayment = () => {
     if (!invoice || !payModal) return;
@@ -380,6 +453,7 @@ export function InvoiceEditor({
             </div>
           </>
         )}
+        {reviewModal}
         <ToastBanner message={toast} />
       </div>
     );
@@ -403,8 +477,8 @@ export function InvoiceEditor({
           )}
           <h1 className="text-2xl font-bold text-ink-primary">{invoice ? `Edit ${invoice.num}` : "New invoice"}</h1>
           <div className="flex gap-2 flex-wrap ml-auto">
-            <Button variant="secondary" onClick={() => commit("Draft")} disabled={pending}>Save draft</Button>
-            <Button variant="primary" onClick={() => commit("Sent")} disabled={pending}>Send</Button>
+            <Button variant="secondary" onClick={commitDraft} disabled={pending}>Save draft</Button>
+            <Button variant="primary" onClick={startSend} disabled={pending}>Send</Button>
           </div>
         </div>
       </div>
@@ -522,6 +596,7 @@ export function InvoiceEditor({
           </div>
         </div>
       </div>
+      {reviewModal}
       <ToastBanner message={toast} />
     </div>
   );

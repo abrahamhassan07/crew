@@ -3,10 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Plus, Send, Trash2 } from "lucide-react";
-import { checkCanSendDocuments, convertQuoteToJob, emailQuote, saveQuote, updateQuoteStatus, type QuoteInput, type QuoteLineInput } from "@/app/(app)/actions";
+import { checkCanSendDocuments, convertQuoteToJob, emailQuote, getEmailDraft, saveQuote, updateQuoteStatus, type QuoteInput, type QuoteLineInput } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { SendEmailModal } from "@/components/SendEmailModal";
+import type { EmailDraft } from "@/lib/emailTemplates";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
 import { daysFromToday, todayISO } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
@@ -61,28 +63,75 @@ export function QuoteEditor({
 
   const input: QuoteInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, quoteDate, expiryDate, mode, message, requestId: quote?.request_id ?? initialRequestId ?? null, items: lines };
 
-  const commit = (status: "Draft" | "Sent" | "Approved" | "Declined") => {
+  // The "Review email" step: id is the saved quote, wasSent says whether it still needs marking Sent.
+  const [review, setReview] = useState<{ id: string; draft: EmailDraft; markSent: boolean } | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
+  const startSend = () => {
     setError(null);
     startTransition(async () => {
-      if (status === "Sent") {
-        const ready = await checkCanSendDocuments();
-        if (!ready.ok) {
-          setError(ready.error ?? "Can't send yet.");
+      const ready = await checkCanSendDocuments();
+      if (!ready.ok) {
+        setError(ready.error ?? "Can't send yet.");
+        return;
+      }
+      const alreadySent = quote?.status === "Sent";
+      const result = await saveQuote(quote?.id ?? null, input, alreadySent ? "Sent" : "Draft");
+      if (!result.ok) {
+        setError(result.error ?? "Could not save quote.");
+        return;
+      }
+      const loaded = await getEmailDraft("quote", result.id!);
+      if (!loaded.ok || !loaded.draft) {
+        setError(loaded.error ?? "Could not prepare the email.");
+        // Saved as a draft either way; take new quotes to the saved page so nothing is lost.
+        if (!quote) router.push(`/quotes/${result.id}`);
+        return;
+      }
+      setReviewError(null);
+      setReview({ id: result.id!, draft: loaded.draft, markSent: !alreadySent });
+    });
+  };
+
+  const sendReviewed = (subject: string, body: string) => {
+    if (!review) return;
+    setReviewError(null);
+    startTransition(async () => {
+      if (review.markSent) {
+        const marked = await updateQuoteStatus(review.id, "Sent");
+        if (!marked.ok) {
+          setReviewError(marked.error ?? "Could not update the quote.");
           return;
         }
       }
+      const sent = await emailQuote(review.id, { subject, body });
+      if (!sent.ok) {
+        // Don't leave it marked Sent when nothing went out.
+        if (review.markSent) await updateQuoteStatus(review.id, "Draft");
+        setReviewError(sent.error ?? "Could not send the email.");
+        return;
+      }
+      router.push(`/quotes/${review.id}?notice=${encodeURIComponent(`Quote emailed to ${sent.sentTo}`)}&tone=ok`);
+      router.refresh();
+    });
+  };
+
+  const cancelReview = () => {
+    if (!review) return;
+    const id = review.id;
+    setReview(null);
+    if (!quote) router.push(`/quotes/${id}?notice=${encodeURIComponent("Saved as a draft. Send it when you're ready.")}&tone=ok`);
+  };
+
+  const commit = (status: "Draft" | "Approved" | "Declined") => {
+    setError(null);
+    startTransition(async () => {
       const result = await saveQuote(quote?.id ?? null, input, status);
       if (!result.ok) {
         setError(result.error ?? "Could not save quote.");
         return;
       }
-      let query = "";
-      if (status === "Sent") {
-        const sent = await emailQuote(result.id!);
-        const text = sent.ok ? `Quote emailed to ${sent.sentTo}` : `Quote saved as Sent, but the email wasn't sent: ${sent.error}`;
-        query = `?notice=${encodeURIComponent(text)}&tone=${sent.ok ? "ok" : "error"}`;
-      }
-      router.push(`/quotes/${result.id}${query}`);
+      router.push(`/quotes/${result.id}`);
       router.refresh();
     });
   };
@@ -91,12 +140,13 @@ export function QuoteEditor({
     if (!quote) return;
     setError(null);
     startTransition(async () => {
-      const sent = await emailQuote(quote.id);
-      if (!sent.ok) {
-        setError(sent.error ?? "Could not send email.");
+      const loaded = await getEmailDraft("quote", quote.id);
+      if (!loaded.ok || !loaded.draft) {
+        setError(loaded.error ?? "Could not prepare the email.");
         return;
       }
-      router.push(`/quotes/${quote.id}?notice=${encodeURIComponent(`Quote emailed to ${sent.sentTo}`)}&tone=ok`);
+      setReviewError(null);
+      setReview({ id: quote.id, draft: loaded.draft, markSent: false });
     });
   };
 
@@ -156,7 +206,7 @@ export function QuoteEditor({
               <Button variant="secondary" onClick={() => commit("Draft")} disabled={pending}>Save draft</Button>
             )}
             {(!quote || ["Draft", "Sent"].includes(quote.status)) && (
-              <Button variant="primary" onClick={() => commit("Sent")} disabled={pending}>Send quote</Button>
+              <Button variant="primary" onClick={startSend} disabled={pending}>Send quote</Button>
             )}
             {quote?.status === "Sent" && (
               <>
@@ -278,6 +328,9 @@ export function QuoteEditor({
           </div>
         </div>
       </div>
+      {review && (
+        <SendEmailModal draft={review.draft} confirmLabel="Send email" pending={pending} error={reviewError} onSend={sendReviewed} onCancel={cancelReview} />
+      )}
     </div>
   );
 }
