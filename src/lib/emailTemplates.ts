@@ -2,16 +2,21 @@
 // Settings page (editing), so this file must stay free of server-only imports.
 
 export type EmailKind = "quote" | "invoice";
+export type TemplateKind = EmailKind | "reminder";
 
 export interface EmailTemplate {
   subject: string;
   body: string;
 }
 
-export const DEFAULT_TEMPLATES: Record<EmailKind, EmailTemplate> = {
+export const DEFAULT_TEMPLATES: Record<TemplateKind, EmailTemplate> = {
   quote: {
     subject: "{document} {number} from {business}",
     body: "Hi {first_name},\n\nPlease find attached quote {number} for {total}, valid until {valid_until}.\n\n{message}\n\nTo accept this quote, just reply to this email.\n\nThanks,\n{signature}",
+  },
+  reminder: {
+    subject: "Reminder: {business} is visiting {date}",
+    body: "Hi {first_name},\n\nThis is a friendly reminder that {business} is booked to visit {address} tomorrow, {date}, at {time}.\n\nIf you need to change or cancel, just reply to this email.\n\nThanks,\n{signature}",
   },
   invoice: {
     subject: "{document} {number} from {business}",
@@ -19,13 +24,22 @@ export const DEFAULT_TEMPLATES: Record<EmailKind, EmailTemplate> = {
   },
 };
 
-export const PLACEHOLDERS: Record<EmailKind, { key: string; help: string }[]> = {
+export const PLACEHOLDERS: Record<TemplateKind, { key: string; help: string }[]> = {
   quote: [
     { key: "first_name", help: "client's first name" },
     { key: "number", help: "quote number" },
     { key: "total", help: "total amount" },
     { key: "valid_until", help: "expiry date" },
     { key: "message", help: "the message on the quote" },
+    { key: "business", help: "your business name" },
+    { key: "signature", help: "your name, phone and email" },
+  ],
+  reminder: [
+    { key: "first_name", help: "client's first name" },
+    { key: "date", help: "visit date" },
+    { key: "time", help: "start time" },
+    { key: "address", help: "job address" },
+    { key: "service", help: "the job's title" },
     { key: "business", help: "your business name" },
     { key: "signature", help: "your name, phone and email" },
   ],
@@ -64,9 +78,11 @@ export interface OrgEmailTemplates {
   quote_email_body?: string | null;
   invoice_email_subject?: string | null;
   invoice_email_body?: string | null;
+  reminder_email_subject?: string | null;
+  reminder_email_body?: string | null;
 }
 
-export function templateFor(org: OrgEmailTemplates | null | undefined, kind: EmailKind): EmailTemplate {
+export function templateFor(org: OrgEmailTemplates | null | undefined, kind: TemplateKind): EmailTemplate {
   const d = DEFAULT_TEMPLATES[kind];
   return {
     subject: org?.[`${kind}_email_subject`]?.trim() || d.subject,

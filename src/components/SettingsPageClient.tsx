@@ -9,7 +9,7 @@ import { SelectField } from "@/components/forms/SelectField";
 import { TextAreaField } from "@/components/forms/TextAreaField";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { isValidAbn } from "@/lib/validate";
-import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, PLACEHOLDERS, templateFor, type EmailKind } from "@/lib/emailTemplates";
+import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, PLACEHOLDERS, templateFor, type TemplateKind } from "@/lib/emailTemplates";
 import type { Organization } from "@/lib/supabase/types";
 
 export function SettingsPageClient({ organization }: { organization: Organization }) {
@@ -25,6 +25,9 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
     quoteEmailBody: templateFor(organization, "quote").body,
     invoiceEmailSubject: templateFor(organization, "invoice").subject,
     invoiceEmailBody: templateFor(organization, "invoice").body,
+    remindersEnabled: organization.reminders_enabled ?? false,
+    reminderEmailSubject: templateFor(organization, "reminder").subject,
+    reminderEmailBody: templateFor(organization, "reminder").body,
   });
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -120,7 +123,7 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
             <p className="text-sm text-ink-muted mb-5">
               The wording used when you email a quote or invoice. You can still edit each email before it&rsquo;s sent. Words in {"{braces}"} are filled in for each client.
             </p>
-            {(["quote", "invoice"] as EmailKind[]).map((kind) => {
+            {(["quote", "invoice"] as TemplateKind[]).map((kind) => {
               const subjectKey = kind === "quote" ? "quoteEmailSubject" : "invoiceEmailSubject";
               const bodyKey = kind === "quote" ? "quoteEmailBody" : "invoiceEmailBody";
               return (
@@ -151,6 +154,49 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
                 </div>
               );
             })}
+          </Card>
+
+          {/* Customer reminders */}
+          <Card className="p-6 mb-6">
+            <h2 className="text-xl font-bold text-ink-primary mb-1">Customer reminders</h2>
+            <p className="text-sm text-ink-muted mb-4">
+              Email customers the day before a scheduled job. Sent every morning for jobs happening tomorrow, only to clients with an email address, and only once per job.
+            </p>
+            <SelectField
+              label="Reminders"
+              value={input.remindersEnabled ? "on" : "off"}
+              onChange={(e) => setInput({ ...input, remindersEnabled: e.target.value === "on" })}
+              options={[
+                { value: "off", label: "Off" },
+                { value: "on", label: "On: remind customers the day before" },
+              ]}
+            />
+            {input.remindersEnabled && !input.email.trim() && (
+              <p className="text-xs text-warn-fg mt-2">Add your business email above first. Reminders aren&rsquo;t sent without it, so customer replies have somewhere to go.</p>
+            )}
+            <div className="mt-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-ink-primary">Reminder email</h3>
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-brand"
+                  onClick={() => setInput({ ...input, reminderEmailSubject: DEFAULT_TEMPLATES.reminder.subject, reminderEmailBody: DEFAULT_TEMPLATES.reminder.body })}
+                >
+                  Reset to default
+                </button>
+              </div>
+              <TextField label="Subject" maxLength={MAX_SUBJECT} value={input.reminderEmailSubject} onChange={(e) => setInput({ ...input, reminderEmailSubject: e.target.value })} />
+              <TextAreaField label="Message" rows={8} maxLength={MAX_BODY} value={input.reminderEmailBody} onChange={(e) => setInput({ ...input, reminderEmailBody: e.target.value })} />
+              <p className="text-xs text-ink-muted">
+                Available:{" "}
+                {PLACEHOLDERS.reminder.map((p, i) => (
+                  <span key={p.key}>
+                    {i > 0 && ", "}
+                    <code className="text-ink-secondary">{`{${p.key}}`}</code> ({p.help})
+                  </span>
+                ))}
+              </p>
+            </div>
           </Card>
 
           {/* Pricing Settings */}

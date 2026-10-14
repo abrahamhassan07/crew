@@ -49,3 +49,6 @@ export function priceFor(team: TeamSize, annual: boolean) {
  * enforced yet; paying businesses get a generous cap that still stops abuse.
  */
 export const EMAIL_LIMITS = { trial: 20, pilot: 100, paid: 300 } as const;
+
+/** Customer reminder emails allowed per business per month (separate from the quote/invoice cap). */
+export const REMINDER_LIMITS = { trial: 20, pilot: 300, paid: 1000 } as const;

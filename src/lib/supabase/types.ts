@@ -25,6 +25,9 @@ export type Organization = {
   quote_email_body: string | null;
   invoice_email_subject: string | null;
   invoice_email_body: string | null;
+  reminders_enabled: boolean;
+  reminder_email_subject: string | null;
+  reminder_email_body: string | null;
   plan: string | null;
   team_size: string | null;
   billing_interval: "month" | "year" | null;
@@ -81,6 +84,7 @@ export type Job = {
   quote_id: string | null;
   checklist: { t: string; done: boolean }[];
   org_id: string;
+  reminder_sent_for: string | null;
 };
 
 export type ClientStatus = "Lead" | "Active" | "Inactive" | "Archived";
@@ -228,8 +232,8 @@ export type Invoice = {
 export type EmailLog = {
   id: string;
   org_id: string;
-  user_id: string;
-  kind: "quote" | "invoice";
+  user_id: string | null;
+  kind: "quote" | "invoice" | "reminder";
   created_at: string;
 };
 

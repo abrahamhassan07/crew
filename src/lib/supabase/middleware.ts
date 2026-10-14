@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth/confirm", "/terms", "/privacy", "/api/stripe/webhook", "/api/health"];
+const PUBLIC_PATHS = ["/login", "/signup", "/auth/confirm", "/terms", "/privacy", "/api/stripe/webhook", "/api/health", "/api/cron"];
 
 export async function updateSession(request: NextRequest) {
   // Lets server components (e.g. the billing gate in the app layout) know the current path.

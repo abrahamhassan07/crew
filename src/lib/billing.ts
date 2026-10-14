@@ -1,4 +1,4 @@
-import { EMAIL_LIMITS, TEAM_SIZES, TRIAL_USERS } from "@/lib/plans";
+import { EMAIL_LIMITS, REMINDER_LIMITS, TEAM_SIZES, TRIAL_USERS } from "@/lib/plans";
 import type { Organization } from "@/lib/supabase/types";
 
 export type BillingState =
@@ -40,4 +40,11 @@ export function emailLimit(org: SeatOrg | null): number | null {
   if (!org || org.billing_exempt !== false) return null;
   if (getBillingState(org).kind === "active") return EMAIL_LIMITS.paid;
   return billingEnforced() ? EMAIL_LIMITS.trial : EMAIL_LIMITS.pilot;
+}
+
+/** Monthly cap on customer reminder emails for a business, or null for no cap. */
+export function reminderLimit(org: SeatOrg | null): number | null {
+  if (!org || org.billing_exempt !== false) return null;
+  if (getBillingState(org).kind === "active") return REMINDER_LIMITS.paid;
+  return billingEnforced() ? REMINDER_LIMITS.trial : REMINDER_LIMITS.pilot;
 }

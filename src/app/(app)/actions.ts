@@ -1256,12 +1256,15 @@ export interface OrganizationInput {
   quoteEmailBody: string;
   invoiceEmailSubject: string;
   invoiceEmailBody: string;
+  remindersEnabled: boolean;
+  reminderEmailSubject: string;
+  reminderEmailBody: string;
 }
 
 export async function updateOrganization(input: OrganizationInput): Promise<ActionResult> {
   if (!input.name.trim()) return { ok: false, error: "Business name is required." };
   if (input.paymentDetails.length > 1000) return { ok: false, error: "Keep payment details under 1000 characters." };
-  for (const [label, subject, body] of [["quote", input.quoteEmailSubject, input.quoteEmailBody], ["invoice", input.invoiceEmailSubject, input.invoiceEmailBody]] as const) {
+  for (const [label, subject, body] of [["quote", input.quoteEmailSubject, input.quoteEmailBody], ["invoice", input.invoiceEmailSubject, input.invoiceEmailBody], ["reminder", input.reminderEmailSubject, input.reminderEmailBody]] as const) {
     if (subject.length > MAX_SUBJECT) return { ok: false, error: `Keep the ${label} email subject under ${MAX_SUBJECT} characters.` };
     if (body.length > MAX_BODY) return { ok: false, error: `Keep the ${label} email message under ${MAX_BODY} characters.` };
   }
@@ -1288,6 +1291,9 @@ export async function updateOrganization(input: OrganizationInput): Promise<Acti
       quote_email_body: custom(input.quoteEmailBody, DEFAULT_TEMPLATES.quote.body),
       invoice_email_subject: custom(input.invoiceEmailSubject, DEFAULT_TEMPLATES.invoice.subject),
       invoice_email_body: custom(input.invoiceEmailBody, DEFAULT_TEMPLATES.invoice.body),
+      reminders_enabled: input.remindersEnabled,
+      reminder_email_subject: custom(input.reminderEmailSubject, DEFAULT_TEMPLATES.reminder.subject),
+      reminder_email_body: custom(input.reminderEmailBody, DEFAULT_TEMPLATES.reminder.body),
     })
     .eq("id", viewer.orgId);
 
@@ -1406,7 +1412,7 @@ async function emailDocument(loaded: LoadedDoc | null, kind: EmailKind, override
   if (cap !== null) {
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-    const { count, error: countError } = await admin.from("email_log").select("id", { count: "exact", head: true }).eq("org_id", org.id).gte("created_at", monthStart);
+    const { count, error: countError } = await admin.from("email_log").select("id", { count: "exact", head: true }).eq("org_id", org.id).in("kind", ["quote", "invoice"]).gte("created_at", monthStart);
     if (!countError && (count ?? 0) >= cap) {
       const onTrial = getBillingState(org).kind !== "active" && billingEnforced();
       return {
