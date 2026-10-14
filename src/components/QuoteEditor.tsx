@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
-import { convertQuoteToJob, saveQuote, updateQuoteStatus, type QuoteInput, type QuoteLineInput } from "@/app/(app)/actions";
+import { Download, Plus, Send, Trash2 } from "lucide-react";
+import { convertQuoteToJob, emailQuote, saveQuote, updateQuoteStatus, type QuoteInput, type QuoteLineInput } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -23,6 +23,7 @@ export function QuoteEditor({
   services,
   initialClientId,
   initialRequestId,
+  notice,
 }: {
   quote: Quote | null;
   items: QuoteItem[];
@@ -31,6 +32,7 @@ export function QuoteEditor({
   services: Service[];
   initialClientId?: string;
   initialRequestId?: string;
+  notice?: { text: string; tone: "ok" | "error" } | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -62,8 +64,27 @@ export function QuoteEditor({
         setError(result.error ?? "Could not save quote.");
         return;
       }
-      router.push(`/quotes/${result.id}`);
+      let query = "";
+      if (status === "Sent") {
+        const sent = await emailQuote(result.id!);
+        const text = sent.ok ? `Quote emailed to ${sent.sentTo}` : `Quote saved as Sent, but the email wasn't sent: ${sent.error}`;
+        query = `?notice=${encodeURIComponent(text)}&tone=${sent.ok ? "ok" : "error"}`;
+      }
+      router.push(`/quotes/${result.id}${query}`);
       router.refresh();
+    });
+  };
+
+  const resend = () => {
+    if (!quote) return;
+    setError(null);
+    startTransition(async () => {
+      const sent = await emailQuote(quote.id);
+      if (!sent.ok) {
+        setError(sent.error ?? "Could not send email.");
+        return;
+      }
+      router.push(`/quotes/${quote.id}?notice=${encodeURIComponent(`Quote emailed to ${sent.sentTo}`)}&tone=ok`);
     });
   };
 
@@ -102,6 +123,20 @@ export function QuoteEditor({
             {quote && <StatusBadge status={quote.status.toLowerCase() as "draft" | "sent" | "approved" | "declined" | "expired" | "cancelled"} label={quote.status} showDot />}
           </div>
           <div className="flex gap-2 flex-wrap">
+            {quote && (
+              <a href={`/api/quotes/${quote.id}/pdf`} target="_blank" rel="noreferrer">
+                <Button variant="secondary" type="button">
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </Button>
+              </a>
+            )}
+            {quote?.status === "Sent" && (
+              <Button variant="secondary" onClick={resend} disabled={pending}>
+                <Send className="w-4 h-4" />
+                Resend email
+              </Button>
+            )}
             {!quote && (
               <Button variant="secondary" onClick={() => router.push("/quotes")} disabled={pending}>Cancel</Button>
             )}
@@ -132,6 +167,15 @@ export function QuoteEditor({
       </div>
 
       <div className="px-6 py-8">
+        {notice && (
+          <div
+            className={`max-w-5xl mx-auto mb-6 px-4 py-3 rounded-lg text-sm border ${
+              notice.tone === "ok" ? "bg-ok-bg text-ok-fg border-ok-fg/25" : "bg-warn-bg text-warn-fg border-warn-fg/25"
+            }`}
+          >
+            {notice.text}
+          </div>
+        )}
         <div className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-6 items-start">
           <div className="flex-[2] w-full flex flex-col gap-6">
             <Card className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">

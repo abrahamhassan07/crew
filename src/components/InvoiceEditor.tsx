@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, ChevronLeft, Download, Info, Pencil, Plus, Send, Sprout, Trash2, Wallet } from "lucide-react";
-import { recordPayment, saveInvoice, updateInvoiceStatus, type InvoiceInput, type InvoiceLineInput, type PaymentInput } from "@/app/(app)/actions";
+import { emailInvoice, recordPayment, saveInvoice, updateInvoiceStatus, type InvoiceInput, type InvoiceLineInput, type PaymentInput } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -113,6 +113,16 @@ export function InvoiceEditor({
     });
   };
 
+  const sendByEmail = (markSent: boolean) => {
+    if (!invoice) return;
+    startTransition(async () => {
+      if (markSent) await updateInvoiceStatus(invoice.id, "Sent");
+      const sent = await emailInvoice(invoice.id);
+      showToast(sent.ok ? `${invoice.num} emailed to ${sent.sentTo}` : `${markSent ? `${invoice.num} marked as sent, but the` : "The"} email wasn't sent: ${sent.error}`);
+      router.refresh();
+    });
+  };
+
   const savePayment = () => {
     if (!invoice || !payModal) return;
     setError(null);
@@ -146,17 +156,19 @@ export function InvoiceEditor({
                 <StatusBadge status={badgeStatusKey(invoice.status)} label={invoice.status} showDot />
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Button variant="secondary" size="md" onClick={() => showToast("PDF generation is not connected in this prototype")}>
-                  <Download className="w-4 h-4" />
-                  Download PDF
-                </Button>
+                <a href={`/api/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">
+                  <Button variant="secondary" size="md" type="button">
+                    <Download className="w-4 h-4" />
+                    Download PDF
+                  </Button>
+                </a>
                 {invoice.status === "Draft" && (
                   <>
                     <Button variant="secondary" size="md" onClick={() => setIsEditing(true)}>
                       <Pencil className="w-4 h-4" />
                       Edit
                     </Button>
-                    <Button variant="primary" size="md" onClick={() => setStatus("Sent", `${invoice.num} marked as sent.`)} disabled={pending}>
+                    <Button variant="primary" size="md" onClick={() => sendByEmail(true)} disabled={pending}>
                       <Send className="w-4 h-4" />
                       Send
                     </Button>
@@ -164,7 +176,7 @@ export function InvoiceEditor({
                 )}
                 {["Sent", "Overdue", "Partially Paid"].includes(invoice.status) && (
                   <>
-                    <Button variant="secondary" size="md" onClick={() => showToast(`${invoice.num} resend simulated — no email was sent`)}>
+                    <Button variant="secondary" size="md" onClick={() => sendByEmail(false)} disabled={pending}>
                       <Send className="w-4 h-4" />
                       Resend
                     </Button>

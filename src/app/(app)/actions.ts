@@ -5,6 +5,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
+import { sendEmail } from "@/lib/email";
+import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
+import { renderDocumentPdf } from "@/lib/pdf";
 import { addDays, fmtISO, parseISO, STAFF_HUES } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
 import type { CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
@@ -1175,4 +1178,48 @@ export async function recordPayment(invoiceId: string, input: PaymentInput): Pro
 
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Emailing quotes and invoices to the client as a PDF attachment
+// ---------------------------------------------------------------------------
+async function emailDocument(loaded: LoadedDoc | null, kind: "quote" | "invoice"): Promise<ActionResult & { sentTo?: string }> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Only admins can send documents." };
+  if (!loaded) return { ok: false, error: `${kind === "quote" ? "Quote" : "Invoice"} not found.` };
+
+  const { doc, total } = loaded;
+  const to = doc.client?.email?.trim();
+  if (!to) return { ok: false, error: `${doc.client?.name ?? "This client"} has no email address on file.` };
+
+  const org = doc.org;
+  const orgName = org?.name ?? "Crew & Grounds";
+  const firstName = (doc.client?.name ?? "").split(" ")[0] || "there";
+  const dateLine = doc.dates[1] ? `${doc.dates[1].label.toLowerCase()} ${doc.dates[1].value}` : "";
+  const intro =
+    kind === "quote"
+      ? `Please find attached quote ${doc.num} for $${total.toFixed(2)} (inc. GST), valid until ${doc.dates[1]?.value ?? ""}.`
+      : `Please find attached tax invoice ${doc.num} for $${total.toFixed(2)} (inc. GST), ${dateLine}.`;
+  const outro = kind === "quote" ? "To accept this quote, just reply to this email." : "Please get in touch if you have any questions about this invoice.";
+  const signature = [orgName, org?.phone, org?.email].filter(Boolean).join("\n");
+
+  const pdf = await renderDocumentPdf(doc);
+  const result = await sendEmail({
+    to,
+    subject: `${kind === "quote" ? "Quote" : "Tax invoice"} ${doc.num} from ${orgName}`,
+    text: `Hi ${firstName},\n\n${intro}\n\n${kind === "quote" && doc.note ? `${doc.note}\n\n` : ""}${outro}\n\nThanks,\n${signature}\n`,
+    fromName: orgName,
+    replyTo: org?.email,
+    attachments: [{ filename: loaded.filename, content: pdf }],
+  });
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, sentTo: to };
+}
+
+export async function emailQuote(id: string) {
+  return emailDocument(await loadQuoteDoc(id), "quote");
+}
+
+export async function emailInvoice(id: string) {
+  return emailDocument(await loadInvoiceDoc(id), "invoice");
 }

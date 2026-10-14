@@ -3,9 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { QuoteEditor } from "@/components/QuoteEditor";
 
-export default async function QuotePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function QuotePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   await requireAdmin();
   const { id } = await params;
+  const sp = await searchParams;
+  const noticeText = typeof sp.notice === "string" ? sp.notice : null;
   const supabase = await createClient();
 
   const [{ data: quote }, { data: items }, { data: clients }, { data: properties }, { data: services }] = await Promise.all([
@@ -18,5 +20,5 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
 
   if (!quote) notFound();
 
-  return <QuoteEditor quote={quote} items={items ?? []} clients={clients ?? []} properties={properties ?? []} services={services ?? []} />;
+  return <QuoteEditor quote={quote} items={items ?? []} clients={clients ?? []} properties={properties ?? []} services={services ?? []} notice={noticeText ? { text: noticeText, tone: sp.tone === "error" ? "error" : "ok" } : null} />;
 }

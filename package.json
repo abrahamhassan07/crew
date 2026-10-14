@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start -p 5200",
     "lint": "eslint",
+    "test:isolation": "node scripts/test-tenant-isolation.mjs",
     "create-admin": "node scripts/create-admin.mjs",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop"
@@ -16,6 +17,7 @@
     "@supabase/supabase-js": "^2.116.0",
     "lucide-react": "^1.48.0",
     "next": "16.3.4",
+    "pdf-lib": "^1.17.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1"
