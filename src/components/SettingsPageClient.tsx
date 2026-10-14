@@ -26,6 +26,7 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
     invoiceEmailSubject: templateFor(organization, "invoice").subject,
     invoiceEmailBody: templateFor(organization, "invoice").body,
     remindersEnabled: organization.reminders_enabled ?? false,
+    staffNotificationsEnabled: organization.staff_notifications_enabled ?? false,
     reminderEmailSubject: templateFor(organization, "reminder").subject,
     reminderEmailBody: templateFor(organization, "reminder").body,
   });
@@ -151,6 +152,24 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
             <div className="mt-4">
               <TemplateEditor kind="reminder" input={input} setInput={setInput} />
             </div>
+          </CollapsibleCard>
+
+          <CollapsibleCard title="Staff notifications" summary={input.staffNotificationsEnabled ? "On: staff are emailed about their schedule" : "Off"}>
+            <p className="text-sm text-ink-muted mb-3 pt-3">
+              Email your team about their schedule: straight away when a job is assigned to them, moved or cancelled, and every morning with a list of tomorrow&rsquo;s jobs. Staff need an email address on their profile, and you aren&rsquo;t emailed about changes you make yourself.
+            </p>
+            <SelectField
+              label="Staff notifications"
+              value={input.staffNotificationsEnabled ? "on" : "off"}
+              onChange={(e) => setInput({ ...input, staffNotificationsEnabled: e.target.value === "on" })}
+              options={[
+                { value: "off", label: "Off" },
+                { value: "on", label: "On: email staff about their jobs" },
+              ]}
+            />
+            {input.staffNotificationsEnabled && !input.email.trim() && (
+              <p className="text-xs text-warn-fg mt-2">Add your business email first. Notifications aren&rsquo;t sent without it.</p>
+            )}
           </CollapsibleCard>
 
           <CollapsibleCard

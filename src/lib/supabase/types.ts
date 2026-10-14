@@ -26,6 +26,7 @@ export type Organization = {
   invoice_email_subject: string | null;
   invoice_email_body: string | null;
   reminders_enabled: boolean;
+  staff_notifications_enabled: boolean;
   reminder_email_subject: string | null;
   reminder_email_body: string | null;
   plan: string | null;
@@ -53,6 +54,7 @@ export type Staff = {
   active: boolean;
   crew_id: string | null;
   job_role: JobRole;
+  digest_sent_for: string | null;
   availability: boolean[];
   usual_hours: string;
   org_id: string;
@@ -233,7 +235,7 @@ export type EmailLog = {
   id: string;
   org_id: string;
   user_id: string | null;
-  kind: "quote" | "invoice" | "reminder";
+  kind: "quote" | "invoice" | "reminder" | "staff";
   created_at: string;
 };
 

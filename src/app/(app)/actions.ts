@@ -11,6 +11,8 @@ import { formatAbn, isValidAbn, isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
 import { renderDocumentPdf } from "@/lib/pdf";
+import { after } from "next/server";
+import { JOB_SNAPSHOT_COLUMNS, notifyJobChange, type JobSnapshot } from "@/lib/staffNotify";
 import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, renderTemplate, templateFor, type EmailDraft, type EmailKind } from "@/lib/emailTemplates";
 import { addDays, fmtISO, parseISO, STAFF_HUES, todayISO } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
@@ -106,10 +108,18 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
     }
   }
 
-  const { error } = await supabase.from("jobs").insert(rows);
+  const { data: inserted, error } = await supabase.from("jobs").insert(rows).select(JOB_SNAPSHOT_COLUMNS);
   if (error) {
     if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
     return { ok: false, error: error.message };
+  }
+  // One email for the first job; a repeating job is described rather than sending seven emails.
+  const first = (inserted as JobSnapshot[] | null)?.find((j) => j.num === firstNum);
+  if (first) {
+    const orgId = viewer.orgId;
+    const staffId = viewer.staff?.id ?? null;
+    const note = input.repeat !== "none" ? `repeats ${input.repeat}` : undefined;
+    after(() => notifyJobChange(orgId, null, first, staffId, note));
   }
 
   revalidatePath("/", "layout");
@@ -121,6 +131,8 @@ export async function updateJob(id: string, input: JobInput): Promise<ActionResu
   if (err) return { ok: false, error: err };
 
   const supabase = await createClient();
+  const viewer = await getViewer();
+  const { data: before } = await supabase.from("jobs").select(JOB_SNAPSHOT_COLUMNS).eq("id", id).single();
   const { error } = await supabase
     .from("jobs")
     .update({
@@ -141,14 +153,38 @@ export async function updateJob(id: string, input: JobInput): Promise<ActionResu
 
   if (error) return { ok: false, error: error.message };
 
+  if (before) {
+    const snapshot: JobSnapshot = {
+      ...(before as JobSnapshot),
+      client_name: input.client.trim(),
+      address: input.address.trim(),
+      job_date: input.date,
+      start_time: input.startTime,
+      duration_minutes: input.duration,
+      assigned_staff_id: input.staffId,
+      status: input.status,
+      notes: input.notes,
+    };
+    const orgId = viewer.orgId;
+    const staffId = viewer.staff?.id ?? null;
+    after(() => notifyJobChange(orgId, before as JobSnapshot, snapshot, staffId));
+  }
+
   revalidatePath("/", "layout");
   return { ok: true };
 }
 
 export async function deleteJob(id: string): Promise<ActionResult> {
   const supabase = await createClient();
+  const viewer = await getViewer();
+  const { data: before } = await supabase.from("jobs").select(JOB_SNAPSHOT_COLUMNS).eq("id", id).single();
   const { error } = await supabase.from("jobs").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
+  if (before) {
+    const orgId = viewer.orgId;
+    const staffId = viewer.staff?.id ?? null;
+    after(() => notifyJobChange(orgId, before as JobSnapshot, null, staffId));
+  }
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -156,8 +192,15 @@ export async function deleteJob(id: string): Promise<ActionResult> {
 
 export async function updateJobStatus(id: string, status: JobStatus): Promise<ActionResult> {
   const supabase = await createClient();
+  const viewer = await getViewer();
+  const { data: before } = status === "cancelled" ? await supabase.from("jobs").select(JOB_SNAPSHOT_COLUMNS).eq("id", id).single() : { data: null };
   const { error } = await supabase.from("jobs").update({ status }).eq("id", id);
   if (error) return { ok: false, error: error.message };
+  if (before) {
+    const orgId = viewer.orgId;
+    const staffId = viewer.staff?.id ?? null;
+    after(() => notifyJobChange(orgId, before as JobSnapshot, { ...(before as JobSnapshot), status }, staffId));
+  }
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -184,11 +227,19 @@ export async function updateJobNotes(id: string, notes: string): Promise<ActionR
 export async function rescheduleJob(id: string, date: string, startTime?: string): Promise<ActionResult> {
   if (startTime !== undefined && !/^\d{2}:\d{2}$/.test(startTime)) return { ok: false, error: "Invalid start time." };
   const supabase = await createClient();
+  const viewer = await getViewer();
+  const { data: before } = await supabase.from("jobs").select(JOB_SNAPSHOT_COLUMNS).eq("id", id).single();
   const { error } = await supabase
     .from("jobs")
     .update(startTime ? { job_date: date, start_time: startTime } : { job_date: date })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+  if (before) {
+    const orgId = viewer.orgId;
+    const staffId = viewer.staff?.id ?? null;
+    const moved = { ...(before as JobSnapshot), job_date: date, ...(startTime ? { start_time: startTime } : {}) };
+    after(() => notifyJobChange(orgId, before as JobSnapshot, moved, staffId));
+  }
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -1259,6 +1310,7 @@ export interface OrganizationInput {
   remindersEnabled: boolean;
   reminderEmailSubject: string;
   reminderEmailBody: string;
+  staffNotificationsEnabled: boolean;
 }
 
 export async function updateOrganization(input: OrganizationInput): Promise<ActionResult> {
@@ -1292,6 +1344,7 @@ export async function updateOrganization(input: OrganizationInput): Promise<Acti
       invoice_email_subject: custom(input.invoiceEmailSubject, DEFAULT_TEMPLATES.invoice.subject),
       invoice_email_body: custom(input.invoiceEmailBody, DEFAULT_TEMPLATES.invoice.body),
       reminders_enabled: input.remindersEnabled,
+      staff_notifications_enabled: input.staffNotificationsEnabled,
       reminder_email_subject: custom(input.reminderEmailSubject, DEFAULT_TEMPLATES.reminder.subject),
       reminder_email_body: custom(input.reminderEmailBody, DEFAULT_TEMPLATES.reminder.body),
     })
