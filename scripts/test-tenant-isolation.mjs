@@ -154,6 +154,14 @@ async function run() {
     check("A cannot change feedback status", !!edit.error || (edit.data ?? []).length === 0);
   }
 
+  // The email send log is server-only: members can neither read nor write it.
+  for (const t of [a, b]) {
+    const read = await t.db.from("email_log").select("id").limit(1);
+    check(`${t.label} cannot read the email send log`, !!read.error || (read.data ?? []).length === 0, JSON.stringify(read));
+    const write = await t.db.from("email_log").insert({ org_id: t.orgId, user_id: t.userId, kind: "quote" });
+    check(`${t.label} cannot write the email send log`, !!write.error, JSON.stringify(write));
+  }
+
   // Confirm the victim's data really is untouched.
   const { data: untouched } = await admin.from("clients").select("name").eq("id", a.ids.clientId).single();
   check("A's client name unchanged after B's attempted update", untouched?.name === `A Client ${tag}`, untouched?.name);
