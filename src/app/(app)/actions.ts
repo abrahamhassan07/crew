@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
+import { billingEnforced, seatLimit } from "@/lib/billing";
 import { isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
@@ -201,6 +202,23 @@ export interface StaffInput {
   jobRole: JobRole;
 }
 
+/**
+ * Seat limit for the business's plan (only applied once billing is enforced, so a
+ * free pilot isn't capped). Returns an error message if adding another active user
+ * would go over; `excludeStaffId` ignores a person who is already counted.
+ */
+async function seatError(supabase: Db, orgId: string, excludeStaffId?: string): Promise<string | null> {
+  if (!billingEnforced()) return null;
+  const { data: org } = await supabase.from("organizations").select("*").eq("id", orgId).single();
+  const limit = seatLimit(org);
+  if (limit === null) return null;
+  let q = supabase.from("staff").select("id", { count: "exact", head: true }).eq("active", true);
+  if (excludeStaffId) q = q.neq("id", excludeStaffId);
+  const { count } = await q;
+  if ((count ?? 0) >= limit) return `Your plan covers ${limit} user${limit === 1 ? "" : "s"}. Change your team size under Subscription to add more.`;
+  return null;
+}
+
 export async function inviteStaff(input: StaffInput): Promise<ActionResult> {
   if (!input.name.trim()) return { ok: false, error: "Name is required." };
   if (!input.email.trim()) return { ok: false, error: "Email is required." };
@@ -209,6 +227,8 @@ export async function inviteStaff(input: StaffInput): Promise<ActionResult> {
   if (viewer.profile.role !== "admin") return { ok: false, error: "Not authorized." };
 
   const supabase = await createClient();
+  const limitMessage = await seatError(supabase, viewer.orgId);
+  if (limitMessage) return { ok: false, error: limitMessage };
   const { count } = await supabase.from("staff").select("id", { count: "exact", head: true });
   const colorHue = STAFF_HUES[(count ?? 0) % STAFF_HUES.length];
 
@@ -256,8 +276,18 @@ export interface StaffUpdateInput {
   availability: boolean[];
 }
 
+/** Seat check for switching someone from inactive to active (people who are already active are never blocked). */
+async function reactivationError(supabase: Db, id: string, makeActive: boolean): Promise<string | null> {
+  if (!makeActive) return null;
+  const { data: current } = await supabase.from("staff").select("active, org_id").eq("id", id).single();
+  if (!current || current.active) return null;
+  return seatError(supabase, current.org_id, id);
+}
+
 export async function updateStaff(id: string, input: StaffUpdateInput): Promise<ActionResult> {
   const supabase = await createClient();
+  const limitMessage = await reactivationError(supabase, id, input.active);
+  if (limitMessage) return { ok: false, error: limitMessage };
   const { error } = await supabase
     .from("staff")
     .update({
@@ -327,6 +357,8 @@ export async function deleteCrew(id: string): Promise<ActionResult> {
 
 export async function toggleStaffActive(id: string, active: boolean): Promise<ActionResult> {
   const supabase = await createClient();
+  const limitMessage = await reactivationError(supabase, id, active);
+  if (limitMessage) return { ok: false, error: limitMessage };
   const { error } = await supabase.from("staff").update({ active }).eq("id", id);
   if (error) return { ok: false, error: error.message };
 

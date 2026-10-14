@@ -1,3 +1,4 @@
+import { TEAM_SIZES, TRIAL_USERS } from "@/lib/plans";
 import type { Organization } from "@/lib/supabase/types";
 
 export type BillingState =
@@ -19,4 +20,17 @@ export function getBillingState(org: Pick<Organization, "billing_exempt" | "subs
   const ends = new Date(org.trial_ends_at).getTime();
   if (ends > Date.now()) return { kind: "trial", daysLeft: Math.max(1, Math.ceil((ends - Date.now()) / 864e5)), endsAt: org.trial_ends_at };
   return { kind: "expired" };
+}
+
+type SeatOrg = Pick<Organization, "billing_exempt" | "subscription_status" | "plan" | "current_period_end" | "trial_ends_at" | "team_size">;
+
+/** Max active users for a business, or null for no limit. */
+export function seatLimit(org: SeatOrg | null): number | null {
+  if (!org || org.billing_exempt !== false) return null;
+  const state = getBillingState(org);
+  if (state.kind === "active") {
+    const team = TEAM_SIZES.find((t) => t.k === org.team_size);
+    return !team || team.users >= 999 ? null : team.users;
+  }
+  return TRIAL_USERS;
 }
