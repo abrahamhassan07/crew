@@ -130,6 +130,16 @@ async function run() {
     check(`${me.label} cannot re-point its job at ${other.label}'s client`, !!relink.error || (relink.data ?? []).length === 0, JSON.stringify(relink));
   }
 
+  // Billing columns must only be writable by the server (Stripe webhook), never by a business admin.
+  for (const t of [a, b]) {
+    const grab = await t.db.from("organizations").update({ subscription_status: "active", billing_exempt: true }).eq("id", t.orgId).select("id");
+    check(`${t.label} cannot mark its own org as paid/exempt`, !!grab.error || (grab.data ?? []).length === 0, JSON.stringify(grab));
+    const rename = await t.db.from("organizations").update({ name: `ISOTEST ${t.label} ${tag}` }).eq("id", t.orgId).select("id");
+    check(`${t.label} can still edit its business details`, !rename.error && (rename.data ?? []).length === 1, JSON.stringify(rename));
+    const { data: row } = await admin.from("organizations").select("billing_exempt, subscription_status, trial_ends_at").eq("id", t.orgId).single();
+    check(`${t.label} new org is on a trial, not exempt`, row?.billing_exempt === false && !row?.subscription_status && new Date(row?.trial_ends_at) > new Date(), JSON.stringify(row));
+  }
+
   // Confirm the victim's data really is untouched.
   const { data: untouched } = await admin.from("clients").select("name").eq("id", a.ids.clientId).single();
   check("A's client name unchanged after B's attempted update", untouched?.name === `A Client ${tag}`, untouched?.name);
