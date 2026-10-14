@@ -111,7 +111,9 @@ export function QuoteEditor({
         setReviewError(sent.error ?? "Could not send the email.");
         return;
       }
-      router.push(`/quotes/${review.id}?notice=${encodeURIComponent(`Quote emailed to ${sent.sentTo}`)}&tone=ok`);
+      const id = review.id;
+      setReview(null);
+      router.push(`/quotes/${id}?notice=${encodeURIComponent(`Quote emailed to ${sent.sentTo}`)}&tone=ok`);
       router.refresh();
     });
   };
