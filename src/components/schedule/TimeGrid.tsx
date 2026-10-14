@@ -2,7 +2,7 @@
 
 import type { EnrichedJob } from "@/lib/design";
 import type { Crew } from "@/lib/supabase/types";
-import { GRID_HEIGHT_PX, GRID_HOURS, HOUR_PX, blockHeight, blockTop, fmtHourLabel, fmtTimeRangeLabel, layoutOverlaps, nowOffsetPx } from "./scheduleTime";
+import { GRID_HEIGHT_PX, GRID_HOURS, HOUR_PX, blockHeight, blockTop, fmtHourLabel, fmtTimeRangeLabel, layoutOverlaps, nowOffsetPx, yToMinutes } from "./scheduleTime";
 
 export interface GridDay {
   iso: string;
@@ -18,7 +18,8 @@ interface TimeGridProps {
   canEdit: boolean;
   onSlotClick: (iso: string) => void;
   onJobClick: (jobId: string) => void;
-  onDropOnDay: (iso: string, e: React.DragEvent) => void;
+  /** startMinutes is the snapped time (minutes since midnight) at the top of where the block was dropped. */
+  onDropOnDay: (iso: string, startMinutes: number, e: React.DragEvent) => void;
 }
 
 export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onDropOnDay }: TimeGridProps) {
@@ -70,7 +71,10 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
             onDrop={(e) => {
               if (!canEdit) return;
               e.preventDefault();
-              onDropOnDay(day.iso, e);
+              const colTop = e.currentTarget.getBoundingClientRect().top;
+              // Keep the spot you grabbed under the pointer: subtract how far down the block you picked it up.
+              const grabOffset = Number(e.dataTransfer.getData("application/x-grab-offset")) || 0;
+              onDropOnDay(day.iso, yToMinutes(e.clientY - colTop - grabOffset), e);
             }}
           >
             {/* Hour gridlines */}
@@ -107,6 +111,7 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
                     draggable={canEdit}
                     onDragStart={(e) => {
                       e.dataTransfer.setData("application/x-job-id", job.id);
+                      e.dataTransfer.setData("application/x-grab-offset", String(e.clientY - e.currentTarget.getBoundingClientRect().top));
                     }}
                     onClick={(e) => {
                       e.stopPropagation();

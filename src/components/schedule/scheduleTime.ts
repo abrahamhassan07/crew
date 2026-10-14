@@ -15,6 +15,18 @@ export function blockTop(startTime: string) {
   return Math.max(0, ((mins - GRID_START_MIN) / 60) * HOUR_PX);
 }
 
+/** Vertical position inside a day column -> minutes since midnight, snapped to 15 minutes. */
+export function yToMinutes(y: number) {
+  const raw = GRID_START_MIN + (y / HOUR_PX) * 60;
+  return Math.round(raw / 15) * 15;
+}
+
+export function minutesToTime(mins: number) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 export function blockHeight(durationMinutes: number) {
   return Math.max(22, (durationMinutes / 60) * HOUR_PX - 2);
 }

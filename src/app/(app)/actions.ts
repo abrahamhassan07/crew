@@ -158,9 +158,13 @@ export async function updateJobNotes(id: string, notes: string): Promise<ActionR
   return { ok: true };
 }
 
-export async function rescheduleJob(id: string, date: string): Promise<ActionResult> {
+export async function rescheduleJob(id: string, date: string, startTime?: string): Promise<ActionResult> {
+  if (startTime !== undefined && !/^\d{2}:\d{2}$/.test(startTime)) return { ok: false, error: "Invalid start time." };
   const supabase = await createClient();
-  const { error } = await supabase.from("jobs").update({ job_date: date }).eq("id", id);
+  const { error } = await supabase
+    .from("jobs")
+    .update(startTime ? { job_date: date, start_time: startTime } : { job_date: date })
+    .eq("id", id);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");

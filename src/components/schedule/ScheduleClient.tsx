@@ -14,6 +14,7 @@ import { TimeGrid, type GridDay } from "./TimeGrid";
 import { MonthGrid } from "./MonthGrid";
 import { CrewView } from "./CrewView";
 import { UnscheduledPanel } from "./UnscheduledPanel";
+import { GRID_END_MIN, GRID_START_MIN, minutesToTime } from "./scheduleTime";
 
 type View = "day" | "week" | "month" | "crew";
 
@@ -115,14 +116,18 @@ export function ScheduleClient({
   }, [weekJobs]);
   const unassignedCrewJobs = weekJobs.filter((j) => !j.crew_id).sort((a, b) => (a.job_date ?? "").localeCompare(b.job_date ?? ""));
 
-  const handleDropOnDay = async (iso: string, e: React.DragEvent) => {
+  const handleDropOnDay = async (iso: string, startMinutes: number, e: React.DragEvent) => {
     const jobId = e.dataTransfer.getData("application/x-job-id");
     const requestId = e.dataTransfer.getData("application/x-request-id");
+    // Keep the whole block inside the visible grid.
+    const clampStart = (durationMinutes: number) =>
+      minutesToTime(Math.min(Math.max(startMinutes, GRID_START_MIN), Math.max(GRID_START_MIN, GRID_END_MIN - durationMinutes)));
     if (jobId) {
-      await rescheduleJob(jobId, iso);
+      const job = jobs.find((j) => j.id === jobId);
+      await rescheduleJob(jobId, iso, clampStart(job?.duration_minutes ?? 60));
       router.refresh();
     } else if (requestId) {
-      await convertRequestToJob(requestId, iso, "09:00");
+      await convertRequestToJob(requestId, iso, clampStart(60));
       router.refresh();
     }
   };
