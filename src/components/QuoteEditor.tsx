@@ -24,6 +24,7 @@ export function QuoteEditor({
   initialClientId,
   initialRequestId,
   notice,
+  gstRegistered = true,
 }: {
   quote: Quote | null;
   items: QuoteItem[];
@@ -33,6 +34,7 @@ export function QuoteEditor({
   initialClientId?: string;
   initialRequestId?: string;
   notice?: { text: string; tone: "ok" | "error" } | null;
+  gstRegistered?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -42,7 +44,7 @@ export function QuoteEditor({
   const [propertyId, setPropertyId] = useState(quote?.property_id ?? "");
   const [quoteDate, setQuoteDate] = useState(quote?.quote_date ?? new Date().toISOString().slice(0, 10));
   const [expiryDate, setExpiryDate] = useState(quote?.expiry_date ?? new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10));
-  const [mode, setMode] = useState<GstMode>(quote?.mode ?? "exclusive");
+  const [mode, setMode] = useState<GstMode>(quote?.mode ?? (gstRegistered ? "exclusive" : "none"));
   const [message, setMessage] = useState(quote?.message ?? "Thanks for the opportunity to quote. Prices are valid for 30 days.");
   const [lines, setLines] = useState<QuoteLineInput[]>(
     initialItems.length
@@ -188,13 +190,15 @@ export function QuoteEditor({
             <Card className="p-0">
               <div className="flex items-center justify-between px-5 py-4 border-b border-line">
                 <h2 className="text-base font-bold text-ink-primary">Line items</h2>
-                <div className="flex bg-neutral-bg rounded-lg p-0.5">
-                  {(["exclusive", "inclusive"] as GstMode[]).map((m) => (
-                    <button key={m} disabled={locked} onClick={() => setMode(m)} className="px-3 py-1.5 rounded-md text-xs font-semibold" style={mode === m ? { background: "#fff" } : {}}>
-                      {m === "exclusive" ? "GST exclusive" : "GST inclusive"}
-                    </button>
-                  ))}
-                </div>
+                {gstRegistered && (
+                  <div className="flex bg-neutral-bg rounded-lg p-0.5">
+                    {(["exclusive", "inclusive"] as GstMode[]).map((m) => (
+                      <button key={m} disabled={locked} onClick={() => setMode(m)} className="px-3 py-1.5 rounded-md text-xs font-semibold" style={mode === m ? { background: "#fff" } : {}}>
+                        {m === "exclusive" ? "GST exclusive" : "GST inclusive"}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="p-4 flex flex-col gap-3">
                 {lines.map((l, i) => (
@@ -228,8 +232,12 @@ export function QuoteEditor({
 
           <Card className="p-6 flex-1 w-full lg:sticky lg:top-4">
             <h2 className="text-base font-bold mb-3">Summary</h2>
-            <div className="flex justify-between text-sm py-1.5"><span className="text-ink-secondary">Subtotal (ex. GST)</span><span className="font-semibold">${totals.sub.toFixed(2)}</span></div>
-            <div className="flex justify-between text-sm py-1.5"><span className="text-ink-secondary">GST (10%)</span><span className="font-semibold">${totals.gst.toFixed(2)}</span></div>
+            {mode !== "none" && (
+              <>
+                <div className="flex justify-between text-sm py-1.5"><span className="text-ink-secondary">Subtotal (ex. GST)</span><span className="font-semibold">${totals.sub.toFixed(2)}</span></div>
+                <div className="flex justify-between text-sm py-1.5"><span className="text-ink-secondary">GST (10%)</span><span className="font-semibold">${totals.gst.toFixed(2)}</span></div>
+              </>
+            )}
             <div className="flex justify-between text-base py-2.5 border-t border-line mt-1.5"><span className="font-bold">Total (AUD)</span><span className="font-bold">${totals.total.toFixed(2)}</span></div>
             {error && <p className="text-sm text-danger mt-3">{error}</p>}
           </Card>

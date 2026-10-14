@@ -71,8 +71,9 @@ export function InvoiceEditor({
   const [jobId, setJobId] = useState(invoice?.job_id ?? "");
   const [issueDate, setIssueDate] = useState(invoice?.issue_date ?? new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState(invoice?.due_date ?? new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10));
-  const [mode, setMode] = useState<GstMode>(invoice?.mode ?? "exclusive");
-  const [notes, setNotes] = useState(invoice?.notes ?? "Payment by EFT to BSB 063-000, Acc 1234 5678. Please use the invoice number as reference.");
+  const gstRegistered = organization?.gst_registered ?? true;
+  const [mode, setMode] = useState<GstMode>(invoice?.mode ?? (gstRegistered ? "exclusive" : "none"));
+  const [notes, setNotes] = useState(invoice?.notes ?? "Please use the invoice number as your payment reference.");
   const [lines, setLines] = useState<InvoiceLineInput[]>(
     initialItems.length
       ? initialItems.map((i) => ({ serviceId: i.service_id, serviceName: i.service_name, description: i.description, qty: i.qty, unitPrice: i.unit_price }))
@@ -228,7 +229,7 @@ export function InvoiceEditor({
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xl font-extrabold text-forest">Tax Invoice</div>
+                    <div className="text-xl font-extrabold text-forest">{invoice.mode === "none" ? "Invoice" : "Tax Invoice"}</div>
                     <div className="text-sm text-ink-secondary mt-1.5 leading-relaxed">
                       {invoice.num}
                       <br />
@@ -285,8 +286,12 @@ export function InvoiceEditor({
                 </div>
 
                 <div className="ml-auto mt-4 w-full sm:w-72 text-sm">
-                  <div className="flex justify-between py-1"><span>Subtotal</span><span>${totals.sub.toFixed(2)}</span></div>
-                  <div className="flex justify-between py-1"><span>GST (10%)</span><span>${totals.gst.toFixed(2)}</span></div>
+                  {invoice.mode !== "none" && (
+                    <>
+                      <div className="flex justify-between py-1"><span>Subtotal</span><span>${totals.sub.toFixed(2)}</span></div>
+                      <div className="flex justify-between py-1"><span>GST (10%)</span><span>${totals.gst.toFixed(2)}</span></div>
+                    </>
+                  )}
                   <div className="flex justify-between py-2 border-t-2 border-ink-primary mt-1 text-base font-extrabold"><span>Total AUD</span><span>${totals.total.toFixed(2)}</span></div>
                   <div className="flex justify-between py-1 text-ok-fg"><span>Amount paid</span><span>− ${paid.toFixed(2)}</span></div>
                   <div className="flex justify-between py-2 border-t border-line text-base font-extrabold"><span>Balance due</span><span>${balance.toFixed(2)}</span></div>
@@ -434,13 +439,15 @@ export function InvoiceEditor({
             <Card className="p-0">
               <div className="flex items-center justify-between px-5 py-4 border-b border-line">
                 <h2 className="text-base font-bold text-ink-primary">Line items</h2>
-                <div className="flex bg-neutral-bg rounded-lg p-0.5">
-                  {(["exclusive", "inclusive"] as GstMode[]).map((m) => (
-                    <button key={m} onClick={() => setMode(m)} className="px-3 py-1.5 rounded-md text-xs font-semibold" style={mode === m ? { background: "#fff" } : {}}>
-                      {m === "exclusive" ? "GST exclusive" : "GST inclusive"}
-                    </button>
-                  ))}
-                </div>
+                {gstRegistered && (
+                  <div className="flex bg-neutral-bg rounded-lg p-0.5">
+                    {(["exclusive", "inclusive"] as GstMode[]).map((m) => (
+                      <button key={m} onClick={() => setMode(m)} className="px-3 py-1.5 rounded-md text-xs font-semibold" style={mode === m ? { background: "#fff" } : {}}>
+                        {m === "exclusive" ? "GST exclusive" : "GST inclusive"}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="p-4 flex flex-col gap-3">
                 {lines.map((l, i) => (
@@ -470,8 +477,12 @@ export function InvoiceEditor({
 
           <Card className="p-6 flex-1 w-full lg:sticky lg:top-4">
             <h2 className="text-base font-bold mb-3">Summary</h2>
-            <div className="flex justify-between text-sm py-1.5"><span className="text-ink-secondary">Subtotal (ex. GST)</span><span className="font-semibold">${totals.sub.toFixed(2)}</span></div>
-            <div className="flex justify-between text-sm py-1.5"><span className="text-ink-secondary">GST (10%)</span><span className="font-semibold">${totals.gst.toFixed(2)}</span></div>
+            {mode !== "none" && (
+              <>
+                <div className="flex justify-between text-sm py-1.5"><span className="text-ink-secondary">Subtotal (ex. GST)</span><span className="font-semibold">${totals.sub.toFixed(2)}</span></div>
+                <div className="flex justify-between text-sm py-1.5"><span className="text-ink-secondary">GST (10%)</span><span className="font-semibold">${totals.gst.toFixed(2)}</span></div>
+              </>
+            )}
             <div className="flex justify-between text-base py-2.5 border-t border-line mt-1.5"><span className="font-bold">Total (AUD)</span><span className="font-bold">${totals.total.toFixed(2)}</span></div>
             <div className="text-xs text-ink-muted mt-2">Due {fmtDateLabel(dueDate)}</div>
             {error && <p className="text-sm text-danger mt-3">{error}</p>}

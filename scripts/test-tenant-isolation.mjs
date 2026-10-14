@@ -134,8 +134,10 @@ async function run() {
   for (const t of [a, b]) {
     const grab = await t.db.from("organizations").update({ subscription_status: "active", billing_exempt: true }).eq("id", t.orgId).select("id");
     check(`${t.label} cannot mark its own org as paid/exempt`, !!grab.error || (grab.data ?? []).length === 0, JSON.stringify(grab));
-    const rename = await t.db.from("organizations").update({ name: `ISOTEST ${t.label} ${tag}` }).eq("id", t.orgId).select("id");
-    check(`${t.label} can still edit its business details`, !rename.error && (rename.data ?? []).length === 1, JSON.stringify(rename));
+    const rename = await t.db.from("organizations").update({ name: `ISOTEST ${t.label} ${tag}`, gst_registered: false }).eq("id", t.orgId).select("id");
+    check(`${t.label} can still edit its business details and GST setting`, !rename.error && (rename.data ?? []).length === 1, JSON.stringify(rename));
+    const noGst = await t.db.from("quotes").insert({ num: `NG-${tag}-${t.label}`, client_id: t.ids.clientId, org_id: t.orgId, mode: "none" }).select("id");
+    check(`${t.label} can create a no-GST quote`, !noGst.error && (noGst.data ?? []).length === 1, JSON.stringify(noGst));
     const { data: row } = await admin.from("organizations").select("billing_exempt, subscription_status, trial_ends_at").eq("id", t.orgId).single();
     check(`${t.label} new org is on a trial, not exempt`, row?.billing_exempt === false && !row?.subscription_status && new Date(row?.trial_ends_at) > new Date(), JSON.stringify(row));
   }

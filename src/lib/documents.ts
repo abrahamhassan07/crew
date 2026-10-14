@@ -78,7 +78,7 @@ export async function loadInvoiceDoc(id: string): Promise<LoadedDoc | null> {
   const paid = (payments ?? []).reduce((s, p) => s + p.amount, 0);
   return {
     doc: {
-      kind: "Tax Invoice",
+      kind: invoice.mode === "none" ? "Invoice" : "Tax Invoice",
       num: invoice.num,
       org,
       ...parties,

@@ -3,14 +3,15 @@ import { requireAdmin } from "@/lib/auth";
 import { QuoteEditor } from "@/components/QuoteEditor";
 
 export default async function NewQuotePage({ searchParams }: PageProps<"/quotes/new">) {
-  await requireAdmin();
+  const viewer = await requireAdmin();
   const params = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: clients }, { data: properties }, { data: services }] = await Promise.all([
+  const [{ data: clients }, { data: properties }, { data: services }, { data: org }] = await Promise.all([
     supabase.from("clients").select("*").neq("status", "Archived").order("name"),
     supabase.from("properties").select("*"),
     supabase.from("services").select("*").eq("active", true).order("name"),
+    supabase.from("organizations").select("gst_registered").eq("id", viewer.orgId).single(),
   ]);
 
   const clientId = typeof params.clientId === "string" ? params.clientId : undefined;
@@ -25,6 +26,7 @@ export default async function NewQuotePage({ searchParams }: PageProps<"/quotes/
       services={services ?? []}
       initialClientId={clientId}
       initialRequestId={requestId}
+      gstRegistered={org?.gst_registered ?? true}
     />
   );
 }

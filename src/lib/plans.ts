@@ -30,7 +30,7 @@ export const PLANS: Plan[] = [
     lead: "What's included",
     features: [
       "Client records with multiple properties",
-      "Quotes and tax invoices with GST",
+      "Quotes and invoices, with GST if you're registered",
       "Day, week and month scheduling",
       "Service catalogue and price list",
       "Basic reporting",

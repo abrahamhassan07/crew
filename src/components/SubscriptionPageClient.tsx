@@ -61,7 +61,7 @@ const COMPARE: CompareRow[] = [
   { section: "Clients & jobs" },
   { label: "Clients and properties", cells: ["Unlimited", "Unlimited", "Unlimited"] },
   { label: "Users included", cells: ["Up to 5", "Unlimited", "Unlimited"] },
-  { label: "Quotes, jobs and tax invoices", cells: [1, 1, 1] },
+  { label: "Quotes, jobs and invoices", cells: [1, 1, 1] },
   { label: "Recurring jobs", cells: [0, 1, 1] },
   { label: "Crew view and drag-and-drop scheduling", cells: [0, 1, 1] },
   { section: "Operations" },

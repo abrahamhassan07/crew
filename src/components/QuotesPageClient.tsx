@@ -76,7 +76,7 @@ export function QuotesPageClient({ quotes, clients, itemTotals }: { quotes: Quot
     { key: "clientName", label: "Client", sortable: true },
     { key: "quote_date", label: "Quote date", sortable: true },
     { key: "expiry_date", label: "Expiry", sortable: true },
-    { key: "total", label: "Total (inc. GST)", sortable: true, render: (t: number) => <span className="font-semibold">${t.toFixed(2)}</span> },
+    { key: "total", label: "Total", sortable: true, render: (t: number) => <span className="font-semibold">${t.toFixed(2)}</span> },
     { key: "status", label: "Status", sortable: true, render: (s: QuoteStatus) => <StatusBadge status={badgeStatus(s)} label={s} showDot /> },
   ];
 

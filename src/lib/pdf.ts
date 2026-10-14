@@ -11,7 +11,7 @@ export interface DocLine {
 }
 
 export interface DocData {
-  kind: "Quote" | "Tax Invoice";
+  kind: "Quote" | "Tax Invoice" | "Invoice";
   num: string;
   org: Organization | null;
   client: Pick<Client, "name" | "address" | "email"> | null;
@@ -169,9 +169,11 @@ export async function renderDocumentPdf(doc: DocData): Promise<Uint8Array> {
     textRight(value, amtX, size, f, color);
     y -= size + 6;
   };
-  totalRow("Subtotal", money(totals.sub));
-  totalRow("GST (10%)", money(totals.gst));
-  y += 2;
+  if (doc.mode !== "none") {
+    totalRow("Subtotal", money(totals.sub));
+    totalRow("GST (10%)", money(totals.gst));
+    y += 2;
+  }
   rule(1.25, INK);
   y -= 14;
   totalRow("Total AUD", money(totals.total), bold, 12);

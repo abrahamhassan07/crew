@@ -16,6 +16,7 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
     phone: organization.phone ?? "",
     address: organization.address ?? "",
     abn: organization.abn ?? "",
+    gstRegistered: organization.gst_registered ?? true,
   });
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -98,20 +99,18 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
             <div className="space-y-4">
               <SelectField
                 label="GST Registration"
+                value={input.gstRegistered ? "yes" : "no"}
+                onChange={(e) => setInput({ ...input, gstRegistered: e.target.value === "yes" })}
                 options={[
-                  { value: "yes", label: "Yes, registered" },
+                  { value: "yes", label: "Yes, registered for GST" },
                   { value: "no", label: "No, not registered" },
                 ]}
-                defaultValue="yes"
               />
-              <SelectField
-                label="Price Display Mode"
-                options={[
-                  { value: "inclusive", label: "Inclusive of GST" },
-                  { value: "exclusive", label: "Exclusive of GST" },
-                ]}
-                defaultValue="inclusive"
-              />
+              <p className="text-xs text-ink-muted -mt-2">
+                {input.gstRegistered
+                  ? "Quotes and invoices add or include 10% GST and invoices are titled Tax Invoice."
+                  : "New quotes and invoices show no GST and are titled Invoice. Existing documents keep the GST setting they were issued with."}
+              </p>
             </div>
           </Card>
 

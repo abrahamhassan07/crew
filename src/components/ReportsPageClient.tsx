@@ -323,7 +323,7 @@ export function ReportsPageClient({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5 mb-8">
             <Card className="p-5">
               <h2 className="text-base font-bold text-ink-primary">Revenue</h2>
-              <div className="text-xs text-ink-muted mb-4">Payments received, AUD inc. GST</div>
+              <div className="text-xs text-ink-muted mb-4">Payments received, AUD</div>
               {revTotal === 0 ? (
                 <div className="h-[200px] flex items-center justify-center text-sm text-ink-muted">No payments recorded in this period.</div>
               ) : (

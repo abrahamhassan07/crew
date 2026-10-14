@@ -19,6 +19,7 @@ export type Organization = {
   phone: string | null;
   address: string | null;
   abn: string | null;
+  gst_registered: boolean;
   plan: string | null;
   team_size: string | null;
   billing_interval: "month" | "year" | null;
@@ -146,7 +147,7 @@ export type ServiceCategory = "Gardening" | "Cleaning" | "Other";
 
 export type RequestStatus = "New" | "Contacted" | "Quoted" | "Converted" | "Closed";
 
-export type GstMode = "inclusive" | "exclusive";
+export type GstMode = "inclusive" | "exclusive" | "none";
 export type QuoteStatus = "Draft" | "Sent" | "Approved" | "Declined" | "Expired" | "Cancelled";
 
 export type QuoteItem = {

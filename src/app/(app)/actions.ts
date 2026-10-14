@@ -1115,6 +1115,7 @@ export interface OrganizationInput {
   phone: string;
   address: string;
   abn: string;
+  gstRegistered: boolean;
 }
 
 export async function updateOrganization(input: OrganizationInput): Promise<ActionResult> {
@@ -1132,6 +1133,7 @@ export async function updateOrganization(input: OrganizationInput): Promise<Acti
       phone: input.phone.trim() || null,
       address: input.address.trim() || null,
       abn: input.abn.trim() || null,
+      gst_registered: input.gstRegistered,
     })
     .eq("id", viewer.orgId);
 
@@ -1199,17 +1201,18 @@ async function emailDocument(loaded: LoadedDoc | null, kind: "quote" | "invoice"
   const orgName = org.name;
   const firstName = (doc.client?.name ?? "").split(" ")[0] || "there";
   const dateLine = doc.dates[1] ? `${doc.dates[1].label.toLowerCase()} ${doc.dates[1].value}` : "";
+  const gstNote = doc.mode === "none" ? "" : " (inc. GST)";
   const intro =
     kind === "quote"
-      ? `Please find attached quote ${doc.num} for $${total.toFixed(2)} (inc. GST), valid until ${doc.dates[1]?.value ?? ""}.`
-      : `Please find attached tax invoice ${doc.num} for $${total.toFixed(2)} (inc. GST), ${dateLine}.`;
+      ? `Please find attached quote ${doc.num} for $${total.toFixed(2)}${gstNote}, valid until ${doc.dates[1]?.value ?? ""}.`
+      : `Please find attached ${doc.kind === "Tax Invoice" ? "tax invoice" : "invoice"} ${doc.num} for $${total.toFixed(2)}${gstNote}, ${dateLine}.`;
   const outro = kind === "quote" ? "To accept this quote, just reply to this email." : "Please get in touch if you have any questions about this invoice.";
   const signature = [orgName, org?.phone, org?.email].filter(Boolean).join("\n");
 
   const pdf = await renderDocumentPdf(doc);
   const result = await sendEmail({
     to,
-    subject: `${kind === "quote" ? "Quote" : "Tax invoice"} ${doc.num} from ${orgName}`,
+    subject: `${kind === "quote" ? "Quote" : doc.kind === "Tax Invoice" ? "Tax invoice" : "Invoice"} ${doc.num} from ${orgName}`,
     text: `Hi ${firstName},\n\n${intro}\n\n${kind === "quote" && doc.note ? `${doc.note}\n\n` : ""}${outro}\n\nThanks,\n${signature}\n`,
     fromName: orgName,
     replyTo: org?.email,
