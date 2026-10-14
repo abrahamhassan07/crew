@@ -1193,7 +1193,10 @@ async function emailDocument(loaded: LoadedDoc | null, kind: "quote" | "invoice"
   if (!to) return { ok: false, error: `${doc.client?.name ?? "This client"} has no email address on file.` };
 
   const org = doc.org;
-  const orgName = org?.name ?? "Crew & Grounds";
+  if (!org?.email?.trim()) {
+    return { ok: false, error: "Add your business email under Settings > Business Information first, so your client's replies reach you." };
+  }
+  const orgName = org.name;
   const firstName = (doc.client?.name ?? "").split(" ")[0] || "there";
   const dateLine = doc.dates[1] ? `${doc.dates[1].label.toLowerCase()} ${doc.dates[1].value}` : "";
   const intro =
