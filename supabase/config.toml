@@ -246,10 +246,19 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# Branded emails. Production uses the same HTML, pasted into the dashboard
+# (Authentication > Email Templates); see supabase/templates/README.md.
+[auth.email.template.confirmation]
+subject = "Confirm your email to start with Crew & Grounds"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.invite]
+subject = "You've been invited to join a team on Crew & Grounds"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Crew & Grounds password"
+content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
