@@ -221,6 +221,14 @@ export type Invoice = {
   updated_at: string;
 };
 
+export type EmailLog = {
+  id: string;
+  org_id: string;
+  user_id: string;
+  kind: "quote" | "invoice";
+  created_at: string;
+};
+
 export type FeedbackKind = "bug" | "idea" | "question";
 export type FeedbackStatus = "new" | "in_progress" | "done" | "wont_fix";
 
@@ -391,6 +399,12 @@ export type Database = {
         Row: Equipment;
         Insert: Partial<Equipment> & Pick<Equipment, "name" | "org_id">;
         Update: Partial<Equipment>;
+        Relationships: [];
+      };
+      email_log: {
+        Row: EmailLog;
+        Insert: Partial<EmailLog> & Pick<EmailLog, "org_id" | "user_id" | "kind">;
+        Update: Partial<EmailLog>;
         Relationships: [];
       };
       feedback: {

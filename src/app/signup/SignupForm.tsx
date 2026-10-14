@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { signUp } from "./actions";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 const OAUTH_ERRORS: Record<string, string> = {
   "oauth-failed": "Google sign-in failed. Please try again.",
@@ -96,6 +97,7 @@ export function SignupForm({ oauthError }: { oauthError?: string }) {
           className="w-full px-3 py-2.5 rounded-lg border border-field-border text-sm bg-white text-ink-primary focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all"
         />
       </div>
+      <TurnstileWidget resetKey={state} />
       {state?.error && <p className="text-sm text-danger-red">{state.error}</p>}
       <button
         type="submit"

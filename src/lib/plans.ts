@@ -42,3 +42,10 @@ export function priceFor(team: TeamSize, annual: boolean) {
   const now = annual ? Math.round(monthly * (1 - ANNUAL_DISCOUNT)) : monthly;
   return { monthly, now };
 }
+
+/**
+ * Emailed quotes + invoices allowed per business per month. Trial mirrors the free
+ * tier of common invoicing apps (20); the pilot value applies while billing isn't
+ * enforced yet; paying businesses get a generous cap that still stops abuse.
+ */
+export const EMAIL_LIMITS = { trial: 20, pilot: 100, paid: 300 } as const;

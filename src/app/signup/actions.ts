@@ -2,7 +2,9 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
 import { createOwnerStaff } from "@/lib/provision";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 export interface SignUpState {
   error?: string;
@@ -19,6 +21,12 @@ export async function signUp(_prevState: SignUpState | undefined, formData: Form
   if (!name) return { error: "Your name is required." };
   if (!email) return { error: "Email is required." };
   if (password.length < 8) return { error: "Password must be at least 8 characters." };
+
+  // Bot check first, before anything is created or any email is sent.
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (!(await verifyTurnstile(String(formData.get("cf-turnstile-response") || ""), ip))) {
+    return { error: "We couldn't verify you're human. Please wait a moment and try again." };
+  }
 
   const admin = createAdminClient();
 

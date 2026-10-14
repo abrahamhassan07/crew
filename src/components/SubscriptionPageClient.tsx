@@ -17,11 +17,14 @@ export interface SubscriptionPageProps {
   seatsUsed: number;
   /** null = no limit */
   seatLimit: number | null;
+  emailsUsed: number;
+  /** null = no limit */
+  emailLimit: number | null;
 }
 
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@crewandgrounds.com";
 
-export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, checkoutResult, teamSize, interval, seatsUsed, seatLimit }: SubscriptionPageProps) {
+export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, checkoutResult, teamSize, interval, seatsUsed, seatLimit, emailsUsed, emailLimit }: SubscriptionPageProps) {
   const { toast, showToast } = useToast();
   const subscribed = !!status && ["active", "trialing", "past_due"].includes(status);
   const currentTeam = TEAM_SIZES.find((t) => t.k === teamSize) ?? null;
@@ -212,7 +215,10 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
             Need 11 or more users? <a href={`mailto:${SUPPORT_EMAIL}?subject=Crew%20%26%20Grounds%20for%20a%20larger%20team`} className="text-brand font-semibold">Contact us</a> and we&rsquo;ll set you up with a price that fits.
           </p>
           {!exempt && (
-            <p className="text-sm text-ink-muted mt-2">{seatLimit === null ? `${seatsUsed} active user${seatsUsed === 1 ? "" : "s"}.` : `You're using ${seatsUsed} of ${seatLimit} users.`}</p>
+            <div className="text-sm text-ink-muted mt-2 flex flex-col gap-0.5">
+              <p>{seatLimit === null ? `${seatsUsed} active user${seatsUsed === 1 ? "" : "s"}.` : `You're using ${seatsUsed} of ${seatLimit} users.`}</p>
+              <p>{emailLimit === null ? `${emailsUsed} quote${emailsUsed === 1 ? "" : "s"} and invoice${emailsUsed === 1 ? "" : "s"} emailed this month.` : `${emailsUsed} of ${emailLimit} quotes and invoices emailed this month.`}</p>
+            </div>
           )}
         </div>
       </div>

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
-import { billingEnforced, seatLimit } from "@/lib/billing";
+import { billingEnforced, emailLimit, getBillingState, seatLimit } from "@/lib/billing";
 import { formatAbn, isValidAbn, isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
@@ -1332,6 +1332,24 @@ async function emailDocument(loaded: LoadedDoc | null, kind: "quote" | "invoice"
   if (!org?.email?.trim()) {
     return { ok: false, error: "Add your business email under Settings > Business Information first, so your client's replies reach you." };
   }
+  // Monthly cap on emailed quotes/invoices (fails open if the log table isn't available).
+  const admin = createAdminClient();
+  const cap = emailLimit(org);
+  if (cap !== null) {
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const { count, error: countError } = await admin.from("email_log").select("id", { count: "exact", head: true }).eq("org_id", org.id).gte("created_at", monthStart);
+    if (!countError && (count ?? 0) >= cap) {
+      const onTrial = getBillingState(org).kind !== "active" && billingEnforced();
+      return {
+        ok: false,
+        error: onTrial
+          ? `You've emailed ${cap} quotes and invoices this month, which is the limit on the free trial. Subscribe to send more.`
+          : `You've reached this month's limit of ${cap} emailed quotes and invoices. Contact support if you need more.`,
+      };
+    }
+  }
+
   const orgName = org.name;
   const firstName = (doc.client?.name ?? "").split(" ")[0] || "there";
   const dateLine = doc.dates[1] ? `${doc.dates[1].label.toLowerCase()} ${doc.dates[1].value}` : "";
@@ -1353,6 +1371,7 @@ async function emailDocument(loaded: LoadedDoc | null, kind: "quote" | "invoice"
     attachments: [{ filename: loaded.filename, content: pdf }],
   });
   if (!result.ok) return { ok: false, error: result.error };
+  await admin.from("email_log").insert({ org_id: org.id, user_id: viewer.userId, kind });
   return { ok: true, sentTo: to };
 }
 
