@@ -142,6 +142,18 @@ async function run() {
     check(`${t.label} new org is on a trial, not exempt`, row?.billing_exempt === false && !row?.subscription_status && new Date(row?.trial_ends_at) > new Date(), JSON.stringify(row));
   }
 
+  // Feedback: submit for yourself only, read only your own, never edit or delete.
+  {
+    const fb = await a.db.from("feedback").insert({ org_id: a.orgId, user_id: a.userId, user_email: a.email, title: "isotest", kind: "bug" }).select("id").single();
+    check("A can submit feedback", !fb.error, JSON.stringify(fb.error));
+    const bSees = await b.db.from("feedback").select("id");
+    check("B cannot read A's feedback", (bSees.data ?? []).length === 0);
+    const spoof = await b.db.from("feedback").insert({ org_id: a.orgId, user_id: b.userId, title: "spoof" }).select("id");
+    check("B cannot submit feedback into A's business", !!spoof.error || (spoof.data ?? []).length === 0);
+    const edit = await a.db.from("feedback").update({ status: "done" }).eq("id", fb.data?.id).select("id");
+    check("A cannot change feedback status", !!edit.error || (edit.data ?? []).length === 0);
+  }
+
   // Confirm the victim's data really is untouched.
   const { data: untouched } = await admin.from("clients").select("name").eq("id", a.ids.clientId).single();
   check("A's client name unchanged after B's attempted update", untouched?.name === `A Client ${tag}`, untouched?.name);
