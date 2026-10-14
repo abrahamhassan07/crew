@@ -8,7 +8,7 @@ import { emailInvoice, recordPayment, saveInvoice, updateInvoiceStatus, type Inv
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { TextField, SelectField, TextAreaField } from "@/components/forms";
+import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
 import { ToastBanner, useToast } from "@/components/Toast";
 import { calcTotals } from "@/lib/gst";
 import { fmtDateLabel } from "@/lib/design";
@@ -67,6 +67,8 @@ export function InvoiceEditor({
   const [isEditing, setIsEditing] = useState(!invoice || invoice.status === "Draft" || startInEdit);
 
   const [clientId, setClientId] = useState(invoice?.client_id ?? "");
+  const [isNewClient, setIsNewClient] = useState(false);
+  const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", address: "" });
   const [propertyId, setPropertyId] = useState(invoice?.property_id ?? "");
   const [jobId, setJobId] = useState(invoice?.job_id ?? "");
   const [issueDate, setIssueDate] = useState(invoice?.issue_date ?? new Date().toISOString().slice(0, 10));
@@ -90,7 +92,7 @@ export function InvoiceEditor({
   const balance = Math.max(0, totals.total - paid);
   const overdue = invoice?.status === "Overdue";
 
-  const input: InvoiceInput = { clientId, propertyId: propertyId || null, jobId: jobId || null, issueDate, dueDate, mode, notes, items: lines };
+  const input: InvoiceInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, jobId: jobId || null, issueDate, dueDate, mode, notes, items: lines };
 
   const commit = (status: "Draft" | "Sent") => {
     setError(null);
@@ -406,32 +408,46 @@ export function InvoiceEditor({
         <div className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-6 items-start">
           <div className="flex-[2] w-full flex flex-col gap-6">
             <Card className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SelectField
-                label="Client"
+              <ClientPicker
                 required
-                value={clientId}
-                onChange={(e) => {
-                  setClientId(e.target.value);
+                clients={clients}
+                value={isNewClient ? NEW_CLIENT : clientId}
+                allowNew={!invoice}
+                onChange={(v) => {
+                  setIsNewClient(v === NEW_CLIENT);
+                  setClientId(v === NEW_CLIENT ? "" : v);
                   setPropertyId("");
                   setJobId("");
                 }}
-                options={clients.map((c) => ({ value: c.id, label: c.name }))}
-                placeholder="Select a client"
               />
-              <SelectField
-                label="Job reference"
-                value={jobId}
-                onChange={(e) => setJobId(e.target.value)}
-                options={clientJobs.map((j) => ({ value: j.id, label: `${j.num} · ${j.title || j.job_type}${j.job_date ? ` · ${fmtDateLabel(j.job_date)}` : ""}` }))}
-                placeholder="No job"
-              />
-              <SelectField
-                label="Service address"
-                value={propertyId}
-                onChange={(e) => setPropertyId(e.target.value)}
-                options={clientProperties.map((p) => ({ value: p.id, label: `${p.street}, ${p.suburb}` }))}
-                placeholder="No property selected"
-              />
+              {isNewClient ? (
+                <div className="flex items-end text-xs text-ink-muted pb-2">They&rsquo;ll be added to your Clients list as a Lead when you save.</div>
+              ) : (
+                <SelectField
+                  label="Job reference"
+                  value={jobId}
+                  onChange={(e) => setJobId(e.target.value)}
+                  options={clientJobs.map((j) => ({ value: j.id, label: `${j.num} · ${j.title || j.job_type}${j.job_date ? ` · ${fmtDateLabel(j.job_date)}` : ""}` }))}
+                  placeholder="No job"
+                />
+              )}
+              {isNewClient && (
+                <>
+                  <TextField label="Client name" required value={newClient.name} onChange={(e) => setNewClient({ ...newClient, name: e.target.value })} />
+                  <TextField label="Email" type="email" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} />
+                  <TextField label="Phone" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} />
+                  <TextField label="Address" value={newClient.address} onChange={(e) => setNewClient({ ...newClient, address: e.target.value })} />
+                </>
+              )}
+              {!isNewClient && (
+                <SelectField
+                  label="Service address"
+                  value={propertyId}
+                  onChange={(e) => setPropertyId(e.target.value)}
+                  options={clientProperties.map((p) => ({ value: p.id, label: `${p.street}, ${p.suburb}` }))}
+                  placeholder="No property selected"
+                />
+              )}
               <TextField label="Issue date" type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
               <TextField label="Due date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </Card>

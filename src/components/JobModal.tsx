@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { createJob, deleteJob, updateJob, type JobInput } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
-import { TextField, SelectField, TextAreaField } from "@/components/forms";
+import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
 import type { Job, JobStatus, Recurrence, Skill } from "@/lib/supabase/types";
 
 const DURATIONS = [60, 90, 120, 150, 180, 240];
@@ -72,6 +72,7 @@ export function JobModal({
 }) {
   const [form, setForm] = useState<JobInput>(() => toInput(job, prefillDate));
   const [selectedClientId, setSelectedClientId] = useState(job?.client_id ?? "");
+  const [newContact, setNewContact] = useState({ email: "", phone: "" });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -82,17 +83,24 @@ export function JobModal({
     setSelectedClientId(clientId);
     const client = clientOptions.find((c) => c.id === clientId);
     if (!client) {
+      // "New client" or (when editing) no linked client: keep whatever name/address is typed.
       setForm((f) => ({ ...f, clientId: null }));
       return;
     }
     setForm((f) => ({ ...f, clientId: client.id, client: client.name, address: client.address ?? f.address, type: client.job_type }));
   };
 
+  const isNewClient = mode === "new" && selectedClientId === NEW_CLIENT;
+
   const save = () => {
     setError(null);
+    if (mode === "new" && !form.clientId && !isNewClient) {
+      setError("Choose a client, or pick \u201cNew client\u201d to add one.");
+      return;
+    }
     startTransition(async () => {
       const result =
-        mode === "new" ? await createJob(form) : await updateJob(job!.id, form);
+        mode === "new" ? await createJob(isNewClient ? { ...form, clientId: null, newClient: newContact } : form) : await updateJob(job!.id, form);
       if (!result.ok) {
         setError(result.error ?? "Something went wrong.");
         return;
@@ -121,18 +129,27 @@ export function JobModal({
           {mode === "edit" ? "Edit Job" : "New Job"}
         </div>
 
-        {clientOptions.length > 0 && (
-          <SelectField
-            label="Client"
+        {(mode === "new" || clientOptions.length > 0) && (
+          <ClientPicker
+            clients={clientOptions}
             value={selectedClientId}
-            onChange={(e) => selectClient(e.target.value)}
-            options={[{ value: "", label: "Custom / not in directory…" }, ...clientOptions.map((c) => ({ value: c.id, label: c.name }))]}
+            allowNew={mode === "new"}
+            clearable={mode === "edit"}
+            emptyLabel={mode === "edit" ? "Custom / not in directory" : "Select a client"}
+            onChange={selectClient}
           />
         )}
 
         <TextField label="Client name" required value={form.client} onChange={(e) => set("client", e.target.value)} />
 
         <TextField label="Address" required value={form.address} onChange={(e) => set("address", e.target.value)} />
+
+        {isNewClient && (
+          <div className="flex gap-2.5">
+            <TextField label="Email" type="email" className="flex-1" value={newContact.email} onChange={(e) => setNewContact({ ...newContact, email: e.target.value })} />
+            <TextField label="Phone" className="flex-1" value={newContact.phone} onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })} />
+          </div>
+        )}
 
         <div className="flex gap-2.5">
           <SelectField

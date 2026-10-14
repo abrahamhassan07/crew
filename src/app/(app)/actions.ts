@@ -35,6 +35,8 @@ export interface JobInput {
   notes: string;
   repeat: Recurrence;
   clientId?: string | null;
+  /** Set when the job is for someone not in the client list yet: they're created as a Lead from client + address. */
+  newClient?: { email: string; phone: string } | null;
 }
 
 function validateJobInput(input: JobInput): string | null {
@@ -59,6 +61,20 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
   const viewer = await getViewer();
   const seriesId = input.repeat !== "none" ? randomUUID() : null;
 
+  let clientId = input.clientId ?? null;
+  let createdClientId: string | null = null;
+  if (!clientId && input.newClient) {
+    const created = await createLeadClient(
+      supabase,
+      viewer.orgId,
+      { name: input.client, address: input.address, email: input.newClient.email, phone: input.newClient.phone },
+      "Job"
+    );
+    if ("error" in created) return { ok: false, error: created.error };
+    clientId = created.id;
+    createdClientId = created.id;
+  }
+
   const base = {
     client_name: input.client.trim(),
     address: input.address.trim(),
@@ -71,7 +87,7 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
     notes: input.notes,
     recurrence: input.repeat,
     series_id: seriesId,
-    client_id: input.clientId ?? null,
+    client_id: clientId,
     org_id: viewer.orgId,
   };
 
@@ -88,7 +104,10 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
   }
 
   const { error } = await supabase.from("jobs").insert(rows);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
+    return { ok: false, error: error.message };
+  }
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -892,6 +911,37 @@ export interface NewClientInput {
   address: string;
 }
 
+type Db = Awaited<ReturnType<typeof createClient>>;
+
+/** Creates a Lead for someone typed in on a quote/invoice/job who isn't in the client list yet. */
+async function createLeadClient(supabase: Db, orgId: string, nc: NewClientInput, source: string): Promise<{ id: string } | { error: string }> {
+  const name = nc.name.trim();
+  const email = nc.email.trim();
+  if (!name) return { error: "Enter the new client's name." };
+  if (email && !isValidEmail(email)) return { error: "That email address doesn't look right." };
+
+  // Avoid accidental duplicates: if they're already in the list, make the user pick them.
+  const escaped = name.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const { data: existing } = await supabase.from("clients").select("id").ilike("name", escaped).limit(1);
+  if (existing?.length) return { error: `A client named "${name}" already exists. Choose them from the client list.` };
+
+  const { data: client, error } = await supabase
+    .from("clients")
+    .insert({
+      name,
+      email: email || null,
+      phone: nc.phone.trim() || null,
+      address: nc.address.trim() || null,
+      status: "Lead",
+      lead_source: source,
+      org_id: orgId,
+    })
+    .select("id")
+    .single();
+  if (error || !client) return { error: error?.message ?? "Could not create the client." };
+  return { id: client.id };
+}
+
 export interface QuoteInput {
   clientId: string;
   /** Used when the quote is for someone not in the client list yet: they're created as a Lead. */
@@ -916,32 +966,10 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
   let createdClientId: string | null = null;
 
   if (!input.clientId && input.newClient) {
-    const name = input.newClient.name.trim();
-    const email = input.newClient.email.trim();
-    if (!name) return { ok: false, error: "Enter the new client's name." };
-    if (email && !isValidEmail(email)) return { ok: false, error: "That email address doesn't look right." };
-
-    // Avoid accidental duplicates: if they're already in the list, make the user pick them.
-    const escaped = name.replace(/[\\%_]/g, (c) => `\\${c}`);
-    const { data: existing } = await supabase.from("clients").select("id").ilike("name", escaped).limit(1);
-    if (existing?.length) return { ok: false, error: `A client named "${name}" already exists. Choose them from the client list.` };
-
-    const { data: client, error: clientError } = await supabase
-      .from("clients")
-      .insert({
-        name,
-        email: email || null,
-        phone: input.newClient.phone.trim() || null,
-        address: input.newClient.address.trim() || null,
-        status: "Lead",
-        lead_source: "Quote",
-        org_id: viewer.orgId,
-      })
-      .select("id")
-      .single();
-    if (clientError || !client) return { ok: false, error: clientError?.message ?? "Could not create the client." };
-    createdClientId = client.id;
-    input = { ...input, clientId: client.id, propertyId: null };
+    const created = await createLeadClient(supabase, viewer.orgId, input.newClient, "Quote");
+    if ("error" in created) return { ok: false, error: created.error };
+    createdClientId = created.id;
+    input = { ...input, clientId: created.id, propertyId: null };
   }
 
   if (quoteId) {
@@ -1079,6 +1107,8 @@ export interface InvoiceLineInput {
 
 export interface InvoiceInput {
   clientId: string;
+  /** Used when the invoice is for someone not in the client list yet: they're created as a Lead. */
+  newClient?: NewClientInput | null;
   propertyId: string | null;
   jobId: string | null;
   issueDate: string;
@@ -1088,13 +1118,22 @@ export interface InvoiceInput {
   items: InvoiceLineInput[];
 }
 
-export async function saveInvoice(id: string | null, input: InvoiceInput, status: InvoiceStatus): Promise<CreateResult> {
-  if (!input.clientId) return { ok: false, error: "Choose a client." };
-  if (!input.items.length || input.items.some((i) => !i.serviceName.trim())) return { ok: false, error: "Every line item needs a name." };
+export async function saveInvoice(id: string | null, rawInput: InvoiceInput, status: InvoiceStatus): Promise<CreateResult> {
+  if (!rawInput.clientId && !rawInput.newClient) return { ok: false, error: "Choose a client, or enter the new client's name." };
+  if (!rawInput.items.length || rawInput.items.some((i) => !i.serviceName.trim())) return { ok: false, error: "Every line item needs a name." };
 
   const supabase = await createClient();
   const viewer = await getViewer();
   let invoiceId = id;
+  let input = rawInput;
+  let createdClientId: string | null = null;
+
+  if (!input.clientId && input.newClient) {
+    const created = await createLeadClient(supabase, viewer.orgId, input.newClient, "Invoice");
+    if ("error" in created) return { ok: false, error: created.error };
+    createdClientId = created.id;
+    input = { ...input, clientId: created.id, propertyId: null, jobId: null };
+  }
 
   if (invoiceId) {
     const { error } = await supabase
@@ -1110,7 +1149,10 @@ export async function saveInvoice(id: string | null, input: InvoiceInput, status
         status,
       })
       .eq("id", invoiceId);
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
+      return { ok: false, error: error.message };
+    }
     await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
   } else {
     const num = await nextInvoiceNum(supabase);
@@ -1130,7 +1172,10 @@ export async function saveInvoice(id: string | null, input: InvoiceInput, status
       })
       .select("id")
       .single();
-    if (error || !data) return { ok: false, error: error?.message ?? "Could not create invoice." };
+    if (error || !data) {
+      if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
+      return { ok: false, error: error?.message ?? "Could not create invoice." };
+    }
     invoiceId = data.id;
   }
 

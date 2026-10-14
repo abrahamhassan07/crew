@@ -7,7 +7,7 @@ import { convertQuoteToJob, emailQuote, saveQuote, updateQuoteStatus, type Quote
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { TextField, SelectField, TextAreaField } from "@/components/forms";
+import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
 import { calcTotals } from "@/lib/gst";
 import type { Client, GstMode, Property, Quote, QuoteItem, Service } from "@/lib/supabase/types";
 
@@ -183,19 +183,17 @@ export function QuoteEditor({
         <div className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-6 items-start">
           <div className="flex-[2] w-full flex flex-col gap-6">
             <Card className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SelectField
-                label="Client"
+              <ClientPicker
                 required
                 disabled={locked}
-                value={isNewClient ? "__new__" : clientId}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setIsNewClient(v === "__new__");
-                  setClientId(v === "__new__" ? "" : v);
+                clients={clients}
+                value={isNewClient ? NEW_CLIENT : clientId}
+                allowNew={!quote || quote.status === "Draft"}
+                onChange={(v) => {
+                  setIsNewClient(v === NEW_CLIENT);
+                  setClientId(v === NEW_CLIENT ? "" : v);
                   setPropertyId("");
                 }}
-                options={[...(!quote || quote.status === "Draft" ? [{ value: "__new__", label: "+ New client (not in the list)…" }] : []), ...clients.map((c) => ({ value: c.id, label: c.name }))]}
-                placeholder="Select a client"
               />
               {isNewClient ? (
                 <div className="flex items-end text-xs text-ink-muted pb-2">They&rsquo;ll be added to your Clients list as a Lead when you save.</div>
