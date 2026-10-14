@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, Staff } from "@/lib/supabase/types";
@@ -39,6 +40,13 @@ export const getViewer = cache(async (): Promise<Viewer> => {
 
   if (!user) {
     redirect("/login");
+  }
+
+  // Someone with an authenticator app turned on must have passed the code check this session.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+    const path = (await headers()).get("x-pathname") ?? "/";
+    redirect(`/login/mfa?next=${encodeURIComponent(path)}`);
   }
 
   const { data: profileWithStaff } = await supabase

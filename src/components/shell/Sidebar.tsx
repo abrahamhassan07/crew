@@ -13,6 +13,7 @@ import {
   DollarSign,
   Settings,
   LifeBuoy,
+  ShieldCheck,
   Inbox,
   LogOut,
   ChevronsLeft,
@@ -57,6 +58,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/settings", label: "Settings", icon: Settings, adminOnly: true },
       { href: "/subscription", label: "Subscription", icon: CreditCard, adminOnly: true },
+      { href: "/security", label: "Security", icon: ShieldCheck },
       { href: "/feedback", label: "Feedback", icon: LifeBuoy },
     ],
   },
