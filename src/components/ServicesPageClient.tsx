@@ -26,7 +26,7 @@ function blank(): ServiceInput {
   return { name: "", description: "", price: 0, pricingType: "Fixed", durationMinutes: 60, defaultCrewId: null, category: null, active: true };
 }
 
-export function ServicesPageClient({ services, crews }: { services: Service[]; crews: Crew[] }) {
+export function ServicesPageClient({ services, crews, gstRegistered = true }: { services: Service[]; crews: Crew[]; gstRegistered?: boolean }) {
   const [tab, setTab] = useState<"All" | "Active" | "Inactive">("All");
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState<{ id: string | null; input: ServiceInput } | null>(null);
@@ -152,7 +152,7 @@ export function ServicesPageClient({ services, crews }: { services: Service[]; c
     <div className="min-h-screen bg-page-bg">
       <PageHeader
         title="Services"
-        subtitle="Your price list. Defaults fill in automatically on jobs. Prices exclude GST."
+        subtitle={gstRegistered ? "Your price list. Defaults fill in automatically on jobs. Prices exclude GST." : "Your price list. Defaults fill in automatically on jobs."}
         actions={
           <Button variant="primary" size="md" onClick={() => setModal({ id: null, input: blank() })}>
             <Plus className="w-4 h-4" />
@@ -199,7 +199,7 @@ export function ServicesPageClient({ services, crews }: { services: Service[]; c
                   <TextAreaField label="Description" rows={2} value={modal.input.description} onChange={(e) => setModal({ ...modal, input: { ...modal.input, description: e.target.value } })} />
                 </div>
                 <TextField
-                  label="Default price (AUD, ex. GST)"
+                  label={gstRegistered ? "Default price (AUD, ex. GST)" : "Default price (AUD)"}
                   required
                   type="number"
                   min={0}

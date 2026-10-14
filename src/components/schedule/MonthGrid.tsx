@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { EnrichedJob } from "@/lib/design";
 import type { Crew } from "@/lib/supabase/types";
 import { addDays, fmtISO, startOfWeek, MONTHS } from "@/lib/design";
@@ -11,9 +12,12 @@ interface MonthGridProps {
   todayIso: string;
   onDayClick: (iso: string) => void;
   onJobClick: (jobId: string) => void;
+  canEdit: boolean;
+  onDropOnDay: (iso: string, e: React.DragEvent) => void;
 }
 
-export function MonthGrid({ monthAnchor, jobsByDate, crewById, todayIso, onDayClick, onJobClick }: MonthGridProps) {
+export function MonthGrid({ monthAnchor, jobsByDate, crewById, todayIso, onDayClick, onJobClick, canEdit, onDropOnDay }: MonthGridProps) {
+  const [dragOverIso, setDragOverIso] = useState<string | null>(null);
   const year = monthAnchor.getFullYear();
   const month = monthAnchor.getMonth();
   const firstOfMonth = new Date(year, month, 1);
@@ -50,7 +54,21 @@ export function MonthGrid({ monthAnchor, jobsByDate, crewById, todayIso, onDayCl
               <button
                 key={iso}
                 onClick={() => onDayClick(iso)}
-                className={`min-h-[104px] p-1.5 text-left border-l border-line-soft first:border-l-0 hover:bg-page-bg transition-colors ${inMonth ? "" : "bg-page-bg/60"}`}
+                onDragOver={(e) => {
+                  if (!canEdit) return;
+                  e.preventDefault();
+                  if (dragOverIso !== iso) setDragOverIso(iso);
+                }}
+                onDragLeave={() => setDragOverIso((cur) => (cur === iso ? null : cur))}
+                onDrop={(e) => {
+                  if (!canEdit) return;
+                  e.preventDefault();
+                  setDragOverIso(null);
+                  onDropOnDay(iso, e);
+                }}
+                className={`min-h-[104px] p-1.5 text-left border-l border-line-soft first:border-l-0 hover:bg-page-bg transition-colors ${
+                  dragOverIso === iso ? "bg-ok-bg/60 ring-2 ring-inset ring-brand" : inMonth ? "" : "bg-page-bg/60"
+                }`}
               >
                 <div className={`text-xs font-bold mb-1 inline-flex items-center justify-center w-6 h-6 rounded-full ${isToday ? "bg-brand text-white" : inMonth ? "text-ink-primary" : "text-ink-muted"}`}>
                   {date.getDate()}
@@ -62,11 +80,13 @@ export function MonthGrid({ monthAnchor, jobsByDate, crewById, todayIso, onDayCl
                       <div
                         key={job.id}
                         role="button"
+                        draggable={canEdit}
+                        onDragStart={(e) => e.dataTransfer.setData("application/x-job-id", job.id)}
                         onClick={(e) => {
                           e.stopPropagation();
                           onJobClick(job.id);
                         }}
-                        className="text-[10px] font-semibold text-ink-primary truncate px-1 py-0.5 rounded"
+                        className={`text-[10px] font-semibold text-ink-primary truncate px-1 py-0.5 rounded ${canEdit ? "cursor-grab" : ""}`}
                         style={{ background: crew?.tint_hex ?? job.typeTintHex, borderLeft: `2px solid ${crew?.color_hex ?? job.staffColorHex}` }}
                       >
                         {job.timeLabel} {job.client_name}

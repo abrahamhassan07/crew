@@ -25,7 +25,7 @@ function jobDisplayStatus(job: EnrichedJob): JobStatusFilter {
   return "Scheduled";
 }
 
-export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[]; crews: Crew[]; services: Service[] }) {
+export function JobsPageClient({ jobs, crews, services, gstRegistered = true }: { jobs: EnrichedJob[]; crews: Crew[]; services: Service[]; gstRegistered?: boolean }) {
   const router = useRouter();
   const { openNewJob } = useJobModal();
   const [tab, setTab] = useState<JobStatusFilter>("All");
@@ -159,7 +159,7 @@ export function JobsPageClient({ jobs, crews, services }: { jobs: EnrichedJob[];
     },
     {
       key: "price",
-      label: "Price (ex. GST)",
+      label: gstRegistered ? "Price (ex. GST)" : "Price",
       sortable: true,
       render: (price: number | null) => <span className="font-semibold">{price != null ? `$${price.toFixed(2)}` : "—"}</span>,
     },

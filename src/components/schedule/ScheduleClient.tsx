@@ -132,6 +132,20 @@ export function ScheduleClient({
     }
   };
 
+  // Month view has no time axis: moving a job keeps its time (or gives an unscheduled one 09:00).
+  const handleMonthDrop = async (iso: string, e: React.DragEvent) => {
+    const jobId = e.dataTransfer.getData("application/x-job-id");
+    const requestId = e.dataTransfer.getData("application/x-request-id");
+    if (jobId) {
+      const job = jobs.find((j) => j.id === jobId);
+      await rescheduleJob(jobId, iso, job?.start_time ? undefined : "09:00");
+      router.refresh();
+    } else if (requestId) {
+      await convertRequestToJob(requestId, iso, "09:00");
+      router.refresh();
+    }
+  };
+
   const handleQuickSchedule = async (requestId: string) => {
     await convertRequestToJob(requestId, today, "09:00");
     router.refresh();
@@ -215,6 +229,8 @@ export function ScheduleClient({
                 todayIso={today}
                 onDayClick={(iso) => openNewJob(iso)}
                 onJobClick={openJob}
+                canEdit={isAdmin}
+                onDropOnDay={handleMonthDrop}
               />
             )}
             {view === "crew" && (

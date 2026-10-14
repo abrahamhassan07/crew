@@ -31,6 +31,7 @@ export default function PrivacyPage() {
         <li>
           Customer Data you enter: your clients&rsquo; names, addresses, phone numbers and emails, job, quote and invoice details, notes and payments you record.
         </li>
+        <li>Feedback you send us from inside the app: your message, your name and email, the page you were on, and basic browser details.</li>
         <li>Technical data: sign-in sessions, IP address and basic logs needed to keep the Service secure and working.</li>
       </ul>
 

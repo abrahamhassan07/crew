@@ -8,6 +8,7 @@ import { TextField } from "@/components/forms/TextField";
 import { SelectField } from "@/components/forms/SelectField";
 import { TextAreaField } from "@/components/forms/TextAreaField";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { isValidAbn } from "@/lib/validate";
 import type { Organization } from "@/lib/supabase/types";
 
 export function SettingsPageClient({ organization }: { organization: Organization }) {
@@ -77,6 +78,7 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
                 placeholder="00 000 000 000"
                 value={input.abn}
                 onChange={(e) => setInput({ ...input, abn: e.target.value })}
+                error={input.abn.trim() && !isValidAbn(input.abn) ? "That doesn't look like a valid 11-digit ABN." : undefined}
               />
               <SelectField
                 label="Timezone"

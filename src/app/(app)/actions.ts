@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { billingEnforced, seatLimit } from "@/lib/billing";
-import { isValidEmail } from "@/lib/validate";
+import { formatAbn, isValidAbn, isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
 import { renderDocumentPdf } from "@/lib/pdf";
@@ -1251,6 +1251,8 @@ export interface OrganizationInput {
 export async function updateOrganization(input: OrganizationInput): Promise<ActionResult> {
   if (!input.name.trim()) return { ok: false, error: "Business name is required." };
   if (input.paymentDetails.length > 1000) return { ok: false, error: "Keep payment details under 1000 characters." };
+  const abn = input.abn.trim();
+  if (abn && !isValidAbn(abn)) return { ok: false, error: "That ABN doesn't look right. An ABN has 11 digits (you can look yours up at abr.business.gov.au)." };
 
   const viewer = await getViewer();
   if (viewer.profile.role !== "admin") return { ok: false, error: "Not authorized." };
@@ -1263,7 +1265,7 @@ export async function updateOrganization(input: OrganizationInput): Promise<Acti
       email: input.email.trim() || null,
       phone: input.phone.trim() || null,
       address: input.address.trim() || null,
-      abn: input.abn.trim() || null,
+      abn: abn ? formatAbn(abn) : null,
       gst_registered: input.gstRegistered,
       payment_details: input.paymentDetails.trim() || null,
     })
