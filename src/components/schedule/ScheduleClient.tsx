@@ -154,7 +154,6 @@ export function ScheduleClient({
             <NewJobButton prefillDate={fmtISO(anchor)} />
           </>
         }
-        sticky
       >
         <div className="flex items-center gap-3 flex-wrap">
           <button onClick={goToday} className="px-3.5 py-2 rounded-md border border-field-border bg-card-bg text-sm font-semibold hover:bg-page-bg transition-colors">
