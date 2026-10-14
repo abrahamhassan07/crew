@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -15,4 +16,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Source-map upload only happens when SENTRY_AUTH_TOKEN is set (Vercel env); otherwise this is a no-op wrapper.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  telemetry: false,
+});

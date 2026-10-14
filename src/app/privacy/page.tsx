@@ -49,6 +49,8 @@ export default function PrivacyPage() {
         <li>Vercel &mdash; application hosting.</li>
         <li>Resend &mdash; delivery of emails sent by the Service.</li>
         <li>Google &mdash; optional Google sign-in and address autocomplete.</li>
+        <li>Stripe &mdash; subscription billing and card payments for your {LEGAL.product} plan (we never see or store your card number).</li>
+        <li>Sentry &mdash; error monitoring, so we can find and fix faults. It receives technical error details, not your clients&rsquo; records.</li>
       </ul>
       <p>
         Some of these providers process data outside Australia (for example in the United States). We take reasonable steps to ensure they protect it
