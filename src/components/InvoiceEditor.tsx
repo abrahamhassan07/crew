@@ -388,8 +388,8 @@ export function InvoiceEditor({
   // ---------------------------------------------------------------- EDIT ---
   return (
     <div className="min-h-screen bg-page-bg">
-      <div className="px-6 py-8 border-b border-line bg-card-bg">
-        <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div className="px-6 py-5 border-b border-line bg-card-bg">
+        <div className="max-w-[1400px] mx-auto flex flex-wrap items-center gap-x-4 gap-y-2">
           {invoice ? (
             <Link href={`/invoices/${invoice.id}`} className="text-sm font-semibold text-brand hover:text-brand-hover inline-flex items-center gap-1">
               <ChevronLeft className="w-4 h-4" />
@@ -401,7 +401,7 @@ export function InvoiceEditor({
               Invoices
             </Link>
           )}
-          <h1 className="text-2xl font-bold text-ink-primary w-full">{invoice ? `Edit ${invoice.num}` : "New invoice"}</h1>
+          <h1 className="text-2xl font-bold text-ink-primary">{invoice ? `Edit ${invoice.num}` : "New invoice"}</h1>
           <div className="flex gap-2 flex-wrap ml-auto">
             <Button variant="secondary" onClick={() => commit("Draft")} disabled={pending}>Save draft</Button>
             <Button variant="primary" onClick={() => commit("Sent")} disabled={pending}>Send</Button>
@@ -409,10 +409,10 @@ export function InvoiceEditor({
         </div>
       </div>
 
-      <div className="px-6 py-8">
-        <div className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-6 items-start">
-          <div className="flex-[2] w-full flex flex-col gap-6">
-            <Card className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="px-6 py-6">
+        <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-5 items-start">
+          <div className="flex-[3] w-full min-w-0 flex flex-col gap-5">
+            <Card className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-x-4 gap-y-3.5 [&>*]:lg:col-span-2">
               <ClientPicker
                 required
                 clients={clients}
@@ -453,8 +453,12 @@ export function InvoiceEditor({
                   placeholder="No property selected"
                 />
               )}
-              <TextField label="Issue date" type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
-              <TextField label="Due date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <div className="lg:col-span-3!">
+                <TextField label="Issue date" type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
+              </div>
+              <div className="lg:col-span-3!">
+                <TextField label="Due date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </div>
             </Card>
 
             <Card className="p-0">
@@ -472,10 +476,10 @@ export function InvoiceEditor({
               </div>
               <div className="p-4 flex flex-col gap-3">
                 {lines.map((l, i) => (
-                  <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_70px_90px_90px_32px] gap-2 items-start border-b border-line-soft pb-3">
+                  <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_80px_100px_100px_32px] gap-2 items-start border-b border-line-soft pb-3">
                     <div className="flex flex-col gap-1.5">
-                      <input value={l.serviceName} onChange={(e) => setLine(i, { ...l, serviceName: e.target.value })} placeholder="Item name" className="h-9 border border-field-border rounded-md px-2.5 text-sm font-semibold" />
-                      <input value={l.description} onChange={(e) => setLine(i, { ...l, description: e.target.value })} placeholder="Description" className="h-8 border border-field-border rounded-md px-2.5 text-xs" />
+                      <input value={l.serviceName} onChange={(e) => setLine(i, { ...l, serviceName: e.target.value })} placeholder="Item name" className="w-full h-9 border border-field-border rounded-md px-2.5 text-sm font-semibold" />
+                      <input value={l.description} onChange={(e) => setLine(i, { ...l, description: e.target.value })} placeholder="Description" className="w-full h-8 border border-field-border rounded-md px-2.5 text-xs" />
                     </div>
                     <input type="number" min={0} step={0.5} value={l.qty} onChange={(e) => setLine(i, { ...l, qty: Number(e.target.value) })} className="h-9 border border-field-border rounded-md px-2 text-sm" />
                     <input type="number" min={0} step={0.01} value={l.unitPrice} onChange={(e) => setLine(i, { ...l, unitPrice: Number(e.target.value) })} className="h-9 border border-field-border rounded-md px-2 text-sm" />
@@ -491,18 +495,10 @@ export function InvoiceEditor({
               </div>
             </Card>
 
-            <Card className="p-6">
-              <TextAreaField
-                label="Payment instructions"
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                help={organization?.payment_details?.trim() ? undefined : "Tip: save your bank details once under Settings > Payment details and they will fill in here automatically."}
-              />
-            </Card>
           </div>
 
-          <Card className="p-6 flex-1 w-full lg:sticky lg:top-4">
+          <div className="flex-[1.2] w-full min-w-0 flex flex-col gap-5 lg:sticky lg:top-4">
+          <Card className="p-5">
             <h2 className="text-base font-bold mb-3">Summary</h2>
             {mode !== "none" && (
               <>
@@ -514,6 +510,16 @@ export function InvoiceEditor({
             <div className="text-xs text-ink-muted mt-2">Due {fmtDateLabel(dueDate)}</div>
             {error && <p className="text-sm text-danger mt-3">{error}</p>}
           </Card>
+            <Card className="p-5">
+              <TextAreaField
+                label="Payment instructions"
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                help={organization?.payment_details?.trim() ? undefined : "Tip: save your bank details once under Settings > Payment details and they will fill in here automatically."}
+              />
+            </Card>
+          </div>
         </div>
       </div>
       <ToastBanner message={toast} />
