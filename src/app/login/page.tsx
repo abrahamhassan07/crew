@@ -52,6 +52,12 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
               Sign up
             </a>
           </p>
+
+          <p className="text-xs text-ink-muted text-center mt-4">
+            <a href="/terms" className="hover:text-ink-primary">Terms</a>
+            <span className="mx-2">·</span>
+            <a href="/privacy" className="hover:text-ink-primary">Privacy</a>
+          </p>
         </div>
       </div>
     </div>

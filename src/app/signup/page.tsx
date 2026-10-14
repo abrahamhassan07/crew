@@ -45,6 +45,18 @@ export default async function SignupPage({ searchParams }: PageProps<"/signup">)
 
           <SignupForm oauthError={oauthError} />
 
+          <p className="text-xs text-ink-muted text-center mt-5">
+            By creating an account you agree to our{" "}
+            <a href="/terms" className="text-brand font-semibold">
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a href="/privacy" className="text-brand font-semibold">
+              Privacy Policy
+            </a>
+            .
+          </p>
+
           <p className="text-sm text-ink-muted text-center mt-6">
             Already have an account?{" "}
             <a href="/login" className="text-brand font-semibold">
