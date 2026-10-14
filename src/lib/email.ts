@@ -13,6 +13,12 @@ export async function sendEmail(opts: {
   replyTo?: string | null;
   attachments?: EmailAttachment[];
 }): Promise<{ ok: true } | { ok: false; error: string }> {
+  // Local testing only: print the email instead of sending it.
+  if (process.env.EMAIL_LOG_ONLY === "true") {
+    console.log(`[email] to=${opts.to} subject=${JSON.stringify(opts.subject)}\n${opts.text}`);
+    return { ok: true };
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   const fromAddress = process.env.EMAIL_FROM_ADDRESS;
   if (!apiKey || !fromAddress) {
