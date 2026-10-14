@@ -44,7 +44,7 @@ export async function POST(req: Request) {
             currency: "aud",
             unit_amount: perMonth * (annual ? 12 : 1) * 100,
             recurring: { interval: annual ? "year" : "month" },
-            product_data: { name: `${PLAN.name} (${team.label})` },
+            product_data: { name: `${PLAN.name} ${team.name} (${team.label})` },
           },
         },
       ],

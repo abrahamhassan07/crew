@@ -1,11 +1,9 @@
 // One plan, priced by team size. Everything is included; the team size sets the
 // price and the number of active users (seats) a business can have.
 export const TEAM_SIZES = [
-  { k: "1", label: "Just me", users: 1, price: 19 },
-  { k: "2-5", label: "2–5 users", users: 5, price: 39 },
-  { k: "6-10", label: "6–10 users", users: 10, price: 65 },
-  { k: "11-20", label: "11–20 users", users: 20, price: 109 },
-  { k: "21+", label: "21+ users", users: 999, price: 169 },
+  { k: "1", name: "Solo", label: "Just me", users: 1, price: 19 },
+  { k: "2-5", name: "Team", label: "2–5 users", users: 5, price: 39 },
+  { k: "6-10", name: "Business", label: "6–10 users", users: 10, price: 65 },
 ] as const;
 
 export type TeamSize = (typeof TEAM_SIZES)[number];
@@ -30,6 +28,14 @@ export const PLAN = {
     "Email support",
   ],
 };
+
+export const POPULAR_TEAM = "2-5";
+
+/** Cost per user when the team is full, e.g. $7.80 for 5 users on $39. */
+export function perUser(team: TeamSize) {
+  const v = team.price / team.users;
+  return Number.isInteger(v) ? `$${v}` : `$${v.toFixed(2)}`;
+}
 
 export function priceFor(team: TeamSize, annual: boolean) {
   const monthly = team.price;
