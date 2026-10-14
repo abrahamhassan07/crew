@@ -6,6 +6,7 @@ import { JobModalProvider } from "@/components/JobModalContext";
 import { getViewer } from "@/lib/auth";
 import { billingEnforced, getBillingState } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
+import { isPlatformAdmin } from "@/lib/platform";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const viewer = await getViewer();
@@ -44,7 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <JobModalProvider role={viewer.profile.role}>
-      <AppShell role={viewer.profile.role} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner}>
+      <AppShell role={viewer.profile.role} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner} isPlatformAdmin={isPlatformAdmin(viewer.email)}>
         {children}
       </AppShell>
     </JobModalProvider>

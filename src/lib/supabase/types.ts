@@ -220,6 +220,25 @@ export type Invoice = {
   updated_at: string;
 };
 
+export type FeedbackKind = "bug" | "idea" | "question";
+export type FeedbackStatus = "new" | "in_progress" | "done" | "wont_fix";
+
+export type Feedback = {
+  id: string;
+  org_id: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  kind: FeedbackKind;
+  title: string;
+  message: string;
+  page: string;
+  user_agent: string;
+  status: FeedbackStatus;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ServiceRequest = {
   id: string;
   num: string;
@@ -371,6 +390,12 @@ export type Database = {
         Row: Equipment;
         Insert: Partial<Equipment> & Pick<Equipment, "name" | "org_id">;
         Update: Partial<Equipment>;
+        Relationships: [];
+      };
+      feedback: {
+        Row: Feedback;
+        Insert: Partial<Feedback> & Pick<Feedback, "org_id" | "user_id" | "title">;
+        Update: Partial<Feedback>;
         Relationships: [];
       };
     };

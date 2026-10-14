@@ -7,11 +7,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { isValidEmail } from "@/lib/validate";
+import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
 import { renderDocumentPdf } from "@/lib/pdf";
 import { addDays, fmtISO, parseISO, STAFF_HUES } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
-import type { CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
+import type { FeedbackKind, FeedbackStatus, CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
 
 export interface ActionResult {
   ok: boolean;
@@ -1324,4 +1325,82 @@ export async function emailQuote(id: string) {
 
 export async function emailInvoice(id: string) {
   return emailDocument(await loadInvoiceDoc(id), "invoice");
+}
+
+// ---------------------------------------------------------------------------
+// Tester feedback
+// ---------------------------------------------------------------------------
+export interface FeedbackInput {
+  kind: FeedbackKind;
+  title: string;
+  message: string;
+  page: string;
+  userAgent: string;
+}
+
+const FEEDBACK_KINDS: FeedbackKind[] = ["bug", "idea", "question"];
+const FEEDBACK_STATUSES: FeedbackStatus[] = ["new", "in_progress", "done", "wont_fix"];
+
+export async function submitFeedback(input: FeedbackInput): Promise<ActionResult> {
+  const title = input.title.trim();
+  const message = input.message.trim();
+  if (!FEEDBACK_KINDS.includes(input.kind)) return { ok: false, error: "Choose a type of feedback." };
+  if (!title) return { ok: false, error: "Add a short title." };
+  if (title.length > 200) return { ok: false, error: "Keep the title under 200 characters." };
+  if (message.length > 5000) return { ok: false, error: "Keep the details under 5000 characters." };
+
+  const viewer = await getViewer();
+  const supabase = await createClient();
+
+  // Light spam guard: a handful per hour is plenty for real feedback.
+  const since = new Date(Date.now() - 3600_000).toISOString();
+  const { count } = await supabase.from("feedback").select("id", { count: "exact", head: true }).eq("user_id", viewer.userId).gte("created_at", since);
+  if ((count ?? 0) >= 15) return { ok: false, error: "That's a lot of feedback in a short time. Please try again in a bit." };
+
+  const userName = viewer.staff?.name || viewer.name || "";
+  const { error } = await supabase.from("feedback").insert({
+    org_id: viewer.orgId,
+    user_id: viewer.userId,
+    user_email: viewer.email,
+    user_name: userName,
+    kind: input.kind,
+    title,
+    message,
+    page: input.page.trim().slice(0, 500),
+    user_agent: input.userAgent.slice(0, 500),
+  });
+  if (error) {
+    const missing = /relation .*feedback.* does not exist|schema cache/i.test(error.message);
+    return { ok: false, error: missing ? "Feedback isn't switched on yet. Please try again later." : error.message };
+  }
+
+  // Best-effort heads-up to the platform owner; never fails the submission.
+  const to = process.env.FEEDBACK_NOTIFY_EMAIL?.trim() || platformAdminEmails()[0];
+  if (to) {
+    const { data: org } = await supabase.from("organizations").select("name").eq("id", viewer.orgId).single();
+    await sendEmail({
+      to,
+      subject: `[Crew feedback] ${input.kind}: ${title}`,
+      text: `${title}\n\nType: ${input.kind}\nFrom: ${userName || "(no name)"} <${viewer.email}>\nBusiness: ${org?.name ?? "?"}\nPage: ${input.page || "(not given)"}\n\n${message || "(no details)"}\n`,
+      fromName: "Crew & Grounds Feedback",
+      replyTo: viewer.email,
+    }).catch(() => null);
+  }
+
+  revalidatePath("/feedback");
+  revalidatePath("/admin/feedback");
+  return { ok: true };
+}
+
+export async function updateFeedbackStatus(id: string, status: FeedbackStatus): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!isPlatformAdmin(viewer.email)) return { ok: false, error: "Not authorized." };
+  if (!FEEDBACK_STATUSES.includes(status)) return { ok: false, error: "Unknown status." };
+
+  const { error } = await createAdminClient().from("feedback").update({ status }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/feedback");
+  revalidatePath("/admin/feedback");
+  return { ok: true };
 }

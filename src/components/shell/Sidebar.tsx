@@ -12,6 +12,8 @@ import {
   FileText,
   DollarSign,
   Settings,
+  LifeBuoy,
+  Inbox,
   LogOut,
   ChevronsLeft,
   ChevronsRight,
@@ -57,6 +59,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/settings", label: "Settings", icon: Settings, adminOnly: true },
       { href: "/subscription", label: "Subscription", icon: CreditCard, adminOnly: true },
+      { href: "/feedback", label: "Feedback", icon: LifeBuoy },
     ],
   },
 ];
@@ -70,6 +73,7 @@ interface SidebarProps {
   userName: string;
   bizName: string;
   roleLabel: string;
+  isPlatformAdmin?: boolean;
   onSignOut: () => void;
 }
 
@@ -82,6 +86,7 @@ export function Sidebar({
   userName,
   bizName,
   roleLabel,
+  isPlatformAdmin,
   onSignOut,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -115,8 +120,8 @@ export function Sidebar({
               </div>
             )}
             <div className="flex flex-col gap-0.5">
-              {group.items
-                .filter((item) => role === "admin" || !item.adminOnly)
+              {[...group.items, ...(group.title === "Account" && isPlatformAdmin ? [{ href: "/admin/feedback", label: "All feedback", icon: Inbox }] : [])]
+                .filter((item) => role === "admin" || !("adminOnly" in item && item.adminOnly))
                 .map((item) => {
                   const isActive = pathname.startsWith(item.href);
                   return (

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
@@ -13,6 +13,7 @@ interface AppShellProps {
   userName: string;
   bizName: string;
   roleLabel: string;
+  isPlatformAdmin?: boolean;
 }
 
 function initialsOf(name: string): string {
@@ -22,11 +23,22 @@ function initialsOf(name: string): string {
   return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 }
 
-export function AppShell({ role, children, userName, bizName, roleLabel, banner }: AppShellProps) {
+export function AppShell({ role, children, userName, bizName, roleLabel, banner, isPlatformAdmin }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Remember the last real page so the Feedback form can say where a problem happened.
+  useEffect(() => {
+    if (pathname.startsWith("/feedback")) return;
+    try {
+      sessionStorage.setItem("crew:lastPath", pathname);
+    } catch {
+      // sessionStorage unavailable: feedback just won't be pre-filled.
+    }
+  }, [pathname]);
 
   const supabase = createClient();
 
@@ -57,6 +69,7 @@ export function AppShell({ role, children, userName, bizName, roleLabel, banner 
         userName={userName}
         bizName={bizName}
         roleLabel={roleLabel}
+        isPlatformAdmin={isPlatformAdmin}
         onSignOut={handleSignOut}
       />
 
