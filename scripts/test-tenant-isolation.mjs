@@ -6,6 +6,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { totp } from "./_totp.mjs";
 
 for (const line of existsSync(new URL("../.env.local", import.meta.url)) ? readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n") : []) {
   const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
@@ -160,6 +161,38 @@ async function run() {
     check(`${t.label} cannot read the email send log`, !!read.error || (read.data ?? []).length === 0, JSON.stringify(read));
     const write = await t.db.from("email_log").insert({ org_id: t.orgId, user_id: t.userId, kind: "quote" });
     check(`${t.label} cannot write the email send log`, !!write.error, JSON.stringify(write));
+  }
+
+  // Two-factor enforcement in the database: with an authenticator app on, a password-only
+  // session sees and changes nothing; after the code check the same user gets their data back.
+  {
+    const enr = await a.db.auth.mfa.enroll({ factorType: "totp", friendlyName: "isotest" });
+    const secret = enr.data?.totp?.secret;
+    const ch = await a.db.auth.mfa.challenge({ factorId: enr.data.id });
+    const ver = await a.db.auth.mfa.verify({ factorId: enr.data.id, challengeId: ch.data.id, code: totp(secret) });
+    check("A can turn on two-factor", !enr.error && !ver.error, JSON.stringify(enr.error ?? ver.error));
+
+    const weak = createClient(url, anon, { auth: { persistSession: false } });
+    await weak.auth.signInWithPassword({ email: a.email, password });
+    const weakRead = await weak.from("clients").select("id");
+    check("password-only session of a two-factor user sees no clients", (weakRead.data ?? []).length === 0, JSON.stringify(weakRead));
+    const weakJobs = await weak.from("jobs").select("id");
+    check("password-only session of a two-factor user sees no jobs", (weakJobs.data ?? []).length === 0);
+    const weakWrite = await weak.from("clients").insert({ name: "should-not-save", org_id: a.orgId }).select("id");
+    check("password-only session of a two-factor user cannot write", !!weakWrite.error || (weakWrite.data ?? []).length === 0, JSON.stringify(weakWrite));
+
+    const factor = (await weak.auth.mfa.listFactors()).data?.totp?.[0];
+    const ch2 = await weak.auth.mfa.challenge({ factorId: factor.id });
+    let ver2 = await weak.auth.mfa.verify({ factorId: factor.id, challengeId: ch2.data.id, code: totp(secret) });
+    if (ver2.error) {
+      const ch3 = await weak.auth.mfa.challenge({ factorId: factor.id });
+      ver2 = await weak.auth.mfa.verify({ factorId: factor.id, challengeId: ch3.data.id, code: totp(secret, Date.now() + 30000) });
+    }
+    const strongRead = await weak.from("clients").select("id");
+    check("after the code check the same user sees their clients again", !ver2.error && (strongRead.data ?? []).length > 0, JSON.stringify(ver2.error ?? strongRead));
+
+    const bRead = await b.db.from("clients").select("id");
+    check("a user without two-factor is unaffected", (bRead.data ?? []).length > 0);
   }
 
   // Confirm the victim's data really is untouched.
