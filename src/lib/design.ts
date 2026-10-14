@@ -81,8 +81,18 @@ export function initialsOf(name: string) {
     .join("")
     .toUpperCase();
 }
+// The server runs in UTC, so "today" must be worked out in the business's timezone
+// or Australian users see yesterday until mid-morning.
+export const BUSINESS_TZ = "Australia/Melbourne";
+
 export function todayISO() {
-  return fmtISO(new Date());
+  return new Date().toLocaleDateString("en-CA", { timeZone: BUSINESS_TZ });
+}
+export function daysFromToday(n: number) {
+  return fmtISO(addDays(parseISO(todayISO()), n));
+}
+export function businessHour() {
+  return Number(new Intl.DateTimeFormat("en-AU", { hour: "numeric", hourCycle: "h23", timeZone: BUSINESS_TZ }).format(new Date()));
 }
 export { DAYS, MONTHS };
 

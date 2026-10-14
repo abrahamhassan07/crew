@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
 import { ToastBanner, useToast } from "@/components/Toast";
 import { calcTotals } from "@/lib/gst";
-import { fmtDateLabel } from "@/lib/design";
+import { daysFromToday, fmtDateLabel, todayISO } from "@/lib/design";
 import type { Client, GstMode, Invoice, InvoiceItem, InvoiceStatus, Organization, Payment, Property, Service } from "@/lib/supabase/types";
 
 interface JobOption {
@@ -71,8 +71,8 @@ export function InvoiceEditor({
   const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", address: "" });
   const [propertyId, setPropertyId] = useState(invoice?.property_id ?? "");
   const [jobId, setJobId] = useState(invoice?.job_id ?? "");
-  const [issueDate, setIssueDate] = useState(invoice?.issue_date ?? new Date().toISOString().slice(0, 10));
-  const [dueDate, setDueDate] = useState(invoice?.due_date ?? new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10));
+  const [issueDate, setIssueDate] = useState(invoice?.issue_date ?? todayISO());
+  const [dueDate, setDueDate] = useState(invoice?.due_date ?? daysFromToday(14));
   const gstRegistered = organization?.gst_registered ?? true;
   const [mode, setMode] = useState<GstMode>(invoice?.mode ?? (gstRegistered ? "exclusive" : "none"));
   const [notes, setNotes] = useState(invoice?.notes ?? (organization?.payment_details?.trim() || "Please use the invoice number as your payment reference."));
@@ -195,7 +195,7 @@ export function InvoiceEditor({
                     <Button
                       variant="primary"
                       size="md"
-                      onClick={() => setPayModal({ amount: balance, paidDate: new Date().toISOString().slice(0, 10), method: "Bank transfer (EFT)", reference: "" })}
+                      onClick={() => setPayModal({ amount: balance, paidDate: todayISO(), method: "Bank transfer (EFT)", reference: "" })}
                     >
                       <Wallet className="w-4 h-4" />
                       Record payment

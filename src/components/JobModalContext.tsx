@@ -34,10 +34,11 @@ interface JobModalState {
   mode: "new" | "edit";
   jobId: string | null;
   prefillDate?: string;
+  prefillClientId?: string;
 }
 
 interface JobModalContextValue {
-  openNewJob: (prefillDate?: string) => void;
+  openNewJob: (prefillDate?: string, prefillClientId?: string) => void;
   openJob: (jobId: string) => void;
 }
 
@@ -65,8 +66,8 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
   }, []);
 
   const openNewJob = useCallback(
-    (prefillDate?: string) => {
-      setState({ mode: "new", jobId: null, prefillDate });
+    (prefillDate?: string, prefillClientId?: string) => {
+      setState({ mode: "new", jobId: null, prefillDate, prefillClientId });
       setJob(null);
       if (role === "admin") {
         setLoading(true);
@@ -132,6 +133,7 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
           mode={state.mode}
           job={job}
           prefillDate={state.prefillDate}
+          prefillClientId={state.prefillClientId}
           staffOptions={staffOptions}
           clientOptions={clientOptions}
           onClose={close}

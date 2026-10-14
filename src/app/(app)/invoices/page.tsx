@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { daysFromToday } from "@/lib/design";
 import { requireAdmin } from "@/lib/auth";
 import { InvoicesPageClient } from "@/components/InvoicesPageClient";
 
@@ -26,7 +27,7 @@ export default async function InvoicesPage() {
     paidByInvoice.set(p.invoice_id, (paidByInvoice.get(p.invoice_id) ?? 0) + p.amount);
   }
 
-  const thirtyDaysAgo = new Date(new Date().getTime() - 30 * 864e5).toISOString().slice(0, 10);
+  const thirtyDaysAgo = daysFromToday(-30);
   const paidPast30 = (payments ?? []).filter((p) => p.paid_date >= thirtyDaysAgo).reduce((s, p) => s + p.amount, 0);
 
   const jobNumById = new Map((jobs ?? []).map((j) => [j.id, j.num]));

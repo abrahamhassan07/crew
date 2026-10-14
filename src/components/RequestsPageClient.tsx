@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 import { TextField, SelectField, TextAreaField } from "@/components/forms";
 import { AU_STATES } from "@/lib/validate";
-import { fmtDateLabel } from "@/lib/design";
+import { fmtDateLabel, todayISO } from "@/lib/design";
 import type { Client, RequestStatus, Service, ServiceRequest } from "@/lib/supabase/types";
 
 function fmtReceived(iso: string) {
@@ -199,7 +199,7 @@ export function RequestsPageClient({ requests, clients, services }: { requests: 
                     </Button>
                   </Link>
                   {selected.status !== "Converted" && selected.status !== "Closed" && (
-                    <Button variant="secondary" size="sm" onClick={() => setConvertDate({ date: new Date().toISOString().slice(0, 10), time: "09:00" })}>
+                    <Button variant="secondary" size="sm" onClick={() => setConvertDate({ date: todayISO(), time: "09:00" })}>
                       Convert to job
                     </Button>
                   )}

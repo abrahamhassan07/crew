@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
+import { daysFromToday, todayISO } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
 import type { Client, GstMode, Property, Quote, QuoteItem, Service } from "@/lib/supabase/types";
 
@@ -44,8 +45,8 @@ export function QuoteEditor({
   const [isNewClient, setIsNewClient] = useState(false);
   const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", address: "" });
   const [propertyId, setPropertyId] = useState(quote?.property_id ?? "");
-  const [quoteDate, setQuoteDate] = useState(quote?.quote_date ?? new Date().toISOString().slice(0, 10));
-  const [expiryDate, setExpiryDate] = useState(quote?.expiry_date ?? new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10));
+  const [quoteDate, setQuoteDate] = useState(quote?.quote_date ?? todayISO());
+  const [expiryDate, setExpiryDate] = useState(quote?.expiry_date ?? daysFromToday(30));
   const [mode, setMode] = useState<GstMode>(quote?.mode ?? (gstRegistered ? "exclusive" : "none"));
   const [message, setMessage] = useState(quote?.message ?? "Thanks for the opportunity to quote. Prices are valid for 30 days.");
   const [lines, setLines] = useState<QuoteLineInput[]>(

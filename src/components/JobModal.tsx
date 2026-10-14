@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { createJob, deleteJob, updateJob, type JobInput } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
+import { todayISO } from "@/lib/design";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
 import type { Job, JobStatus, Recurrence, Skill } from "@/lib/supabase/types";
 
@@ -42,7 +43,7 @@ function toInput(job: Job | null, prefillDate?: string): JobInput {
     address: "",
     type: "cleaning",
     status: "scheduled",
-    date: prefillDate || new Date().toISOString().slice(0, 10),
+    date: prefillDate || todayISO(),
     startTime: "09:00",
     duration: 90,
     price: null,
@@ -57,6 +58,7 @@ export function JobModal({
   mode,
   job,
   prefillDate,
+  prefillClientId,
   staffOptions,
   clientOptions,
   onClose,
@@ -65,13 +67,18 @@ export function JobModal({
   mode: "new" | "edit";
   job: Job | null;
   prefillDate?: string;
+  prefillClientId?: string;
   staffOptions: StaffOption[];
   clientOptions: ClientOption[];
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
-  const [form, setForm] = useState<JobInput>(() => toInput(job, prefillDate));
-  const [selectedClientId, setSelectedClientId] = useState(job?.client_id ?? "");
+  const prefillClient = !job && prefillClientId ? clientOptions.find((c) => c.id === prefillClientId) : undefined;
+  const [form, setForm] = useState<JobInput>(() => {
+    const base = toInput(job, prefillDate);
+    return prefillClient ? { ...base, clientId: prefillClient.id, client: prefillClient.name, address: prefillClient.address ?? "", type: prefillClient.job_type } : base;
+  });
+  const [selectedClientId, setSelectedClientId] = useState(job?.client_id ?? prefillClient?.id ?? "");
   const [newContact, setNewContact] = useState({ email: "", phone: "" });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -185,7 +192,7 @@ export function JobModal({
               if (e.target.checked) {
                 setForm((f) => ({ ...f, date: null, startTime: null, repeat: "none" }));
               } else {
-                setForm((f) => ({ ...f, date: prefillDate || new Date().toISOString().slice(0, 10), startTime: "09:00" }));
+                setForm((f) => ({ ...f, date: prefillDate || todayISO(), startTime: "09:00" }));
               }
             }}
             className="accent-brand"

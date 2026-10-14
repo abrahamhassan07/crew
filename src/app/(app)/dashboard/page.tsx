@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/auth";
-import { addDays, buildStaffMap, enrichJob, fmtDateLabel, fmtISO, startOfWeek, todayISO } from "@/lib/design";
+import { addDays, BUSINESS_TZ, businessHour, buildStaffMap, enrichJob, fmtDateLabel, fmtISO, startOfWeek, todayISO } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
 import { StatCard, Card } from "@/components/ui/Card";
 import { NewJobQuickAction } from "@/components/NewJobQuickAction";
@@ -150,7 +150,7 @@ export default async function DashboardPage() {
   }
 
   // Greeting
-  const hour = new Date().getHours();
+  const hour = businessHour();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const userName = (viewer.staff?.name || viewer.name || "there").split(" ")[0];
@@ -158,7 +158,7 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen bg-page-bg">
       <PageHeader
-        eyebrow={new Date().toLocaleDateString("en-AU", { weekday: "long", month: "short", day: "numeric" })}
+        eyebrow={new Date().toLocaleDateString("en-AU", { weekday: "long", month: "short", day: "numeric", timeZone: BUSINESS_TZ })}
         title={`${greeting}, ${userName}`}
         subtitle="Here's what's happening across your business today."
         actions={

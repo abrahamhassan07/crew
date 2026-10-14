@@ -3,29 +3,70 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mail, Pencil, Phone } from "lucide-react";
+import { Mail, Pencil, Phone, Plus } from "lucide-react";
 import { addClientNote } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Tabs } from "@/components/ui/Tabs";
-import { initialsOf } from "@/lib/design";
+import { useJobModal } from "@/components/JobModalContext";
+import { initialsOf, type EnrichedJob } from "@/lib/design";
 import type { Client, ClientNote, Property } from "@/lib/supabase/types";
 
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
+type BadgeKey = "scheduled" | "in-progress" | "completed" | "cancelled" | "unscheduled";
+
+function jobBadge(job: EnrichedJob): { key: BadgeKey; label: string } {
+  if (!job.job_date && job.status === "scheduled") return { key: "unscheduled", label: "Unscheduled" };
+  if (job.status === "in_progress") return { key: "in-progress", label: "In progress" };
+  if (job.status === "completed") return { key: "completed", label: "Completed" };
+  if (job.status === "cancelled") return { key: "cancelled", label: "Cancelled" };
+  return { key: "scheduled", label: "Scheduled" };
+}
+
+function JobRow({ job }: { job: EnrichedJob }) {
+  const badge = jobBadge(job);
+  return (
+    <Link href={`/jobs/${job.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3 border-t border-line-soft first:border-t-0 hover:bg-page-bg -mx-2 px-2 rounded-md transition-colors">
+      <div className="w-20 shrink-0 text-sm font-semibold text-ink-primary">{job.num}</div>
+      <div className="flex-1 min-w-[160px]">
+        <div className="text-sm font-semibold text-ink-primary">{job.title || job.typeLabel}</div>
+        <div className="text-xs text-ink-muted">{job.job_date ? `${job.dateLabel}${job.timeLabel ? ` · ${job.timeLabel}` : ""}` : "Not scheduled"}</div>
+      </div>
+      <div className="w-32 shrink-0 text-sm text-ink-secondary truncate">{job.assigned_staff_id ? job.staffName : "Unassigned"}</div>
+      <div className="w-20 shrink-0 text-sm text-right text-ink-secondary">{job.price != null ? `$${job.price.toFixed(2)}` : "—"}</div>
+      <div className="shrink-0">
+        <StatusBadge status={badge.key} label={badge.label} showDot />
+      </div>
+    </Link>
+  );
+}
+
 export function ClientProfileClient({
   client,
   properties,
   notes,
+  jobs,
+  today,
 }: {
   client: Client;
   properties: Property[];
   notes: (ClientNote & { staffName: string | null })[];
+  jobs: EnrichedJob[];
+  today: string;
 }) {
   const router = useRouter();
+  const { openNewJob } = useJobModal();
+
+  // Upcoming work first (soonest at the top, unscheduled last), then history newest-first.
+  const byDateTime = (a: EnrichedJob, b: EnrichedJob) => (a.job_date ?? "").localeCompare(b.job_date ?? "") || (a.start_time ?? "").localeCompare(b.start_time ?? "");
+  const upcoming = jobs
+    .filter((j) => !j.job_date || j.job_date >= today)
+    .sort((a, b) => (a.job_date && b.job_date ? byDateTime(a, b) : a.job_date ? -1 : b.job_date ? 1 : a.num.localeCompare(b.num)));
+  const history = jobs.filter((j) => j.job_date && j.job_date < today).sort((a, b) => byDateTime(b, a));
   const [noteDraft, setNoteDraft] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -141,6 +182,39 @@ export function ClientProfileClient({
                       </div>
                     ))}
                     {!notes.length && <p className="text-sm text-ink-muted pt-2">No notes yet.</p>}
+                  </Card>
+                ),
+              },
+              {
+                id: "jobs",
+                label: "Jobs",
+                count: jobs.length,
+                content: (
+                  <Card className="p-6 mt-6">
+                    <div className="flex items-center justify-between gap-3 mb-1">
+                      <h2 className="text-base font-bold text-ink-primary">Jobs for {client.name}</h2>
+                      <Button variant="primary" size="sm" onClick={() => openNewJob(undefined, client.id)}>
+                        <Plus className="w-4 h-4" />
+                        New job
+                      </Button>
+                    </div>
+                    {!jobs.length && <p className="text-sm text-ink-muted pt-3">No jobs yet. Click New job to schedule the first one.</p>}
+                    {upcoming.length > 0 && (
+                      <div className="mt-4">
+                        <div className="text-xs font-bold uppercase tracking-wide text-ink-muted mb-1">Upcoming &amp; unscheduled</div>
+                        {upcoming.map((j) => (
+                          <JobRow key={j.id} job={j} />
+                        ))}
+                      </div>
+                    )}
+                    {history.length > 0 && (
+                      <div className="mt-6">
+                        <div className="text-xs font-bold uppercase tracking-wide text-ink-muted mb-1">History</div>
+                        {history.map((j) => (
+                          <JobRow key={j.id} job={j} />
+                        ))}
+                      </div>
+                    )}
                   </Card>
                 ),
               },

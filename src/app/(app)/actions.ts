@@ -11,7 +11,7 @@ import { formatAbn, isValidAbn, isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
 import { renderDocumentPdf } from "@/lib/pdf";
-import { addDays, fmtISO, parseISO, STAFF_HUES } from "@/lib/design";
+import { addDays, fmtISO, parseISO, STAFF_HUES, todayISO } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
 import type { FeedbackKind, FeedbackStatus, CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
 
@@ -1102,7 +1102,7 @@ export async function convertQuoteToJob(quoteId: string): Promise<CreateResult> 
     .insert({
       client_name: client?.name ?? "Client",
       address,
-      job_date: new Date().toISOString().slice(0, 10),
+      job_date: todayISO(),
       start_time: "09:00:00",
       client_id: quote.client_id,
       property_id: quote.property_id,
