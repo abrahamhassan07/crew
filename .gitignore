@@ -47,3 +47,6 @@ next-env.d.ts
 
 # Claude Code session state (not project config)
 .claude/scheduled_tasks.lock
+
+# demo account login written by scripts/seed-demo.mjs
+/scripts/.demo-credentials.txt
