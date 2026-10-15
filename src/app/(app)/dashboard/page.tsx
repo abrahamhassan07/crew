@@ -135,11 +135,12 @@ export default async function DashboardPage() {
   let gettingStarted: GettingStartedProps | null = null;
   if (isAdmin) {
     const head = { count: "exact" as const, head: true };
-    const [{ data: org }, { count: clientCount }, { count: quoteCount }, { count: invoiceCount }] = await Promise.all([
+    const [{ data: org }, { count: clientCount }, { count: quoteCount }, { count: invoiceCount }, { data: factors }] = await Promise.all([
       supabase.from("organizations").select("email, phone, payment_details").eq("id", viewer.orgId).single(),
       supabase.from("clients").select("id", head),
       supabase.from("quotes").select("id", head),
       supabase.from("invoices").select("id", head),
+      supabase.auth.mfa.listFactors(),
     ]);
     gettingStarted = {
       hasBusinessDetails: !!(org?.email?.trim() && org?.phone?.trim()),
@@ -147,6 +148,7 @@ export default async function DashboardPage() {
       hasClient: (clientCount ?? 0) > 0,
       hasQuote: (quoteCount ?? 0) > 0,
       hasInvoice: (invoiceCount ?? 0) > 0,
+      hasTwoFactor: (factors?.totp ?? []).length > 0,
     };
   }
 

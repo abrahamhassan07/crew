@@ -10,6 +10,7 @@ export interface GettingStartedProps {
   hasClient: boolean;
   hasQuote: boolean;
   hasInvoice: boolean;
+  hasTwoFactor: boolean;
 }
 
 const SKIPPED_KEY = "crew-getting-started-skipped";
@@ -53,6 +54,7 @@ export function GettingStarted(p: GettingStartedProps) {
     { done: p.hasClient, label: "Add your first client", hint: "Or pick “New client” when you create a quote or job.", href: "/clients/new", cta: "New client" },
     { done: p.hasQuote, label: "Send your first quote", hint: "It's emailed to the client as a PDF.", href: "/quotes/new", cta: "New quote" },
     { done: p.hasInvoice, label: "Create your first invoice", hint: "Record payments against it as they come in.", href: "/invoices/new", cta: "New invoice" },
+    { done: p.hasTwoFactor, label: "Turn on two-factor sign-in", hint: "Protect your business data with a code from your phone.", href: "/security", cta: "Open security" },
   ];
   const doneCount = steps.filter((s) => s.done).length;
   const remaining = steps.filter((s) => !s.done && !skipped.includes(s.label));

@@ -22,6 +22,7 @@ const STEPS: Step[] = [
   { target: "/schedule", title: "Plan your week", body: "See every job on the calendar. Drag a job to move it, and assign it to someone on your team." },
   { target: "/invoices", title: "Get paid", body: "Turn finished work into invoices, email them, and record payments as they come in." },
   { target: "/staff", title: "Add your team", body: "Invite staff so you can assign them jobs. Turn on staff notifications in Settings and they'll get an email when a job is assigned or changes." },
+  { target: "/security", title: "Keep your account safe", body: "Turn on two-factor sign-in here. You'll enter a code from an authenticator app when you log in, which protects your clients' details even if your password leaks." },
   { target: "/feedback", title: "Tell us what you think", body: "Found a bug or want something added? Send it here. We read every message." },
   { title: "You're all set", body: "You can replay this tour whenever you like with “Take the tour” in the sidebar. Good luck with your first quote!" },
 ];
