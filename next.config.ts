@@ -20,6 +20,7 @@ const CSP_REPORT_ONLY = [
   `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com https://maps.googleapis.com ${SENTRY}`,
   "frame-src https://accounts.google.com https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
+  "report-uri /api/csp-report",
 ].join("; ");
 
 const nextConfig: NextConfig = {

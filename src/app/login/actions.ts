@@ -1,7 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 export interface SignInState {
   error?: string;
@@ -16,6 +18,12 @@ export async function signIn(_prevState: SignInState | undefined, formData: Form
 
   if (!email || !password) {
     return { error: "Enter your email and password." };
+  }
+
+  // Bot check before the password is tried, so scripted guessing is stopped here.
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (!(await verifyTurnstile(String(formData.get("cf-turnstile-response") || ""), ip))) {
+    return { error: "We couldn't verify you're human. Please wait a moment and try again." };
   }
 
   const supabase = await createClient();
