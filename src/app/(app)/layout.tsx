@@ -45,7 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <JobModalProvider role={viewer.profile.role}>
-      <AppShell role={viewer.profile.role} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner} isPlatformAdmin={isPlatformAdmin(viewer.email)}>
+      <AppShell role={viewer.profile.role} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner} isPlatformAdmin={isPlatformAdmin(viewer.email)} tourAutoStart={!!organization && Date.now() - new Date(organization.created_at).getTime() < 14 * 864e5}>
         {children}
       </AppShell>
     </JobModalProvider>

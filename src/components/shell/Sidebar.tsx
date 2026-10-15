@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Inbox,
   Building2,
+  Compass,
   LogOut,
   ChevronsLeft,
   ChevronsRight,
@@ -129,6 +130,7 @@ export function Sidebar({
                     <Link
                       key={item.href}
                       href={item.href}
+                      data-tour={item.href}
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                         isActive
                           ? "bg-ok-bg text-brand font-semibold"
@@ -155,6 +157,15 @@ export function Sidebar({
             </div>
           </div>
         ))}
+        {role === "admin" && <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event("crew:start-tour"))}
+          className={`mt-1 w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-ink-secondary hover:bg-page-bg ${isCollapsed ? "justify-center" : ""}`}
+          title={isCollapsed ? "Take the tour" : undefined}
+        >
+          <Compass className="w-5 h-5 flex-shrink-0" />
+          {!isCollapsed && "Take the tour"}
+        </button>}
       </nav>
 
       {/* Footer: User info and actions */}

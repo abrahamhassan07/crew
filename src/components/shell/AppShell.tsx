@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
+import { ProductTour } from "@/components/ProductTour";
 
 interface AppShellProps {
   role: "admin" | "staff";
@@ -14,6 +15,8 @@ interface AppShellProps {
   bizName: string;
   roleLabel: string;
   isPlatformAdmin?: boolean;
+  /** Show the guided tour automatically (brand-new businesses). */
+  tourAutoStart?: boolean;
 }
 
 function initialsOf(name: string): string {
@@ -23,7 +26,7 @@ function initialsOf(name: string): string {
   return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 }
 
-export function AppShell({ role, children, userName, bizName, roleLabel, banner, isPlatformAdmin }: AppShellProps) {
+export function AppShell({ role, children, userName, bizName, roleLabel, banner, isPlatformAdmin, tourAutoStart }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -93,6 +96,7 @@ export function AppShell({ role, children, userName, bizName, roleLabel, banner,
           <div className="w-full">{children}</div>
         </main>
       </div>
+      {role === "admin" && <ProductTour autoStart={!!tourAutoStart} openMobileNav={setMobileNavOpen} />}
     </div>
   );
 }

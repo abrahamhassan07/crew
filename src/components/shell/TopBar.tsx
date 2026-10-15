@@ -102,6 +102,7 @@ export function TopBar({
       {role === "admin" && (
         <div className="relative">
           <button
+            data-tour="create"
             onClick={() => setShowCreate((v) => !v)}
             className="h-10 px-4 rounded-lg bg-brand text-white text-sm font-semibold flex items-center gap-1.5 hover:bg-brand-hover transition-colors"
             aria-haspopup="menu"
