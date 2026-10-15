@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
-import { dbError } from "@/lib/errors";
+import { authError, dbError } from "@/lib/errors";
 import { billingEnforced, emailLimit, getBillingState, seatLimit } from "@/lib/billing";
 import { formatAbn, isValidAbn, isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
@@ -310,7 +310,7 @@ export async function inviteStaff(input: StaffInput): Promise<ActionResult> {
   });
 
   if (inviteError) {
-    return { ok: false, error: `Staff record created, but the invite email failed: ${inviteError.message}` };
+    return { ok: false, error: `Staff record created, but the invite email failed: ${authError(inviteError)}` };
   }
 
   revalidatePath("/", "layout");
@@ -1594,6 +1594,22 @@ export async function checkCanSendDocuments(): Promise<ActionResult> {
 // Platform owner tools (/admin/businesses)
 // ---------------------------------------------------------------------------
 
+/** Records a platform-owner action. Best effort: a failure to log never blocks the action itself. */
+async function recordPlatformAudit(entry: { actor: string; action: string; targetType: string; targetId: string; targetLabel: string | null; details?: Record<string, unknown> }) {
+  try {
+    await createAdminClient().from("platform_audit").insert({
+      actor_email: entry.actor,
+      action: entry.action,
+      target_type: entry.targetType,
+      target_id: entry.targetId,
+      target_label: entry.targetLabel,
+      details: entry.details ?? {},
+    });
+  } catch (e) {
+    console.error("Could not record platform audit entry", e);
+  }
+}
+
 /** Removes a user's authenticator app so they can sign in with just a password (lost phone). */
 export async function resetTwoFactor(userId: string): Promise<ActionResult> {
   const viewer = await getViewer();
@@ -1606,6 +1622,8 @@ export async function resetTwoFactor(userId: string): Promise<ActionResult> {
     const { error: deleteError } = await admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId });
     if (deleteError) return { ok: false, error: dbError(deleteError) };
   }
+  const { data: target } = await admin.auth.admin.getUserById(userId);
+  await recordPlatformAudit({ actor: viewer.email, action: "Reset two-factor", targetType: "user", targetId: userId, targetLabel: target.user?.email ?? null });
   console.info(`[platform] ${viewer.email} reset two-factor for user ${userId}`);
 
   revalidatePath("/admin/businesses");
@@ -1619,12 +1637,14 @@ export async function extendTrial(orgId: string, days: number): Promise<ActionRe
   if (!Number.isInteger(days) || days < 1 || days > 90) return { ok: false, error: "Choose between 1 and 90 days." };
 
   const admin = createAdminClient();
-  const { data: org } = await admin.from("organizations").select("trial_ends_at").eq("id", orgId).single();
+  const { data: org } = await admin.from("organizations").select("name, trial_ends_at").eq("id", orgId).single();
   if (!org) return { ok: false, error: "Business not found." };
 
   const base = Math.max(Date.now(), new Date(org.trial_ends_at).getTime());
-  const { error } = await admin.from("organizations").update({ trial_ends_at: new Date(base + days * 864e5).toISOString() }).eq("id", orgId);
+  const newEnd = new Date(base + days * 864e5).toISOString();
+  const { error } = await admin.from("organizations").update({ trial_ends_at: newEnd }).eq("id", orgId);
   if (error) return { ok: false, error: dbError(error) };
+  await recordPlatformAudit({ actor: viewer.email, action: "Extended trial", targetType: "business", targetId: orgId, targetLabel: org.name, details: { days, trialEndsAt: newEnd } });
   console.info(`[platform] ${viewer.email} extended trial for org ${orgId} by ${days} days`);
 
   revalidatePath("/admin/businesses");

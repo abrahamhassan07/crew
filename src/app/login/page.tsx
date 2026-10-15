@@ -4,6 +4,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const params = await searchParams;
   const next = typeof params.next === "string" ? params.next : "/";
   const oauthError = typeof params.error === "string" ? params.error : undefined;
+  const idle = params.reason === "idle";
 
   return (
     <div className="min-h-screen flex bg-card-bg">
@@ -35,7 +36,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <LoginForm next={next} oauthError={oauthError} />
+          <LoginForm next={next} oauthError={oauthError} idle={idle} />
 
           <p className="text-xs text-ink-muted text-center mt-4">
             <a href="/terms" className="hover:text-ink-primary">Terms</a>

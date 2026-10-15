@@ -36,3 +36,31 @@ export function dbError(error: DbErrorLike): string {
         : "Something went wrong. Please try again, and contact support if it keeps happening.";
   }
 }
+
+interface AuthErrorLike {
+  message: string;
+  code?: string;
+}
+
+/** Same idea as dbError, for Supabase Auth errors (sign-up, invites). Known cases get plain wording. */
+export function authError(error: AuthErrorLike): string {
+  switch (error.code) {
+    case "weak_password":
+      return "That password is too weak. Use at least 8 characters with a mix of letters and numbers.";
+    case "email_exists":
+    case "user_already_exists":
+      return "An account with this email already exists.";
+    case "email_address_invalid":
+    case "validation_failed":
+      return "That email address doesn't look right. Check it and try again.";
+    case "over_email_send_rate_limit":
+    case "over_request_rate_limit":
+      return "We've sent a lot of emails in the last few minutes. Please wait a little and try again.";
+    case "email_address_not_authorized":
+      return "We can't send email to that address yet. Try a different one, or contact support.";
+    default:
+      console.error("[auth error]", error.code ?? "", error.message);
+      Sentry.captureException(new Error(`Auth error ${error.code ?? ""}: ${error.message}`));
+      return "Something went wrong. Please try again, and contact support if it keeps happening.";
+  }
+}

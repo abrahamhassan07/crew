@@ -7,6 +7,7 @@ import { extendTrial, resetTwoFactor } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchInput } from "@/components/ui/SearchInput";
+import type { PlatformAudit } from "@/lib/supabase/types";
 
 export interface AdminUser {
   userId: string;
@@ -35,7 +36,7 @@ export interface AdminBusiness {
 
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "Never");
 
-export function AdminBusinessesClient({ businesses }: { businesses: AdminBusiness[] }) {
+export function AdminBusinessesClient({ businesses, audit }: { businesses: AdminBusiness[]; audit: PlatformAudit[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -152,6 +153,20 @@ export function AdminBusinessesClient({ businesses }: { businesses: AdminBusines
               );
             })}
             {shown.length === 0 && <div className="bg-card-bg border border-line rounded-lg p-8 text-center text-ink-muted text-sm">No businesses match.</div>}
+          </div>
+
+          <h2 className="text-xs font-bold text-ink-muted uppercase tracking-wide mt-8 mb-2">Recent platform activity</h2>
+          <div className="bg-card-bg border border-line rounded-lg divide-y divide-line-soft">
+            {audit.map((a) => (
+              <div key={a.id} className="flex flex-wrap items-center gap-x-4 gap-y-0.5 px-4 py-2.5 text-sm">
+                <span className="font-semibold text-ink-primary">{a.action}</span>
+                <span className="text-ink-secondary">{a.target_label ?? a.target_id}</span>
+                <span className="text-xs text-ink-muted ml-auto">
+                  by {a.actor_email} · {new Date(a.created_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                </span>
+              </div>
+            ))}
+            {audit.length === 0 && <div className="px-4 py-5 text-sm text-ink-muted">Nothing yet. Resets and trial extensions will be listed here.</div>}
           </div>
         </div>
       </div>

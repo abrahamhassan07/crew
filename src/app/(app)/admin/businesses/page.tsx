@@ -13,12 +13,13 @@ export default async function AdminBusinessesPage() {
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
-  const [{ data: orgs }, { data: profiles }, { data: staff }, { data: logs }, authList] = await Promise.all([
+  const [{ data: orgs }, { data: profiles }, { data: staff }, { data: logs }, authList, { data: audit }] = await Promise.all([
     db.from("organizations").select("*").order("created_at", { ascending: false }).limit(500),
     db.from("profiles").select("user_id, role, org_id, staff_id"),
     db.from("staff").select("id, name, active"),
     db.from("email_log").select("org_id, kind").gte("created_at", monthStart),
     db.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    db.from("platform_audit").select("*").order("created_at", { ascending: false }).limit(50),
   ]);
 
   const authById = new Map((authList.data?.users ?? []).map((u) => [u.id, u]));
@@ -81,5 +82,5 @@ export default async function AdminBusinessesPage() {
     };
   });
 
-  return <AdminBusinessesClient businesses={businesses} />;
+  return <AdminBusinessesClient businesses={businesses} audit={audit ?? []} />;
 }

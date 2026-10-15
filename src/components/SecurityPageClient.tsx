@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ShieldCheck, ShieldOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +24,22 @@ export function SecurityPageClient({ email }: { email: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmOff, setConfirmOff] = useState(false);
+  const router = useRouter();
+
+  const signOutDevices = async (scope: "others" | "global") => {
+    setBusy(true);
+    const { error: signOutError } = await createClient().auth.signOut({ scope });
+    setBusy(false);
+    if (signOutError) {
+      showToast("Couldn't sign out the other devices. Please try again.");
+      return;
+    }
+    if (scope === "global") {
+      router.replace("/login");
+      return;
+    }
+    showToast("Signed out of your other devices.");
+  };
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -168,6 +185,21 @@ export function SecurityPageClient({ email }: { email: string }) {
             )}
 
             {error && <p className="text-sm text-danger-red mt-4">{error}</p>}
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="text-base font-bold text-ink-primary">Where you&rsquo;re signed in</h2>
+            <p className="text-sm text-ink-secondary mt-1 leading-relaxed">
+              Lost a phone, or signed in on a shared computer? Sign out everywhere else. Other devices will need your password (and code) again. A device can stay usable for up to an hour while its current login runs out.
+            </p>
+            <div className="flex flex-wrap gap-2.5 mt-4">
+              <Button variant="secondary" size="sm" onClick={() => signOutDevices("others")} disabled={busy}>
+                Sign out my other devices
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => signOutDevices("global")} disabled={busy}>
+                Sign out everywhere, including here
+              </Button>
+            </div>
           </Card>
 
           <p className="text-xs text-ink-muted leading-relaxed">

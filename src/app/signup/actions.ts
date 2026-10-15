@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import { createOwnerStaff } from "@/lib/provision";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { authError, dbError } from "@/lib/errors";
 
 export interface SignUpState {
   error?: string;
@@ -37,7 +38,7 @@ export async function signUp(_prevState: SignUpState | undefined, formData: Form
     .single();
 
   if (orgError || !org) {
-    return { error: orgError?.message ?? "Could not create your business." };
+    return { error: orgError ? dbError(orgError) : "Could not create your business." };
   }
 
   // The owner is also assignable staff; handle_new_user() links this row to the login.
@@ -58,7 +59,7 @@ export async function signUp(_prevState: SignUpState | undefined, formData: Form
   const alreadyRegistered = !signUpError && data.user?.identities?.length === 0;
   if (signUpError || alreadyRegistered) {
     await admin.from("organizations").delete().eq("id", org.id);
-    return { error: alreadyRegistered ? "An account with this email already exists. Try logging in instead." : signUpError!.message };
+    return { error: alreadyRegistered ? "An account with this email already exists. Try logging in instead." : authError(signUpError!) };
   }
 
   return { done: true };

@@ -12,7 +12,7 @@ const OAUTH_ERRORS: Record<string, string> = {
   "no-account": "No account found for that Google email. Ask your admin to invite you, or create a new business.",
 };
 
-export function LoginForm({ next, oauthError }: { next: string; oauthError?: string }) {
+export function LoginForm({ next, oauthError, idle }: { next: string; oauthError?: string; idle?: boolean }) {
   const [state, formAction, pending] = useActionState(signIn, undefined);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@crewandgrounds.com";
@@ -31,6 +31,8 @@ export function LoginForm({ next, oauthError }: { next: string; oauthError?: str
         <h1 className="font-serif font-semibold text-2xl text-ink-primary mb-1">{heading}</h1>
         <p className="text-sm text-ink-muted">{subheading}</p>
       </div>
+
+      {idle && !needsCode && <p className="mb-4 rounded-lg bg-info-bg text-info-fg text-sm px-3 py-2.5 text-center">You were signed out after a while away. Please sign in again.</p>}
 
       {needsCode ? (
         <MfaChallengeForm next={next.startsWith("/") ? next : "/"} supportEmail={supportEmail} onSignOut={() => window.location.reload()} />

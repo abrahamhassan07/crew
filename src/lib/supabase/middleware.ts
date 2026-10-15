@@ -3,6 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/auth/confirm", "/terms", "/privacy", "/api/stripe/webhook", "/api/health", "/api/cron", "/api/csp-report"];
 
+// Signed-in sessions end after this long without a visit. Supabase can only do this on its paid plan,
+// so the site tracks the last visit itself. The cookie is only a timestamp; the login stays with Supabase.
+// SESSION_IDLE_HOURS overrides the default of 7 days (168 hours).
+const IDLE_MS = (Number(process.env.SESSION_IDLE_HOURS) || 168) * 60 * 60 * 1000;
+const SEEN_COOKIE = "crew-last-seen";
+const SEEN_REFRESH_MS = 5 * 60 * 1000;
+
 export async function updateSession(request: NextRequest) {
   // Lets server components (e.g. the billing gate in the app layout) know the current path.
   const requestHeaders = new Headers(request.headers);
@@ -43,6 +50,31 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
+
+  const now = Date.now();
+  const lastSeen = Number(request.cookies.get(SEEN_COOKIE)?.value) || 0;
+
+  // Idle too long: end the session and send them to sign in again.
+  if (user && lastSeen && now - lastSeen > IDLE_MS && !isServerAction) {
+    await supabase.auth.signOut();
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "";
+    url.searchParams.set("next", path);
+    url.searchParams.set("reason", "idle");
+    const redirect = NextResponse.redirect(url);
+    for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
+    redirect.cookies.delete(SEEN_COOKIE);
+    return redirect;
+  }
+
+  // Keep the timestamp fresh while they're active (not on every request); clear it once signed out so
+  // the next sign-in starts a fresh clock.
+  if (user && now - lastSeen > SEEN_REFRESH_MS) {
+    response.cookies.set(SEEN_COOKIE, String(now), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
+  } else if (!user && lastSeen) {
+    response.cookies.delete(SEEN_COOKIE);
+  }
 
   if (!isServerAction) {
     if (!user && !isPublic) {

@@ -239,6 +239,17 @@ export type EmailLog = {
   created_at: string;
 };
 
+export type PlatformAudit = {
+  id: string;
+  actor_email: string;
+  action: string;
+  target_type: string;
+  target_id: string | null;
+  target_label: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+};
+
 export type FeedbackKind = "bug" | "idea" | "question";
 export type FeedbackStatus = "new" | "in_progress" | "done" | "wont_fix";
 
@@ -409,6 +420,12 @@ export type Database = {
         Row: Equipment;
         Insert: Partial<Equipment> & Pick<Equipment, "name" | "org_id">;
         Update: Partial<Equipment>;
+        Relationships: [];
+      };
+      platform_audit: {
+        Row: PlatformAudit;
+        Insert: Partial<PlatformAudit> & Pick<PlatformAudit, "actor_email" | "action" | "target_type">;
+        Update: Partial<PlatformAudit>;
         Relationships: [];
       };
       email_log: {
