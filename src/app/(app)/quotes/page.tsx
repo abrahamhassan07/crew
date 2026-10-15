@@ -3,7 +3,11 @@ import { requireAdmin } from "@/lib/auth";
 import { QuotesPageClient } from "@/components/QuotesPageClient";
 import type { GstMode } from "@/lib/supabase/types";
 
-export default async function QuotesPage() {
+const TABS = ["All", "Draft", "Sent", "Approved", "Declined", "Expired", "Cancelled"] as const;
+
+export default async function QuotesPage({ searchParams }: PageProps<"/quotes">) {
+  const params = await searchParams;
+  const initialTab = TABS.find((t) => t === params.tab) ?? "All";
   await requireAdmin();
   const supabase = await createClient();
 
@@ -22,5 +26,5 @@ export default async function QuotesPage() {
     itemTotals.set(item.quote_id, arr);
   }
 
-  return <QuotesPageClient quotes={quotes ?? []} clients={clients ?? []} itemTotals={itemTotals} />;
+  return <QuotesPageClient quotes={quotes ?? []} clients={clients ?? []} itemTotals={itemTotals} initialTab={initialTab} />;
 }

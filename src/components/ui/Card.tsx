@@ -1,3 +1,4 @@
+import Link from "next/link";
 import React from "react";
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -25,6 +26,8 @@ interface StatCardProps {
   };
   subtitle?: string;
   onClick?: () => void;
+  /** Makes the whole card a link. */
+  href?: string;
   className?: string;
 }
 
@@ -35,6 +38,7 @@ export function StatCard({
   delta,
   subtitle,
   onClick,
+  href,
   className = "",
 }: StatCardProps) {
   const trendColors = {
@@ -43,12 +47,10 @@ export function StatCard({
     neutral: "bg-neutral-bg text-neutral-fg",
   };
 
-  return (
-    <button
-      onClick={onClick}
-      className={`text-left bg-card-bg border border-line rounded-lg p-3 hover:border-line hover:shadow-md transition-all ${className}`}
-      style={{ minHeight: "104px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}
-    >
+  const classes = `text-left bg-card-bg border border-line rounded-lg p-3 hover:border-line hover:shadow-md transition-all ${className}`;
+  const style = { minHeight: "104px", display: "flex", flexDirection: "column", justifyContent: "space-between" } as const;
+  const content = (
+    <>
       <div className="flex items-center gap-1.5">
         {icon && <span className="text-brand text-sm">{icon}</span>}
         <span className="text-xs font-semibold text-ink-muted truncate">{label}</span>
@@ -65,6 +67,19 @@ export function StatCard({
       </div>
 
       {subtitle && <span className="text-[11px] text-ink-muted mt-1 truncate">{subtitle}</span>}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={classes} style={style}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <button onClick={onClick} className={classes} style={style}>
+      {content}
     </button>
   );
 }

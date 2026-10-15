@@ -51,7 +51,9 @@ export function ClientsPageClient({
   lastActivityByClient,
   kpis,
   allTags,
+  initialStatus = "All",
 }: {
+  initialStatus?: ClientStatus | "All";
   clients: Client[];
   lastActivityByClient: Record<string, string>;
   kpis: {
@@ -66,7 +68,7 @@ export function ClientsPageClient({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [searchQuery, setSearchQuery] = useState("");
-  const [status, setStatus] = useState<ClientStatus | "All">("All");
+  const [status, setStatus] = useState<ClientStatus | "All">(initialStatus);
   const [sortBy, setSortBy] = useState<string>("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());

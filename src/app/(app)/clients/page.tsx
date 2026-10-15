@@ -2,7 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { ClientsPageClient } from "@/components/ClientsPageClient";
 
-export default async function ClientsPage() {
+const STATUSES = ["Lead", "Active", "Inactive", "Archived"] as const;
+
+export default async function ClientsPage({ searchParams }: PageProps<"/clients">) {
+  const params = await searchParams;
+  const initialStatus = STATUSES.find((s) => s === params.tab) ?? "All";
   await requireAdmin();
   const supabase = await createClient();
 
@@ -60,6 +64,7 @@ export default async function ClientsPage() {
       lastActivityByClient={Object.fromEntries(lastActivityByClient)}
       kpis={kpis}
       allTags={allTags}
+      initialStatus={initialStatus}
     />
   );
 }

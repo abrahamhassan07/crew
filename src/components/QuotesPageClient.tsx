@@ -21,9 +21,19 @@ function badgeStatus(s: QuoteStatus) {
   return s.toLowerCase() as "draft" | "sent" | "approved" | "declined" | "expired" | "cancelled";
 }
 
-export function QuotesPageClient({ quotes, clients, itemTotals }: { quotes: Quote[]; clients: Client[]; itemTotals: Map<string, { qty: number; unit_price: number; mode: GstMode }[]> }) {
+export function QuotesPageClient({
+  quotes,
+  clients,
+  itemTotals,
+  initialTab = "All",
+}: {
+  quotes: Quote[];
+  clients: Client[];
+  itemTotals: Map<string, { qty: number; unit_price: number; mode: GstMode }[]>;
+  initialTab?: (typeof TABS)[number];
+}) {
   const router = useRouter();
-  const [tab, setTab] = useState<(typeof TABS)[number]>("All");
+  const [tab, setTab] = useState<(typeof TABS)[number]>(initialTab);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<string>("quote_date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");

@@ -13,7 +13,7 @@ import { calcTotals } from "@/lib/gst";
 import type { Column } from "@/components/ui/DataTable";
 import type { Client, GstMode, Invoice, InvoiceStatus } from "@/lib/supabase/types";
 
-const TABS: (InvoiceStatus | "All")[] = ["All", "Draft", "Sent", "Partially Paid", "Paid", "Overdue", "Voided"];
+const TABS: (InvoiceStatus | "All" | "Outstanding")[] = ["All", "Outstanding", "Draft", "Sent", "Partially Paid", "Paid", "Overdue", "Voided"];
 
 type InvoiceRow = Invoice & { clientName: string; total: number; balance: number };
 
@@ -28,6 +28,7 @@ export function InvoicesPageClient({
   paidByInvoice,
   jobNumById,
   paidPast30,
+  initialTab = "All",
 }: {
   invoices: Invoice[];
   clients: Client[];
@@ -35,9 +36,10 @@ export function InvoicesPageClient({
   paidByInvoice: Map<string, number>;
   jobNumById: Record<string, string>;
   paidPast30: number;
+  initialTab?: (typeof TABS)[number];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<(typeof TABS)[number]>("All");
+  const [tab, setTab] = useState<(typeof TABS)[number]>(initialTab);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<string>("issue_date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -61,7 +63,7 @@ export function InvoicesPageClient({
   });
 
   const filtered = rows.filter(
-    (r) => (tab === "All" || r.status === tab) && (!query.trim() || (r.num + " " + r.clientName).toLowerCase().includes(query.toLowerCase()))
+    (r) => (tab === "All" || (tab === "Outstanding" ? ["Sent", "Partially Paid", "Overdue"].includes(r.status) : r.status === tab)) && (!query.trim() || (r.num + " " + r.clientName).toLowerCase().includes(query.toLowerCase()))
   );
 
   const sorted = useMemo(() => {
@@ -131,7 +133,7 @@ export function InvoicesPageClient({
 
           <div className="flex flex-wrap items-center gap-2 mb-6">
             <FilterTabs
-              options={TABS.map((t) => ({ value: t, label: t, count: t === "All" ? rows.length : rows.filter((r) => r.status === t).length }))}
+              options={TABS.map((t) => ({ value: t, label: t, count: t === "All" ? rows.length : t === "Outstanding" ? rows.filter((r) => ["Sent", "Partially Paid", "Overdue"].includes(r.status)).length : rows.filter((r) => r.status === t).length }))}
               value={tab}
               onChange={setTab}
             />

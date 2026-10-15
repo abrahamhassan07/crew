@@ -182,6 +182,7 @@ export default async function DashboardPage() {
             {isAdmin && (
               <>
                 <StatCard
+                  href="/reports"
                   label="Revenue this month"
                   value={fmtAud(revenueThisMonth)}
                   icon={<TrendingUp className="w-4 h-4" />}
@@ -189,6 +190,7 @@ export default async function DashboardPage() {
                   delta={revenueDelta != null ? { value: `${revenueDelta >= 0 ? "+" : ""}${revenueDelta}%`, trend: revenueDelta >= 0 ? "up" : "down" } : undefined}
                 />
                 <StatCard
+                  href="/invoices?tab=Outstanding"
                   label="Outstanding invoices"
                   value={fmtAud(outstandingTotal)}
                   icon={<Receipt className="w-4 h-4" />}
@@ -196,18 +198,21 @@ export default async function DashboardPage() {
                   delta={overdueInvoiceCount > 0 ? { value: "Needs attention", trend: "down" } : undefined}
                 />
                 <StatCard
+                  href="/schedule"
                   label="Jobs scheduled today"
                   value={jobsToday.length}
                   icon={<Calendar className="w-4 h-4" />}
                   subtitle={`${jobsThisWeek.length} this week`}
                 />
                 <StatCard
+                  href="/clients?tab=Active"
                   label="Active clients"
                   value={activeClientCount}
                   icon={<Users className="w-4 h-4" />}
                   subtitle={`${activeStaffCount} staff available`}
                 />
                 <StatCard
+                  href="/quotes?tab=Sent"
                   label="Quotes awaiting approval"
                   value={sentQuotes.length}
                   icon={<FileClock className="w-4 h-4" />}
@@ -218,11 +223,13 @@ export default async function DashboardPage() {
             {!isAdmin && (
               <>
                 <StatCard
+                  href="/schedule"
                   label="My Jobs Today"
                   value={jobsToday.length}
                   icon={<Calendar className="w-4 h-4" />}
                 />
                 <StatCard
+                  href="/schedule"
                   label="My Jobs This Week"
                   value={jobsThisWeek.length}
                   icon={<Briefcase className="w-4 h-4" />}

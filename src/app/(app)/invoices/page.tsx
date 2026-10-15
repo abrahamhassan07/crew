@@ -3,7 +3,11 @@ import { daysFromToday } from "@/lib/design";
 import { requireAdmin } from "@/lib/auth";
 import { InvoicesPageClient } from "@/components/InvoicesPageClient";
 
-export default async function InvoicesPage() {
+const TABS = ["All", "Outstanding", "Draft", "Sent", "Partially Paid", "Paid", "Overdue", "Voided"] as const;
+
+export default async function InvoicesPage({ searchParams }: PageProps<"/invoices">) {
+  const params = await searchParams;
+  const initialTab = TABS.find((t) => t === params.tab) ?? "All";
   await requireAdmin();
   const supabase = await createClient();
 
@@ -40,6 +44,7 @@ export default async function InvoicesPage() {
       paidByInvoice={paidByInvoice}
       jobNumById={Object.fromEntries(jobNumById)}
       paidPast30={paidPast30}
+      initialTab={initialTab}
     />
   );
 }
