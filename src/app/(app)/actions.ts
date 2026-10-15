@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
+import { dbError } from "@/lib/errors";
 import { billingEnforced, emailLimit, getBillingState, seatLimit } from "@/lib/billing";
 import { formatAbn, isValidAbn, isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
@@ -111,7 +112,7 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
   const { data: inserted, error } = await supabase.from("jobs").insert(rows).select(JOB_SNAPSHOT_COLUMNS);
   if (error) {
     if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
-    return { ok: false, error: error.message };
+    return { ok: false, error: dbError(error) };
   }
   // One email for the first job; a repeating job is described rather than sending seven emails.
   const first = (inserted as JobSnapshot[] | null)?.find((j) => j.num === firstNum);
@@ -151,7 +152,7 @@ export async function updateJob(id: string, input: JobInput): Promise<ActionResu
     })
     .eq("id", id);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   if (before) {
     const snapshot: JobSnapshot = {
@@ -179,7 +180,7 @@ export async function deleteJob(id: string): Promise<ActionResult> {
   const viewer = await getViewer();
   const { data: before } = await supabase.from("jobs").select(JOB_SNAPSHOT_COLUMNS).eq("id", id).single();
   const { error } = await supabase.from("jobs").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
   if (before) {
     const orgId = viewer.orgId;
     const staffId = viewer.staff?.id ?? null;
@@ -195,7 +196,7 @@ export async function updateJobStatus(id: string, status: JobStatus): Promise<Ac
   const viewer = await getViewer();
   const { data: before } = status === "cancelled" ? await supabase.from("jobs").select(JOB_SNAPSHOT_COLUMNS).eq("id", id).single() : { data: null };
   const { error } = await supabase.from("jobs").update({ status }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
   if (before) {
     const orgId = viewer.orgId;
     const staffId = viewer.staff?.id ?? null;
@@ -209,7 +210,7 @@ export async function updateJobStatus(id: string, status: JobStatus): Promise<Ac
 export async function updateJobChecklist(id: string, checklist: { t: string; done: boolean }[]): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("jobs").update({ checklist }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -218,7 +219,7 @@ export async function updateJobChecklist(id: string, checklist: { t: string; don
 export async function updateJobNotes(id: string, notes: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("jobs").update({ notes }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -233,7 +234,7 @@ export async function rescheduleJob(id: string, date: string, startTime?: string
     .from("jobs")
     .update(startTime ? { job_date: date, start_time: startTime } : { job_date: date })
     .eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
   if (before) {
     const orgId = viewer.orgId;
     const staffId = viewer.staff?.id ?? null;
@@ -300,7 +301,7 @@ export async function inviteStaff(input: StaffInput): Promise<ActionResult> {
     .select("id")
     .single();
 
-  if (error || !staffRow) return { ok: false, error: error?.message ?? "Could not create staff record." };
+  if (error || !staffRow) return { ok: false, error: error ? dbError(error) : "Could not create staff record." };
 
   const admin = createAdminClient();
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(input.email.trim(), {
@@ -355,7 +356,7 @@ export async function updateStaff(id: string, input: StaffUpdateInput): Promise<
     })
     .eq("id", id);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -379,7 +380,7 @@ export async function addCrew(input: CrewInput): Promise<ActionResult> {
     lead_staff_id: input.leadStaffId,
     org_id: viewer.orgId,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -392,7 +393,7 @@ export async function updateCrew(id: string, input: CrewInput): Promise<ActionRe
     .from("crews")
     .update({ name: input.name.trim(), color_hex: input.colorHex, tint_hex: input.tintHex, lead_staff_id: input.leadStaffId })
     .eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -401,7 +402,7 @@ export async function updateCrew(id: string, input: CrewInput): Promise<ActionRe
 export async function deleteCrew(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("crews").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -412,7 +413,7 @@ export async function toggleStaffActive(id: string, active: boolean): Promise<Ac
   const limitMessage = await reactivationError(supabase, id, active);
   if (limitMessage) return { ok: false, error: limitMessage };
   const { error } = await supabase.from("staff").update({ active }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -426,7 +427,7 @@ export async function deleteStaff(id: string): Promise<ActionResult> {
   const { data: staffRow } = await supabase.from("staff").select("user_id").eq("id", id).single();
 
   const { error } = await supabase.from("staff").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   // Revoke their login too — a staff member without a staff row otherwise
   // keeps an active account with no way to be assigned jobs again.
@@ -493,7 +494,7 @@ export async function addClient(input: ClientInput, properties: PropertyInput[])
     .select("id")
     .single();
 
-  if (error || !client) return { ok: false, error: error?.message ?? "Could not create client." };
+  if (error || !client) return { ok: false, error: error ? dbError(error) : "Could not create client." };
 
   const propRows = properties
     .filter((p) => p.street.trim() || p.suburb.trim())
@@ -509,7 +510,7 @@ export async function addClient(input: ClientInput, properties: PropertyInput[])
 
   if (propRows.length) {
     const { error: propError } = await supabase.from("properties").insert(propRows);
-    if (propError) return { ok: false, error: propError.message };
+    if (propError) return { ok: false, error: dbError(propError) };
   }
 
   revalidatePath("/", "layout");
@@ -550,7 +551,7 @@ export async function importClients(rows: ClientImportRow[]): Promise<ImportResu
       org_id: viewer.orgId,
     }))
   );
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true, count: valid.length };
@@ -559,7 +560,7 @@ export async function importClients(rows: ClientImportRow[]): Promise<ImportResu
 export async function bulkUpdateClientStatus(ids: string[], status: ClientStatus): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("clients").update({ status }).in("id", ids);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -571,7 +572,7 @@ export async function bulkAddClientTag(ids: string[], tag: string): Promise<Acti
 
   const supabase = await createClient();
   const { data: rows, error: fetchError } = await supabase.from("clients").select("id, tags").in("id", ids);
-  if (fetchError) return { ok: false, error: fetchError.message };
+  if (fetchError) return { ok: false, error: dbError(fetchError) };
 
   const updates = (rows ?? [])
     .filter((r) => !(r.tags ?? []).includes(cleanTag))
@@ -579,7 +580,7 @@ export async function bulkAddClientTag(ids: string[], tag: string): Promise<Acti
 
   const results = await Promise.all(updates);
   const failed = results.find((r) => r.error);
-  if (failed?.error) return { ok: false, error: failed.error.message };
+  if (failed?.error) return { ok: false, error: dbError(failed.error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -588,7 +589,7 @@ export async function bulkAddClientTag(ids: string[], tag: string): Promise<Acti
 export async function bulkRemoveClientTag(ids: string[], tag: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: rows, error: fetchError } = await supabase.from("clients").select("id, tags").in("id", ids);
-  if (fetchError) return { ok: false, error: fetchError.message };
+  if (fetchError) return { ok: false, error: dbError(fetchError) };
 
   const updates = (rows ?? [])
     .filter((r) => (r.tags ?? []).includes(tag))
@@ -596,7 +597,7 @@ export async function bulkRemoveClientTag(ids: string[], tag: string): Promise<A
 
   const results = await Promise.all(updates);
   const failed = results.find((r) => r.error);
-  if (failed?.error) return { ok: false, error: failed.error.message };
+  if (failed?.error) return { ok: false, error: dbError(failed.error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -625,7 +626,7 @@ export async function updateClient(id: string, input: ClientInput): Promise<Acti
     })
     .eq("id", id);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -634,7 +635,7 @@ export async function updateClient(id: string, input: ClientInput): Promise<Acti
 export async function deleteClient(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("clients").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -656,7 +657,7 @@ export async function addProperty(clientId: string, input: PropertyInput): Promi
     org_id: viewer.orgId,
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -665,7 +666,7 @@ export async function addProperty(clientId: string, input: PropertyInput): Promi
 export async function removeProperty(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("properties").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -692,7 +693,7 @@ export async function addClientContact(clientId: string, input: ClientContactInp
     org_id: viewer.orgId,
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -701,7 +702,7 @@ export async function addClientContact(clientId: string, input: ClientContactInp
 export async function removeClientContact(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("client_contacts").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -719,7 +720,7 @@ export async function addClientNote(clientId: string, text: string): Promise<Act
     org_id: viewer.orgId,
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -761,7 +762,7 @@ export async function addService(input: ServiceInput): Promise<ActionResult> {
     org_id: viewer.orgId,
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -786,7 +787,7 @@ export async function updateService(id: string, input: ServiceInput): Promise<Ac
     })
     .eq("id", id);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -795,7 +796,7 @@ export async function updateService(id: string, input: ServiceInput): Promise<Ac
 export async function toggleServiceActive(id: string, active: boolean): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("services").update({ active }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -831,7 +832,7 @@ export async function addEquipment(input: EquipmentInput): Promise<ActionResult>
     org_id: viewer.orgId,
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -854,7 +855,7 @@ export async function updateEquipment(id: string, input: EquipmentInput): Promis
     })
     .eq("id", id);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -863,7 +864,7 @@ export async function updateEquipment(id: string, input: EquipmentInput): Promis
 export async function deleteEquipment(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("equipment").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -915,7 +916,7 @@ export async function addRequest(input: RequestInput): Promise<ActionResult> {
     org_id: viewer.orgId,
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -924,7 +925,7 @@ export async function addRequest(input: RequestInput): Promise<ActionResult> {
 export async function updateRequestStatus(id: string, status: RequestStatus): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("requests").update({ status }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -934,7 +935,7 @@ export async function convertRequestToJob(requestId: string, date: string, start
   const supabase = await createClient();
   const viewer = await getViewer();
   const { data: req, error: reqError } = await supabase.from("requests").select("*").eq("id", requestId).single();
-  if (reqError || !req) return { ok: false, error: reqError?.message ?? "Request not found." };
+  if (reqError || !req) return { ok: false, error: reqError ? dbError(reqError) : "Request not found." };
 
   let clientId = req.client_id;
   let clientName = req.name;
@@ -946,7 +947,7 @@ export async function convertRequestToJob(requestId: string, date: string, start
       .insert({ name: req.name, phone: req.phone, email: req.email, address, status: "Lead", lead_source: req.source, org_id: viewer.orgId })
       .select("id, name, address")
       .single();
-    if (clientError || !client) return { ok: false, error: clientError?.message ?? "Could not create client." };
+    if (clientError || !client) return { ok: false, error: clientError ? dbError(clientError) : "Could not create client." };
     clientId = client.id;
     clientName = client.name;
     address = client.address ?? address;
@@ -967,7 +968,7 @@ export async function convertRequestToJob(requestId: string, date: string, start
     .select("id")
     .single();
 
-  if (jobError || !job) return { ok: false, error: jobError?.message ?? "Could not create job." };
+  if (jobError || !job) return { ok: false, error: jobError ? dbError(jobError) : "Could not create job." };
 
   await supabase.from("requests").update({ status: "Converted" }).eq("id", requestId);
 
@@ -1023,7 +1024,7 @@ async function createLeadClient(supabase: Db, orgId: string, nc: NewClientInput,
     })
     .select("id")
     .single();
-  if (error || !client) return { error: error?.message ?? "Could not create the client." };
+  if (error || !client) return { error: error ? dbError(error) : "Could not create the client." };
   return { id: client.id };
 }
 
@@ -1072,7 +1073,7 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
       .eq("id", quoteId);
     if (error) {
       if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
-      return { ok: false, error: error.message };
+      return { ok: false, error: dbError(error) };
     }
     await supabase.from("quote_items").delete().eq("quote_id", quoteId);
   } else {
@@ -1095,7 +1096,7 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
       .single();
     if (error || !data) {
       if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
-      return { ok: false, error: error?.message ?? "Could not create quote." };
+      return { ok: false, error: error ? dbError(error) : "Could not create quote." };
     }
     quoteId = data.id;
   }
@@ -1111,7 +1112,7 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
     org_id: viewer.orgId,
   }));
   const { error: itemsError } = await supabase.from("quote_items").insert(rows);
-  if (itemsError) return { ok: false, error: itemsError.message };
+  if (itemsError) return { ok: false, error: dbError(itemsError) };
 
   if (input.requestId && status === "Sent") {
     await supabase.from("requests").update({ status: "Quoted" }).eq("id", input.requestId);
@@ -1124,7 +1125,7 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
 export async function updateQuoteStatus(id: string, status: QuoteStatus): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("quotes").update({ status }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   if (status === "Sent") {
     const { data: quote } = await supabase.from("quotes").select("request_id").eq("id", id).single();
@@ -1173,7 +1174,7 @@ export async function convertQuoteToJob(quoteId: string): Promise<CreateResult> 
     .select("id")
     .single();
 
-  if (error || !job) return { ok: false, error: error?.message ?? "Could not create job." };
+  if (error || !job) return { ok: false, error: error ? dbError(error) : "Could not create job." };
 
   await supabase.from("quotes").update({ job_id: job.id }).eq("id", quoteId);
 
@@ -1241,7 +1242,7 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
       .eq("id", invoiceId);
     if (error) {
       if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
-      return { ok: false, error: error.message };
+      return { ok: false, error: dbError(error) };
     }
     await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
   } else {
@@ -1264,7 +1265,7 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
       .single();
     if (error || !data) {
       if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
-      return { ok: false, error: error?.message ?? "Could not create invoice." };
+      return { ok: false, error: error ? dbError(error) : "Could not create invoice." };
     }
     invoiceId = data.id;
   }
@@ -1280,7 +1281,7 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
     org_id: viewer.orgId,
   }));
   const { error: itemsError } = await supabase.from("invoice_items").insert(rows);
-  if (itemsError) return { ok: false, error: itemsError.message };
+  if (itemsError) return { ok: false, error: dbError(itemsError) };
 
   revalidatePath("/", "layout");
   return { ok: true, id: invoiceId };
@@ -1289,7 +1290,7 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
 export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("invoices").update({ status }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -1350,7 +1351,7 @@ export async function updateOrganization(input: OrganizationInput): Promise<Acti
     })
     .eq("id", viewer.orgId);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -1376,7 +1377,7 @@ export async function recordPayment(invoiceId: string, input: PaymentInput): Pro
     reference: input.reference.trim() || "—",
     org_id: viewer.orgId,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   const [{ data: invoice }, { data: items }, { data: payments }] = await Promise.all([
     supabase.from("invoices").select("mode").eq("id", invoiceId).single(),
@@ -1543,7 +1544,7 @@ export async function submitFeedback(input: FeedbackInput): Promise<ActionResult
   });
   if (error) {
     const missing = /relation .*feedback.* does not exist|schema cache/i.test(error.message);
-    return { ok: false, error: missing ? "Feedback isn't switched on yet. Please try again later." : error.message };
+    return { ok: false, error: missing ? "Feedback isn't switched on yet. Please try again later." : dbError(error) };
   }
 
   // Best-effort heads-up to the platform owner; never fails the submission.
@@ -1570,7 +1571,7 @@ export async function updateFeedbackStatus(id: string, status: FeedbackStatus): 
   if (!FEEDBACK_STATUSES.includes(status)) return { ok: false, error: "Unknown status." };
 
   const { error } = await createAdminClient().from("feedback").update({ status }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/feedback");
   revalidatePath("/admin/feedback");
@@ -1600,10 +1601,10 @@ export async function resetTwoFactor(userId: string): Promise<ActionResult> {
 
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.mfa.listFactors({ userId });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
   for (const factor of data?.factors ?? []) {
     const { error: deleteError } = await admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId });
-    if (deleteError) return { ok: false, error: deleteError.message };
+    if (deleteError) return { ok: false, error: dbError(deleteError) };
   }
   console.info(`[platform] ${viewer.email} reset two-factor for user ${userId}`);
 
@@ -1623,7 +1624,7 @@ export async function extendTrial(orgId: string, days: number): Promise<ActionRe
 
   const base = Math.max(Date.now(), new Date(org.trial_ends_at).getTime());
   const { error } = await admin.from("organizations").update({ trial_ends_at: new Date(base + days * 864e5).toISOString() }).eq("id", orgId);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error) };
   console.info(`[platform] ${viewer.email} extended trial for org ${orgId} by ${days} days`);
 
   revalidatePath("/admin/businesses");
