@@ -15,6 +15,7 @@ import {
   LifeBuoy,
   ShieldCheck,
   Inbox,
+  Building2,
   LogOut,
   ChevronsLeft,
   ChevronsRight,
@@ -120,7 +121,7 @@ export function Sidebar({
               </div>
             )}
             <div className="flex flex-col gap-0.5">
-              {[...group.items, ...(group.title === "Account" && isPlatformAdmin ? [{ href: "/admin/feedback", label: "All feedback", icon: Inbox }] : [])]
+              {[...group.items, ...(group.title === "Account" && isPlatformAdmin ? [{ href: "/admin/businesses", label: "Businesses", icon: Building2 }, { href: "/admin/feedback", label: "All feedback", icon: Inbox }] : [])]
                 .filter((item) => role === "admin" || !("adminOnly" in item && item.adminOnly))
                 .map((item) => {
                   const isActive = pathname.startsWith(item.href);

@@ -1588,3 +1588,44 @@ export async function checkCanSendDocuments(): Promise<ActionResult> {
   }
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// Platform owner tools (/admin/businesses)
+// ---------------------------------------------------------------------------
+
+/** Removes a user's authenticator app so they can sign in with just a password (lost phone). */
+export async function resetTwoFactor(userId: string): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!isPlatformAdmin(viewer.email)) return { ok: false, error: "Not authorized." };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.mfa.listFactors({ userId });
+  if (error) return { ok: false, error: error.message };
+  for (const factor of data?.factors ?? []) {
+    const { error: deleteError } = await admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId });
+    if (deleteError) return { ok: false, error: deleteError.message };
+  }
+  console.info(`[platform] ${viewer.email} reset two-factor for user ${userId}`);
+
+  revalidatePath("/admin/businesses");
+  return { ok: true };
+}
+
+/** Pushes a business's free-trial end date out (from today if the trial has already ended). */
+export async function extendTrial(orgId: string, days: number): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!isPlatformAdmin(viewer.email)) return { ok: false, error: "Not authorized." };
+  if (!Number.isInteger(days) || days < 1 || days > 90) return { ok: false, error: "Choose between 1 and 90 days." };
+
+  const admin = createAdminClient();
+  const { data: org } = await admin.from("organizations").select("trial_ends_at").eq("id", orgId).single();
+  if (!org) return { ok: false, error: "Business not found." };
+
+  const base = Math.max(Date.now(), new Date(org.trial_ends_at).getTime());
+  const { error } = await admin.from("organizations").update({ trial_ends_at: new Date(base + days * 864e5).toISOString() }).eq("id", orgId);
+  if (error) return { ok: false, error: error.message };
+  console.info(`[platform] ${viewer.email} extended trial for org ${orgId} by ${days} days`);
+
+  revalidatePath("/admin/businesses");
+  return { ok: true };
+}
