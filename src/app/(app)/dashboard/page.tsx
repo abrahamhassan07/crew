@@ -23,6 +23,7 @@ import {
   Activity,
   UserPlus2,
   CheckCircle2,
+  ChevronRight,
 } from "lucide-react";
 
 function fmtAud(v: number) {
@@ -392,15 +393,16 @@ export default async function DashboardPage() {
                         Needs attention
                       </div>
                       {overdueCount > 0 && (
-                        <p className="text-xs text-bad-fg/80 mt-1">
+                        <Link href="/jobs?focus=overdue" className="mt-1 flex items-center gap-1 text-xs text-bad-fg/80 hover:text-bad-fg hover:underline">
                           {overdueCount} overdue job{overdueCount > 1 ? "s" : ""}
-                        </p>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Link>
                       )}
                       {unassignedActive.length > 0 && (
-                        <p className="text-xs text-bad-fg/80">
-                          {unassignedActive.length} unassigned job
-                          {unassignedActive.length > 1 ? "s" : ""}
-                        </p>
+                        <Link href="/jobs?focus=unassigned" className="flex items-center gap-1 text-xs text-bad-fg/80 hover:text-bad-fg hover:underline">
+                          {unassignedActive.length} unassigned job{unassignedActive.length > 1 ? "s" : ""}
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Link>
                       )}
                     </div>
                   </div>

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Repeat2 } from "lucide-react";
+import { Plus, Repeat2, X } from "lucide-react";
 import { useJobModal } from "@/components/JobModalContext";
 import { Button } from "@/components/ui/Button";
 import { DataTable, type Column } from "@/components/ui/DataTable";
@@ -10,7 +10,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 import { SearchInput } from "@/components/ui/SearchInput";
-import type { EnrichedJob } from "@/lib/design";
+import { todayISO, type EnrichedJob } from "@/lib/design";
 import type { Crew, Service } from "@/lib/supabase/types";
 
 type JobStatusFilter = "All" | "Unscheduled" | "Scheduled" | "In Progress" | "Completed" | "Cancelled";
@@ -25,7 +25,29 @@ function jobDisplayStatus(job: EnrichedJob): JobStatusFilter {
   return "Scheduled";
 }
 
-export function JobsPageClient({ jobs, crews, services, gstRegistered = true }: { jobs: EnrichedJob[]; crews: Crew[]; services: Service[]; gstRegistered?: boolean }) {
+type JobFocus = "overdue" | "unassigned";
+
+const FOCUS_LABEL: Record<JobFocus, string> = { overdue: "Overdue jobs", unassigned: "Unassigned jobs" };
+
+// Same definitions as the dashboard's "Needs attention" card, so the counts match.
+function matchesFocus(job: EnrichedJob, focus: JobFocus, today: string) {
+  if (focus === "overdue") return !!job.job_date && job.job_date < today && job.status === "scheduled";
+  return !job.assigned_staff_id && job.status !== "cancelled" && job.status !== "completed";
+}
+
+export function JobsPageClient({
+  jobs,
+  crews,
+  services,
+  gstRegistered = true,
+  initialFocus = null,
+}: {
+  jobs: EnrichedJob[];
+  crews: Crew[];
+  services: Service[];
+  gstRegistered?: boolean;
+  initialFocus?: JobFocus | null;
+}) {
   const router = useRouter();
   const { openNewJob } = useJobModal();
   const [tab, setTab] = useState<JobStatusFilter>("All");
@@ -33,6 +55,7 @@ export function JobsPageClient({ jobs, crews, services, gstRegistered = true }: 
   const [sortBy, setSortBy] = useState<string>("job_date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [query, setQuery] = useState("");
+  const [focus, setFocus] = useState<JobFocus | null>(initialFocus);
 
   const handleSort = (key: string) => {
     if (sortBy === key) {
@@ -47,7 +70,9 @@ export function JobsPageClient({ jobs, crews, services, gstRegistered = true }: 
   const serviceById = new Map(services.map((s) => [s.id, s]));
 
   const filtered = useMemo(() => {
+    const today = todayISO();
     return jobs.filter((j) => {
+      if (focus && !matchesFocus(j, focus, today)) return false;
       if (tab !== "All" && jobDisplayStatus(j) !== tab) return false;
       if (crewFilter !== "all" && j.crew_id !== crewFilter) return false;
       if (query.trim()) {
@@ -56,7 +81,7 @@ export function JobsPageClient({ jobs, crews, services, gstRegistered = true }: 
       }
       return true;
     });
-  }, [jobs, tab, crewFilter, query]);
+  }, [jobs, tab, crewFilter, query, focus]);
 
   const sorted = useMemo(() => {
     const rows = [...filtered];
@@ -191,6 +216,14 @@ export function JobsPageClient({ jobs, crews, services, gstRegistered = true }: 
 
       <div className="px-6 py-8">
         <div className="max-w-[1600px] mx-auto">
+          {focus && (
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-bad-bg text-bad-fg text-sm font-semibold pl-3 pr-1.5 py-1">
+              Showing only: {FOCUS_LABEL[focus]} ({filtered.length})
+              <button onClick={() => setFocus(null)} aria-label="Show all jobs" className="w-5 h-5 rounded-full hover:bg-bad-fg/15 flex items-center justify-center">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <FilterTabs
               options={STATUS_TABS.map((s) => ({ value: s, label: s, count: s === "All" ? jobs.length : jobs.filter((j) => jobDisplayStatus(j) === s).length }))}

@@ -3,7 +3,9 @@ import { requireAdmin } from "@/lib/auth";
 import { buildStaffMap, enrichJob } from "@/lib/design";
 import { JobsPageClient } from "@/components/JobsPageClient";
 
-export default async function JobsPage() {
+export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
+  const params = await searchParams;
+  const focus = params.focus === "overdue" || params.focus === "unassigned" ? params.focus : null;
   const viewer = await requireAdmin();
   const supabase = await createClient();
 
@@ -18,5 +20,5 @@ export default async function JobsPage() {
   const staffById = buildStaffMap(staffList ?? []);
   const enriched = (jobs ?? []).map((j) => enrichJob(j, staffById));
 
-  return <JobsPageClient jobs={enriched} crews={crews ?? []} services={services ?? []} gstRegistered={org?.gst_registered ?? true} />;
+  return <JobsPageClient jobs={enriched} crews={crews ?? []} services={services ?? []} gstRegistered={org?.gst_registered ?? true} initialFocus={focus} />;
 }
