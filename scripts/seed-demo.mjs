@@ -135,7 +135,7 @@ const services = must(
       o({ name: "Garden clean-up", description: "Weeding, pruning, green waste removed", price: 140, pricing_type: "Fixed", duration_minutes: 120, category: "Gardening", default_crew_id: greenTeam.id }),
       o({ name: "Mulching", description: "Supply and spread mulch", price: 180, pricing_type: "Fixed", duration_minutes: 150, category: "Gardening", default_crew_id: greenTeam.id }),
       o({ name: "Standard house clean", description: "Kitchen, bathrooms, floors, dusting", price: 55, pricing_type: "Hourly", duration_minutes: 120, category: "Cleaning", default_crew_id: sparkleTeam.id }),
-      o({ name: "End of lease clean", description: "Full bond-back clean", price: 420, pricing_type: "Fixed", duration_minutes: 300, category: "Cleaning", default_crew_id: sparkleTeam.id }),
+      o({ name: "End of lease clean", description: "Full bond-back clean", price: 420, pricing_type: "Fixed", duration_minutes: 150, category: "Cleaning", default_crew_id: sparkleTeam.id }),
       o({ name: "Window clean", description: "Inside and out", price: 95, pricing_type: "Fixed", duration_minutes: 90, category: "Cleaning", default_crew_id: sparkleTeam.id }),
     ])
     .select("id, name, price, duration_minutes, category, default_crew_id"),
@@ -197,7 +197,8 @@ await db.from("client_notes").insert([
 const gardenSvcs = ["Lawn mow and edge", "Hedge trimming", "Garden clean-up", "Mulching"];
 const cleanSvcs = ["Standard house clean", "Window clean", "End of lease clean"];
 const gardenStaff = [mia, liam];
-const slots = ["08:00", "09:30", "11:00", "13:00", "14:30"];
+// Slots are 2.5 hours apart and no service is longer than that, so a day never overlaps.
+const slots = ["08:00", "10:30", "13:00", "15:30"];
 let seed = 7;
 const rnd = (n) => {
   seed = (seed * 1103515245 + 12345) & 0x7fffffff;
@@ -210,7 +211,7 @@ const activeClients = clients.filter((_, i) => CLIENTS[i].status === "Active");
 for (let d = -12; d <= 13; d++) {
   const date = addDays(today, d);
   if (weekday(date) === 0) continue; // Sundays off
-  const perDay = weekday(date) === 6 ? 2 : 3 + rnd(2);
+  const perDay = weekday(date) === 6 ? 2 : 3 + rnd(2); // 3-4 on weekdays
   for (let k = 0; k < perDay; k++) {
     const client = activeClients[(Math.abs(d) * 3 + k * 5 + rnd(4)) % activeClients.length];
     const idx = clients.indexOf(client);

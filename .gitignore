@@ -50,3 +50,6 @@ next-env.d.ts
 
 # demo account login written by scripts/seed-demo.mjs
 /scripts/.demo-credentials.txt
+
+# screenshots and brief for ads
+/marketing-assets/
