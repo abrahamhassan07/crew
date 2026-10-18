@@ -8,6 +8,9 @@ export const TEAM_SIZES = [
 
 export type TeamSize = (typeof TEAM_SIZES)[number];
 
+/** The "trial ends in N days" banner only appears in the last this-many days of the trial. */
+export const TRIAL_REMINDER_DAYS = 14;
+
 /** Users allowed during the free trial. */
 export const TRIAL_USERS = 5;
 export const ANNUAL_DISCOUNT = 0.2;

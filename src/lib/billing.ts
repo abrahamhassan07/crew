@@ -42,6 +42,9 @@ export function emailLimit(org: SeatOrg | null): number | null {
   return billingEnforced() ? EMAIL_LIMITS.trial : EMAIL_LIMITS.pilot;
 }
 
+/** Email kinds that share the monthly notification cap below (reminderLimit). */
+export const NOTIFICATION_KINDS = ["reminder", "staff", "review"] as const;
+
 /** Monthly cap on customer reminder emails for a business, or null for no cap. */
 export function reminderLimit(org: SeatOrg | null): number | null {
   if (!org || org.billing_exempt !== false) return null;

@@ -1312,17 +1312,30 @@ export interface OrganizationInput {
   reminderEmailSubject: string;
   reminderEmailBody: string;
   staffNotificationsEnabled: boolean;
+  reviewRequestsEnabled: boolean;
+  reviewLink: string;
+  reviewEmailSubject: string;
+  reviewEmailBody: string;
 }
 
 export async function updateOrganization(input: OrganizationInput): Promise<ActionResult> {
   if (!input.name.trim()) return { ok: false, error: "Business name is required." };
   if (input.paymentDetails.length > 1000) return { ok: false, error: "Keep payment details under 1000 characters." };
-  for (const [label, subject, body] of [["quote", input.quoteEmailSubject, input.quoteEmailBody], ["invoice", input.invoiceEmailSubject, input.invoiceEmailBody], ["reminder", input.reminderEmailSubject, input.reminderEmailBody]] as const) {
+  for (const [label, subject, body] of [["quote", input.quoteEmailSubject, input.quoteEmailBody], ["invoice", input.invoiceEmailSubject, input.invoiceEmailBody], ["reminder", input.reminderEmailSubject, input.reminderEmailBody], ["review", input.reviewEmailSubject, input.reviewEmailBody]] as const) {
     if (subject.length > MAX_SUBJECT) return { ok: false, error: `Keep the ${label} email subject under ${MAX_SUBJECT} characters.` };
     if (body.length > MAX_BODY) return { ok: false, error: `Keep the ${label} email message under ${MAX_BODY} characters.` };
   }
   // A template left identical to the built-in wording is stored as NULL so future default improvements reach it.
   const custom = (text: string, fallback: string) => (text.trim() && text.trim() !== fallback.trim() ? text.trim() : null);
+  const reviewLink = input.reviewLink.trim();
+  if (reviewLink) {
+    let url: URL | null = null;
+    try {
+      url = new URL(reviewLink);
+    } catch {}
+    if (!url || url.protocol !== "https:") return { ok: false, error: "The review link should be a full web address starting with https://" };
+  }
+  if (input.reviewRequestsEnabled && !reviewLink) return { ok: false, error: "Add your review link to turn on review requests." };
   const abn = input.abn.trim();
   if (abn && !isValidAbn(abn)) return { ok: false, error: "That ABN doesn't look right. An ABN has 11 digits (you can look yours up at abr.business.gov.au)." };
 
@@ -1348,6 +1361,10 @@ export async function updateOrganization(input: OrganizationInput): Promise<Acti
       staff_notifications_enabled: input.staffNotificationsEnabled,
       reminder_email_subject: custom(input.reminderEmailSubject, DEFAULT_TEMPLATES.reminder.subject),
       reminder_email_body: custom(input.reminderEmailBody, DEFAULT_TEMPLATES.reminder.body),
+      review_requests_enabled: input.reviewRequestsEnabled,
+      review_link: reviewLink || null,
+      review_email_subject: custom(input.reviewEmailSubject, DEFAULT_TEMPLATES.review.subject),
+      review_email_body: custom(input.reviewEmailBody, DEFAULT_TEMPLATES.review.body),
     })
     .eq("id", viewer.orgId);
 

@@ -2,7 +2,7 @@
 // Settings page (editing), so this file must stay free of server-only imports.
 
 export type EmailKind = "quote" | "invoice";
-export type TemplateKind = EmailKind | "reminder";
+export type TemplateKind = EmailKind | "reminder" | "review";
 
 export interface EmailTemplate {
   subject: string;
@@ -17,6 +17,10 @@ export const DEFAULT_TEMPLATES: Record<TemplateKind, EmailTemplate> = {
   reminder: {
     subject: "Reminder: {business} is visiting {date}",
     body: "Hi {first_name},\n\nThis is a friendly reminder that {business} is booked to visit {address} tomorrow, {date}, at {time}.\n\nIf you need to change or cancel, just reply to this email.\n\nThanks,\n{signature}",
+  },
+  review: {
+    subject: "How did we do, {first_name}?",
+    body: "Hi {first_name},\n\nThanks for choosing {business}. We hope you're happy with the work.\n\nIf you have a minute, we'd really appreciate a quick Google review. It helps other locals find us:\n{review_link}\n\nThanks,\n{signature}",
   },
   invoice: {
     subject: "{document} {number} from {business}",
@@ -39,6 +43,13 @@ export const PLACEHOLDERS: Record<TemplateKind, { key: string; help: string }[]>
     { key: "date", help: "visit date" },
     { key: "time", help: "start time" },
     { key: "address", help: "job address" },
+    { key: "service", help: "the job's title" },
+    { key: "business", help: "your business name" },
+    { key: "signature", help: "your name, phone and email" },
+  ],
+  review: [
+    { key: "first_name", help: "client's first name" },
+    { key: "review_link", help: "your review link" },
     { key: "service", help: "the job's title" },
     { key: "business", help: "your business name" },
     { key: "signature", help: "your name, phone and email" },
@@ -80,6 +91,8 @@ export interface OrgEmailTemplates {
   invoice_email_body?: string | null;
   reminder_email_subject?: string | null;
   reminder_email_body?: string | null;
+  review_email_subject?: string | null;
+  review_email_body?: string | null;
 }
 
 export function templateFor(org: OrgEmailTemplates | null | undefined, kind: TemplateKind): EmailTemplate {

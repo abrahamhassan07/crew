@@ -29,6 +29,10 @@ export type Organization = {
   staff_notifications_enabled: boolean;
   reminder_email_subject: string | null;
   reminder_email_body: string | null;
+  review_requests_enabled: boolean;
+  review_link: string | null;
+  review_email_subject: string | null;
+  review_email_body: string | null;
   plan: string | null;
   team_size: string | null;
   billing_interval: "month" | "year" | null;
@@ -87,6 +91,7 @@ export type Job = {
   checklist: { t: string; done: boolean }[];
   org_id: string;
   reminder_sent_for: string | null;
+  review_requested_at: string | null;
 };
 
 export type ClientStatus = "Lead" | "Active" | "Inactive" | "Archived";
@@ -105,6 +110,7 @@ export type Client = {
   status: ClientStatus;
   tags: string[];
   lead_source: string | null;
+  review_requested_at: string | null;
   org_id: string;
   created_at: string;
   updated_at: string;
@@ -235,7 +241,7 @@ export type EmailLog = {
   id: string;
   org_id: string;
   user_id: string | null;
-  kind: "quote" | "invoice" | "reminder" | "staff";
+  kind: "quote" | "invoice" | "reminder" | "staff" | "review";
   created_at: string;
 };
 

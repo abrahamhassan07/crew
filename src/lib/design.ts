@@ -91,6 +91,10 @@ export function todayISO() {
 export function daysFromToday(n: number) {
   return fmtISO(addDays(parseISO(todayISO()), n));
 }
+/** True when the timestamp is less than `days` days ago. */
+export function isWithinDays(iso: string, days: number) {
+  return Date.now() - new Date(iso).getTime() < days * 864e5;
+}
 export function businessHour() {
   return Number(new Intl.DateTimeFormat("en-AU", { hour: "numeric", hourCycle: "h23", timeZone: BUSINESS_TZ }).format(new Date()));
 }

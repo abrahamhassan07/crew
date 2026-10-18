@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
-import { getBillingState, reminderLimit } from "@/lib/billing";
+import { getBillingState, NOTIFICATION_KINDS, reminderLimit } from "@/lib/billing";
 import { daysFromToday, fmtTime12, parseISO } from "@/lib/design";
 import { dateLabel } from "@/lib/staffNotify";
 import { renderTemplate, templateFor } from "@/lib/emailTemplates";
@@ -29,7 +29,7 @@ export async function sendDueReminders(dryRun = false): Promise<ReminderSummary>
   const date = daysFromToday(1);
   const summary: ReminderSummary = { date, businesses: 0, sent: 0, skipped: 0, failed: 0, dryRun, details: [] };
 
-  const { data: orgs } = await admin.from("organizations").select("*").or("reminders_enabled.eq.true,staff_notifications_enabled.eq.true");
+  const { data: orgs } = await admin.from("organizations").select("*").or("reminders_enabled.eq.true,staff_notifications_enabled.eq.true,review_requests_enabled.eq.true");
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
@@ -45,11 +45,101 @@ export async function sendDueReminders(dryRun = false): Promise<ReminderSummary>
     }
     if (org.reminders_enabled) await remindCustomers(admin, org, date, monthStart, dryRun, summary);
     if (org.staff_notifications_enabled) await sendStaffDigests(admin, org, date, monthStart, dryRun, summary);
+    if (org.review_requests_enabled && org.review_link?.trim()) await requestReviews(admin, org, monthStart, dryRun, summary);
   }
   return summary;
 }
 
 type Admin = ReturnType<typeof createAdminClient>;
+
+/** How long to wait before asking the same client for another review. */
+const REVIEW_COOLDOWN_DAYS = 90;
+/** Completed jobs this many days back are still picked up (covers a missed or late run). */
+const REVIEW_LOOKBACK_DAYS = 3;
+
+/**
+ * Asks clients for a Google review after a job is marked completed. Runs with the morning job, so the
+ * email arrives the morning after the visit. One email per client per run, never twice for the same
+ * job, and not again for that client within REVIEW_COOLDOWN_DAYS.
+ */
+async function requestReviews(admin: Admin, org: Organization, monthStart: string, dryRun: boolean, summary: ReminderSummary) {
+  const today = daysFromToday(0);
+  const { data: jobs } = await admin
+    .from("jobs")
+    .select("id, title, job_type, job_date, client_id")
+    .eq("org_id", org.id)
+    .eq("status", "completed")
+    .is("review_requested_at", null)
+    .not("client_id", "is", null)
+    .gte("job_date", daysFromToday(-REVIEW_LOOKBACK_DAYS))
+    .lte("job_date", today);
+  if (!jobs?.length) return;
+
+  const clientIds = [...new Set(jobs.map((j) => j.client_id as string))];
+  const { data: clients } = await admin.from("clients").select("id, name, email, review_requested_at").in("id", clientIds);
+
+  const cap = reminderLimit(org);
+  let used = 0;
+  if (cap !== null) {
+    const { count } = await admin.from("email_log").select("id", { count: "exact", head: true }).eq("org_id", org.id).in("kind", NOTIFICATION_KINDS).gte("created_at", monthStart);
+    used = count ?? 0;
+  }
+
+  const template = templateFor(org, "review");
+  const signature = [org.name, org.phone, org.email].filter(Boolean).join("\n");
+  const cooldownStart = Date.now() - REVIEW_COOLDOWN_DAYS * 864e5;
+
+  for (const client of clients ?? []) {
+    const to = client.email?.trim();
+    if (!to) {
+      summary.skipped++;
+      continue;
+    }
+    if (client.review_requested_at && new Date(client.review_requested_at).getTime() > cooldownStart) {
+      summary.skipped++;
+      summary.details.push(`${org.name}: ${client.name} was asked for a review recently, skipped`);
+      continue;
+    }
+    if (cap !== null && used >= cap) {
+      summary.skipped++;
+      summary.details.push(`${org.name}: monthly notification limit (${cap}) reached`);
+      break;
+    }
+    const theirJobs = jobs.filter((j) => j.client_id === client.id);
+    if (dryRun) {
+      summary.sent++;
+      summary.details.push(`${org.name}: would ask ${client.name} <${to}> for a review`);
+      continue;
+    }
+    const job = theirJobs[0];
+    const values: Record<string, string> = {
+      first_name: client.name.split(" ")[0] || "there",
+      business: org.name,
+      review_link: org.review_link!.trim(),
+      service: job.title || SERVICE_LABEL[job.job_type] || "",
+      signature,
+    };
+    const subject = renderTemplate(template.subject, values);
+    const result = await sendEmail({
+      to,
+      subject: subject.charAt(0).toUpperCase() + subject.slice(1),
+      text: `${renderTemplate(template.body, values)}\n`,
+      fromName: org.name,
+      replyTo: org.email,
+    });
+    if (!result.ok) {
+      summary.failed++;
+      summary.details.push(`${org.name}: ${result.error}`);
+      continue;
+    }
+    const at = new Date().toISOString();
+    await admin.from("jobs").update({ review_requested_at: at }).in("id", theirJobs.map((j) => j.id));
+    await admin.from("clients").update({ review_requested_at: at }).eq("id", client.id);
+    await admin.from("email_log").insert({ org_id: org.id, user_id: null, kind: "review" });
+    used++;
+    summary.sent++;
+  }
+}
 
 async function remindCustomers(admin: Admin, org: Organization, date: string, monthStart: string, dryRun: boolean, summary: ReminderSummary) {
   const { data: jobs } = await admin
@@ -68,7 +158,7 @@ async function remindCustomers(admin: Admin, org: Organization, date: string, mo
   const cap = reminderLimit(org);
   let used = 0;
   if (cap !== null) {
-    const { count } = await admin.from("email_log").select("id", { count: "exact", head: true }).eq("org_id", org.id).in("kind", ["reminder", "staff"]).gte("created_at", monthStart);
+    const { count } = await admin.from("email_log").select("id", { count: "exact", head: true }).eq("org_id", org.id).in("kind", NOTIFICATION_KINDS).gte("created_at", monthStart);
     used = count ?? 0;
   }
 
@@ -139,7 +229,7 @@ async function sendStaffDigests(admin: Admin, org: Organization, date: string, m
   const cap = reminderLimit(org);
   let used = 0;
   if (cap !== null) {
-    const { count } = await admin.from("email_log").select("id", { count: "exact", head: true }).eq("org_id", org.id).in("kind", ["reminder", "staff"]).gte("created_at", monthStart);
+    const { count } = await admin.from("email_log").select("id", { count: "exact", head: true }).eq("org_id", org.id).in("kind", NOTIFICATION_KINDS).gte("created_at", monthStart);
     used = count ?? 0;
   }
 

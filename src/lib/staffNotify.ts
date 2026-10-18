@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
-import { reminderLimit } from "@/lib/billing";
+import { NOTIFICATION_KINDS, reminderLimit } from "@/lib/billing";
 import { fmtTime12, parseISO, todayISO } from "@/lib/design";
 import type { Organization } from "@/lib/supabase/types";
 
@@ -49,7 +49,7 @@ async function sendToStaff(org: Organization, staff: { name: string; email: stri
   if (cap !== null) {
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-    const { count } = await admin.from("email_log").select("id", { count: "exact", head: true }).eq("org_id", org.id).in("kind", ["reminder", "staff"]).gte("created_at", monthStart);
+    const { count } = await admin.from("email_log").select("id", { count: "exact", head: true }).eq("org_id", org.id).in("kind", NOTIFICATION_KINDS).gte("created_at", monthStart);
     if ((count ?? 0) >= cap) return false;
   }
 

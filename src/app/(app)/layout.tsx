@@ -7,6 +7,8 @@ import { getViewer } from "@/lib/auth";
 import { billingEnforced, getBillingState } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
 import { isPlatformAdmin } from "@/lib/platform";
+import { TRIAL_REMINDER_DAYS } from "@/lib/plans";
+import { isWithinDays } from "@/lib/design";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const viewer = await getViewer();
@@ -26,10 +28,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   let banner: React.ReactNode = null;
   if (enforced && viewer.profile.role === "admin") {
-    if (billing.kind === "trial") {
+    // Only remind in the last two weeks of the trial; earlier than that it's just noise.
+    if (billing.kind === "trial" && billing.daysLeft <= TRIAL_REMINDER_DAYS) {
+      const urgent = billing.daysLeft <= 3;
       banner = (
-        <div className="px-6 py-2.5 bg-info-bg text-info-fg text-sm font-semibold flex flex-wrap items-center justify-between gap-2">
-          <span>Free trial: {billing.daysLeft} day{billing.daysLeft === 1 ? "" : "s"} left.</span>
+        <div className={`px-6 py-2.5 text-sm font-semibold flex flex-wrap items-center justify-between gap-2 ${urgent ? "bg-warn-bg text-warn-fg" : "bg-info-bg text-info-fg"}`}>
+          <span>
+            Your free trial ends in {billing.daysLeft} day{billing.daysLeft === 1 ? "" : "s"}. Choose a plan to keep using Crew &amp; Grounds.
+          </span>
           <Link href="/subscription" className="underline">Choose a plan</Link>
         </div>
       );
@@ -45,7 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <JobModalProvider role={viewer.profile.role}>
-      <AppShell role={viewer.profile.role} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner} isPlatformAdmin={isPlatformAdmin(viewer.email)} tourAutoStart={!!organization && Date.now() - new Date(organization.created_at).getTime() < 14 * 864e5}>
+      <AppShell role={viewer.profile.role} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner} isPlatformAdmin={isPlatformAdmin(viewer.email)} tourAutoStart={!!organization && isWithinDays(organization.created_at, 14)}>
         {children}
       </AppShell>
     </JobModalProvider>
