@@ -27,6 +27,10 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
     invoiceEmailBody: templateFor(organization, "invoice").body,
     remindersEnabled: organization.reminders_enabled ?? false,
     staffNotificationsEnabled: organization.staff_notifications_enabled ?? false,
+    reviewRequestsEnabled: organization.review_requests_enabled ?? false,
+    reviewLink: organization.review_link ?? "",
+    reviewEmailSubject: templateFor(organization, "review").subject,
+    reviewEmailBody: templateFor(organization, "review").body,
     reminderEmailSubject: templateFor(organization, "reminder").subject,
     reminderEmailBody: templateFor(organization, "reminder").body,
   });
@@ -133,7 +137,25 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
             </div>
           </CollapsibleCard>
 
-          <CollapsibleCard title="Customer reminders" summary={input.remindersEnabled ? "On: customers are emailed the day before a job" : "Off"}>
+          <CollapsibleCard title="Staff notifications" summary={input.staffNotificationsEnabled ? "On: staff are emailed about their schedule" : "Off"}>
+            <p className="text-sm text-ink-muted mb-3 pt-3">
+              Email your team about their schedule: straight away when a job is assigned to them, moved or cancelled, and every morning with a list of tomorrow&rsquo;s jobs. Staff need an email address on their profile, and you aren&rsquo;t emailed about changes you make yourself.
+            </p>
+            <SelectField
+              label="Staff notifications"
+              value={input.staffNotificationsEnabled ? "on" : "off"}
+              onChange={(e) => setInput({ ...input, staffNotificationsEnabled: e.target.value === "on" })}
+              options={[
+                { value: "off", label: "Off" },
+                { value: "on", label: "On: email staff about their jobs" },
+              ]}
+            />
+            {input.staffNotificationsEnabled && !input.email.trim() && (
+              <p className="text-xs text-warn-fg mt-2">Add your business email first. Notifications aren&rsquo;t sent without it.</p>
+            )}
+          </CollapsibleCard>
+
+          <CollapsibleCard className="xl:col-span-2" title="Customer reminders" summary={input.remindersEnabled ? "On: customers are emailed the day before a job" : "Off"}>
             <p className="text-sm text-ink-muted mb-3 pt-3">
               Email customers the day before a scheduled job. Sent every morning for jobs happening tomorrow, only to clients with an email address, and only once per job.
             </p>
@@ -154,22 +176,44 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
             </div>
           </CollapsibleCard>
 
-          <CollapsibleCard title="Staff notifications" summary={input.staffNotificationsEnabled ? "On: staff are emailed about their schedule" : "Off"}>
+          <CollapsibleCard
+            className="xl:col-span-2"
+            title="Google review requests"
+            summary={input.reviewRequestsEnabled ? "On: clients are asked for a review after a job is done" : "Off"}
+          >
             <p className="text-sm text-ink-muted mb-3 pt-3">
-              Email your team about their schedule: straight away when a job is assigned to them, moved or cancelled, and every morning with a list of tomorrow&rsquo;s jobs. Staff need an email address on their profile, and you aren&rsquo;t emailed about changes you make yourself.
+              After a job is marked completed, the client gets a friendly email the next morning asking for a review, with your review link. Only clients with an email address are asked, and the same client is asked at most once every 90 days, so regular customers aren&rsquo;t asked after every visit.
             </p>
-            <SelectField
-              label="Staff notifications"
-              value={input.staffNotificationsEnabled ? "on" : "off"}
-              onChange={(e) => setInput({ ...input, staffNotificationsEnabled: e.target.value === "on" })}
-              options={[
-                { value: "off", label: "Off" },
-                { value: "on", label: "On: email staff about their jobs" },
-              ]}
-            />
-            {input.staffNotificationsEnabled && !input.email.trim() && (
-              <p className="text-xs text-warn-fg mt-2">Add your business email first. Notifications aren&rsquo;t sent without it.</p>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-4 gap-y-3">
+              <SelectField
+                label="Review requests"
+                value={input.reviewRequestsEnabled ? "on" : "off"}
+                onChange={(e) => setInput({ ...input, reviewRequestsEnabled: e.target.value === "on" })}
+                options={[
+                  { value: "off", label: "Off" },
+                  { value: "on", label: "On: ask clients for a review" },
+                ]}
+              />
+              <TextField
+                label="Review link"
+                type="url"
+                placeholder="https://g.page/r/your-business/review"
+                value={input.reviewLink}
+                onChange={(e) => setInput({ ...input, reviewLink: e.target.value })}
+              />
+            </div>
+            <p className="text-xs text-ink-muted mt-2">
+              To find your link: open your Google Business Profile, choose &ldquo;Ask for reviews&rdquo; (or &ldquo;Get more reviews&rdquo;), and copy the link it gives you.
+            </p>
+            {input.reviewRequestsEnabled && !input.reviewLink.trim() && (
+              <p className="text-xs text-warn-fg mt-2">Add your review link to turn this on.</p>
             )}
+            {input.reviewRequestsEnabled && !input.email.trim() && (
+              <p className="text-xs text-warn-fg mt-2">Add your business email first. Review requests aren&rsquo;t sent without it.</p>
+            )}
+            <div className="mt-4">
+              <TemplateEditor kind="review" input={input} setInput={setInput} />
+            </div>
           </CollapsibleCard>
 
           <CollapsibleCard
@@ -195,6 +239,7 @@ const TEMPLATE_KEYS = {
   quote: { subject: "quoteEmailSubject", body: "quoteEmailBody", title: "Quote email" },
   invoice: { subject: "invoiceEmailSubject", body: "invoiceEmailBody", title: "Invoice email" },
   reminder: { subject: "reminderEmailSubject", body: "reminderEmailBody", title: "Reminder email" },
+  review: { subject: "reviewEmailSubject", body: "reviewEmailBody", title: "Review request email" },
 } as const;
 
 function TemplateEditor({ kind, input, setInput }: { kind: TemplateKind; input: OrganizationInput; setInput: (v: OrganizationInput) => void }) {
