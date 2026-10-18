@@ -13,6 +13,7 @@ import { SendEmailModal } from "@/components/SendEmailModal";
 import type { EmailDraft } from "@/lib/emailTemplates";
 import { ToastBanner, useToast } from "@/components/Toast";
 import { calcTotals } from "@/lib/gst";
+import { logoUrl } from "@/lib/logo";
 import { daysFromToday, fmtDateLabel, todayISO } from "@/lib/design";
 import type { Client, GstMode, Invoice, InvoiceItem, InvoiceStatus, Organization, Payment, Property, Service } from "@/lib/supabase/types";
 
@@ -43,6 +44,7 @@ export function InvoiceEditor({
   jobs = [],
   organization,
   startInEdit = false,
+  prefill,
 }: {
   invoice: Invoice | null;
   items: InvoiceItem[];
@@ -53,6 +55,8 @@ export function InvoiceEditor({
   jobs?: JobOption[];
   organization: Organization | null;
   startInEdit?: boolean;
+  /** A new invoice started from a completed job: client, address, job reference and a line item. */
+  prefill?: { clientId: string; propertyId: string; jobId: string; lines: InvoiceLineInput[] };
 }) {
   const BIZ = {
     name: organization?.name ?? "Your business",
@@ -68,11 +72,11 @@ export function InvoiceEditor({
   const [payModal, setPayModal] = useState<PaymentInput | null>(null);
   const [isEditing, setIsEditing] = useState(!invoice || invoice.status === "Draft" || startInEdit);
 
-  const [clientId, setClientId] = useState(invoice?.client_id ?? "");
+  const [clientId, setClientId] = useState(invoice?.client_id ?? prefill?.clientId ?? "");
   const [isNewClient, setIsNewClient] = useState(false);
   const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", address: "" });
-  const [propertyId, setPropertyId] = useState(invoice?.property_id ?? "");
-  const [jobId, setJobId] = useState(invoice?.job_id ?? "");
+  const [propertyId, setPropertyId] = useState(invoice?.property_id ?? prefill?.propertyId ?? "");
+  const [jobId, setJobId] = useState(invoice?.job_id ?? prefill?.jobId ?? "");
   const [issueDate, setIssueDate] = useState(invoice?.issue_date ?? todayISO());
   const [dueDate, setDueDate] = useState(invoice?.due_date ?? daysFromToday(14));
   const gstRegistered = organization?.gst_registered ?? true;
@@ -81,7 +85,9 @@ export function InvoiceEditor({
   const [lines, setLines] = useState<InvoiceLineInput[]>(
     initialItems.length
       ? initialItems.map((i) => ({ serviceId: i.service_id, serviceName: i.service_name, description: i.description, qty: i.qty, unitPrice: i.unit_price }))
-      : [blankLine()]
+      : prefill?.lines.length
+        ? prefill.lines
+        : [blankLine()]
   );
 
   const client = clients.find((c) => c.id === (invoice?.client_id ?? clientId));
@@ -294,12 +300,20 @@ export function InvoiceEditor({
               <Card className="flex-[2] w-full p-6 sm:p-10">
                 <div className="flex flex-wrap justify-between gap-5 mb-7">
                   <div>
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-forest flex items-center justify-center">
-                        <Sprout className="w-4 h-4 text-white" />
+                    {logoUrl(organization?.logo_path) ? (
+                      <div>
+                        {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded logo from storage */}
+                        <img src={logoUrl(organization?.logo_path)!} alt={`${BIZ.name} logo`} className="max-h-14 max-w-[200px] object-contain mb-2" />
+                        <span className="text-lg font-extrabold">{BIZ.name}</span>
                       </div>
-                      <span className="text-lg font-extrabold">{BIZ.name}</span>
-                    </div>
+                    ) : (
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-forest flex items-center justify-center">
+                          <Sprout className="w-4 h-4 text-white" />
+                        </div>
+                        <span className="text-lg font-extrabold">{BIZ.name}</span>
+                      </div>
+                    )}
                     <div className="text-xs text-ink-muted mt-2.5 leading-relaxed">
                       ABN {BIZ.abn}
                       <br />

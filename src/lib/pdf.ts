@@ -1,6 +1,7 @@
 import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { calcTotals } from "@/lib/gst";
+import { logoUrl } from "@/lib/logo";
 import type { Client, GstMode, Organization } from "@/lib/supabase/types";
 
 export interface DocLine {
@@ -61,6 +62,20 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number): stri
 
 const money = (n: number) => `$${n.toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// The business logo, if one is uploaded. A missing or unreadable logo just leaves the header text-only.
+async function loadLogo(pdf: PDFDocument, path: string | null | undefined) {
+  const url = logoUrl(path);
+  if (!url) return null;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return path!.endsWith(".png") ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+  } catch {
+    return null;
+  }
+}
+
 export async function renderDocumentPdf(doc: DocData): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
@@ -84,10 +99,18 @@ export async function renderDocumentPdf(doc: DocData): Promise<Uint8Array> {
     }
   };
 
-  // Header: business on the left, document title on the right.
+  // Header: business on the left (logo above the name when there is one), document title on the right.
   const orgName = doc.org?.name ?? "Your business";
-  text(orgName, MARGIN, 16, bold, FOREST);
+  const logo = await loadLogo(pdf, doc.org?.logo_path);
   textRight(doc.kind, PAGE_W - MARGIN, 18, bold, FOREST);
+  if (logo) {
+    const scale = Math.min(150 / logo.width, 52 / logo.height, 1);
+    const w = logo.width * scale;
+    const h = logo.height * scale;
+    page.drawImage(logo, { x: MARGIN, y: y - h + 14, width: w, height: h });
+    y -= h + 6;
+  }
+  text(orgName, MARGIN, 16, bold, FOREST);
   y -= 16;
   const bizLines = [
     doc.org?.abn ? `ABN ${doc.org.abn}` : "",

@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { authError, dbError } from "@/lib/errors";
+import { LOGO_BUCKET, LOGO_MAX_BYTES, logoUrl } from "@/lib/logo";
 import { billingEnforced, emailLimit, getBillingState, seatLimit } from "@/lib/billing";
 import { formatAbn, isValidAbn, isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
@@ -1666,4 +1667,62 @@ export async function extendTrial(orgId: string, days: number): Promise<ActionRe
 
   revalidatePath("/admin/businesses");
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Business logo (Settings). Stored in the public "logos" bucket; only admins can change it.
+// ---------------------------------------------------------------------------
+
+function imageKind(bytes: Uint8Array): "png" | "jpg" | null {
+  if (bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "png";
+  if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "jpg";
+  return null;
+}
+
+export async function uploadLogo(formData: FormData): Promise<ActionResult & { url?: string }> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Only admins can change the logo." };
+
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Choose an image to upload." };
+  if (file.size > LOGO_MAX_BYTES) return { ok: false, error: "That image is too big. Use one under 1 MB." };
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  // Check the file's contents, not just its name, so only real PNG/JPEG images are stored.
+  const kind = imageKind(bytes);
+  if (!kind) return { ok: false, error: "Use a PNG or JPEG image." };
+
+  const admin = createAdminClient();
+  const { data: org } = await admin.from("organizations").select("logo_path").eq("id", viewer.orgId).single();
+  const path = `${viewer.orgId}/logo-${Date.now()}.${kind}`;
+  const { error: uploadError } = await admin.storage.from(LOGO_BUCKET).upload(path, bytes, { contentType: kind === "png" ? "image/png" : "image/jpeg", upsert: false });
+  if (uploadError) return { ok: false, error: "Couldn't upload the logo. Please try again." };
+
+  const { error } = await admin.from("organizations").update({ logo_path: path }).eq("id", viewer.orgId);
+  if (error) return { ok: false, error: dbError(error) };
+  if (org?.logo_path) await admin.storage.from(LOGO_BUCKET).remove([org.logo_path]);
+
+  revalidatePath("/", "layout");
+  return { ok: true, url: logoUrl(path) ?? undefined };
+}
+
+export async function removeLogo(): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Only admins can change the logo." };
+  const admin = createAdminClient();
+  const { data: org } = await admin.from("organizations").select("logo_path").eq("id", viewer.orgId).single();
+  const { error } = await admin.from("organizations").update({ logo_path: null }).eq("id", viewer.orgId);
+  if (error) return { ok: false, error: dbError(error) };
+  if (org?.logo_path) await admin.storage.from(LOGO_BUCKET).remove([org.logo_path]);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** The invoice already raised for a job, if any (so we don't offer to create a second one). */
+export async function findInvoiceForJob(jobId: string): Promise<{ invoiceId: string | null }> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { invoiceId: null };
+  const supabase = await createClient();
+  const { data } = await supabase.from("invoices").select("id").eq("job_id", jobId).neq("status", "Voided").limit(1).maybeSingle();
+  return { invoiceId: data?.id ?? null };
 }

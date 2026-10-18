@@ -25,6 +25,8 @@ const CSP_REPORT_ONLY = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Logo uploads (up to 1 MB) go through a Server Action; leave room for the form overhead.
+  experimental: { serverActions: { bodySizeLimit: "2mb" } },
   async headers() {
     return [
       {

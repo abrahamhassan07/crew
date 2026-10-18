@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Calendar, Clock, DollarSign, HardHat, MapPin, Phone } from "lucide-react";
+import { Calendar, Clock, DollarSign, HardHat, MapPin, Phone, Receipt } from "lucide-react";
 import { updateJobChecklist, updateJobNotes, updateJobStatus } from "@/app/(app)/actions";
 import { useJobModal } from "@/components/JobModalContext";
+import { CreateInvoicePrompt } from "@/components/CreateInvoicePrompt";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -24,19 +25,23 @@ function badgeStatus(status: JobStatus): "scheduled" | "in-progress" | "complete
   return status === "in_progress" ? "in-progress" : status;
 }
 
-export function JobDetailClient({ job }: { job: EnrichedJob }) {
+export function JobDetailClient({ job, invoiceId }: { job: EnrichedJob; invoiceId: string | null }) {
   const router = useRouter();
   const { openJob } = useJobModal();
   const [pending, startTransition] = useTransition();
   const [checklist, setChecklist] = useState(job.checklist ?? []);
   const [notes, setNotes] = useState(job.notes);
+  const [askInvoice, setAskInvoice] = useState(false);
 
   const setStatus = (status: JobStatus) => {
     startTransition(async () => {
-      await updateJobStatus(job.id, status);
+      const result = await updateJobStatus(job.id, status);
       router.refresh();
+      // Just finished and not billed yet: offer to start the invoice.
+      if (result.ok && status === "completed" && !invoiceId) setAskInvoice(true);
     });
   };
+  const createInvoice = () => router.push(`/invoices/new?job=${job.id}`);
 
   const toggleItem = (i: number) => {
     const next = checklist.map((c, k) => (k === i ? { ...c, done: !c.done } : c));
@@ -132,6 +137,19 @@ export function JobDetailClient({ job }: { job: EnrichedJob }) {
                   );
                 })}
               </div>
+              {invoiceId ? (
+                <Link href={`/invoices/${invoiceId}`} className="mt-3 h-10 px-3 rounded-lg border border-field-border text-sm font-semibold flex items-center gap-2 text-brand hover:bg-page-bg">
+                  <Receipt className="w-4 h-4" />
+                  View invoice
+                </Link>
+              ) : (
+                job.status === "completed" && (
+                  <button onClick={createInvoice} className="mt-3 w-full h-10 px-3 rounded-lg bg-brand text-white text-sm font-semibold flex items-center gap-2 hover:bg-brand-hover">
+                    <Receipt className="w-4 h-4" />
+                    Create invoice
+                  </button>
+                )
+              )}
             </Card>
 
             <Card className="p-5">
@@ -150,6 +168,7 @@ export function JobDetailClient({ job }: { job: EnrichedJob }) {
           </div>
         </div>
       </div>
+      {askInvoice && <CreateInvoicePrompt jobLabel={`${job.num} (${job.client_name})`} onCreate={createInvoice} onSkip={() => setAskInvoice(false)} />}
     </div>
   );
 }

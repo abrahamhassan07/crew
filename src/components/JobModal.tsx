@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createJob, deleteJob, updateJob, type JobInput } from "@/app/(app)/actions";
+import { useRouter } from "next/navigation";
+import { createJob, deleteJob, findInvoiceForJob, updateJob, type JobInput } from "@/app/(app)/actions";
+import { CreateInvoicePrompt } from "@/components/CreateInvoicePrompt";
 import { Button } from "@/components/ui/Button";
 import { todayISO } from "@/lib/design";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
@@ -82,6 +84,8 @@ export function JobModal({
   const [newContact, setNewContact] = useState({ email: "", phone: "" });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [askInvoice, setAskInvoice] = useState(false);
+  const router = useRouter();
 
   const set = <K extends keyof JobInput>(key: K, value: JobInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -111,6 +115,14 @@ export function JobModal({
       if (!result.ok) {
         setError(result.error ?? "Something went wrong.");
         return;
+      }
+      // Just marked completed and not billed yet: offer to start the invoice before closing.
+      if (mode === "edit" && job && job.status !== "completed" && form.status === "completed") {
+        const { invoiceId } = await findInvoiceForJob(job.id);
+        if (!invoiceId) {
+          setAskInvoice(true);
+          return;
+        }
       }
       onSaved(mode === "new" ? "Job created" : "Job updated");
     });
@@ -271,6 +283,16 @@ export function JobModal({
           </Button>
         </div>
       </div>
+      {askInvoice && job && (
+        <CreateInvoicePrompt
+          jobLabel={`${job.num} (${form.client})`}
+          onCreate={() => {
+            onSaved("Job updated");
+            router.push(`/invoices/new?job=${job.id}`);
+          }}
+          onSkip={() => onSaved("Job updated")}
+        />
+      )}
     </>
   );
 }

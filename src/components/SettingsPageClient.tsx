@@ -8,6 +8,9 @@ import { TextField } from "@/components/forms/TextField";
 import { SelectField } from "@/components/forms/SelectField";
 import { TextAreaField } from "@/components/forms/TextAreaField";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { LogoUploader } from "@/components/LogoUploader";
+import { logoUrl } from "@/lib/logo";
+import { MessageSquareText } from "lucide-react";
 import { isValidAbn } from "@/lib/validate";
 import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, PLACEHOLDERS, templateFor, type TemplateKind } from "@/lib/emailTemplates";
 import type { Organization } from "@/lib/supabase/types";
@@ -79,6 +82,7 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
             summary={[input.name, input.abn && `ABN ${input.abn}`, input.email].filter(Boolean).join(" · ")}
             defaultOpen
           >
+            <LogoUploader initialUrl={logoUrl(organization.logo_path)} businessName={organization.name} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3.5 pt-3">
               <TextField label="Business name" required value={input.name} onChange={(e) => setInput({ ...input, name: e.target.value })} />
               <TextField label="Email" type="email" value={input.email} onChange={(e) => setInput({ ...input, email: e.target.value })} />
@@ -106,7 +110,7 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
             </div>
           </CollapsibleCard>
 
-          <CollapsibleCard title="Payment details" summary={firstLine || "Not set yet"}>
+          <CollapsibleCard title="Payment details" summary={firstLine || "Not set yet"} defaultOpen>
             <p className="text-sm text-ink-muted mb-3 pt-3">How clients should pay you. This is pre-filled into the payment instructions on every new invoice (you can still change it per invoice).</p>
             <TextAreaField
               label="Payment instructions"
@@ -153,6 +157,23 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
             {input.staffNotificationsEnabled && !input.email.trim() && (
               <p className="text-xs text-warn-fg mt-2">Add your business email first. Notifications aren&rsquo;t sent without it.</p>
             )}
+          </CollapsibleCard>
+
+          <CollapsibleCard title="SMS notifications" summary="Coming soon">
+            <div className="flex items-start gap-3 pt-3">
+              <div className="w-9 h-9 rounded-lg bg-neutral-bg text-ink-muted flex items-center justify-center shrink-0">
+                <MessageSquareText className="w-4.5 h-4.5" />
+              </div>
+              <div>
+                <span className="inline-block text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-info-bg text-info-fg">Coming soon</span>
+                <p className="text-sm text-ink-muted mt-2">
+                  Text-message reminders and updates for your customers and staff are on the way. Until then, reminders and notifications go out by email.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 opacity-60 pointer-events-none" aria-disabled="true">
+              <SelectField label="SMS notifications" value="off" onChange={() => undefined} options={[{ value: "off", label: "Not available yet" }]} disabled />
+            </div>
           </CollapsibleCard>
 
           <CollapsibleCard className="xl:col-span-2" title="Customer reminders" summary={input.remindersEnabled ? "On: customers are emailed the day before a job" : "Off"}>

@@ -33,6 +33,7 @@ export type Organization = {
   review_link: string | null;
   review_email_subject: string | null;
   review_email_body: string | null;
+  logo_path: string | null;
   plan: string | null;
   team_size: string | null;
   billing_interval: "month" | "year" | null;
