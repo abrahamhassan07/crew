@@ -6,20 +6,23 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 const SENTRY = "https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io";
 const GOOGLE_MAPS = "https://maps.googleapis.com https://maps.gstatic.com";
 
-// Enforced now: rules that can't break a page that works today.
-const CSP_ENFORCED = ["frame-ancestors 'none'", "base-uri 'self'", "object-src 'none'", "form-action 'self'"].join("; ");
-
-// Report-only for now: the full script/style/connect allow-list. Browsers log violations to the console
-// without blocking anything, so it can be checked on real pages before it is switched to enforcing.
-const CSP_REPORT_ONLY = [
+// The full policy, enforced. Violations are still reported to /api/csp-report (and on to Sentry), so a missed site
+// shows up as a message. 'unsafe-eval' is development only (React's dev tooling needs it). Stripe Checkout and Xero
+// sign-in are plain page navigations, which this policy doesn't restrict.
+const DEV = process.env.NODE_ENV !== "production";
+const CSP = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://accounts.google.com https://challenges.cloudflare.com ${GOOGLE_MAPS}`,
+  `script-src 'self' 'unsafe-inline'${DEV ? " 'unsafe-eval'" : ""} https://accounts.google.com https://challenges.cloudflare.com ${GOOGLE_MAPS}`,
   "style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com",
   `img-src 'self' data: blob: https://*.googleusercontent.com https://*.supabase.co ${GOOGLE_MAPS} https://*.ggpht.com`,
   "font-src 'self' data: https://fonts.gstatic.com",
-  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com https://maps.googleapis.com ${SENTRY}`,
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com https://maps.googleapis.com https://places.googleapis.com ${SENTRY}`,
   "frame-src https://accounts.google.com https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "form-action 'self'",
   "report-uri /api/csp-report",
 ].join("; ");
 
@@ -41,8 +44,7 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
-          { key: "Content-Security-Policy", value: CSP_ENFORCED },
-          { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
+          { key: "Content-Security-Policy", value: CSP },
         ],
       },
     ];
