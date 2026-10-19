@@ -21,8 +21,9 @@ const spectral = Spectral({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.crewandgrounds.com"),
   title: "Crew & Grounds",
-  description: "Scheduling and job tracking for Crew & Grounds",
+  description: "Scheduling, reminders, quotes and invoicing for Australian gardening, lawn care, cleaning and property maintenance businesses.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth/confirm", "/terms", "/privacy", "/api/stripe/webhook", "/api/health", "/api/cron", "/api/csp-report"];
+const PUBLIC_PATHS = ["/login", "/signup", "/marketing/", "/sitemap.xml", "/robots.txt", "/auth/confirm", "/terms", "/privacy", "/api/stripe/webhook", "/api/health", "/api/cron", "/api/csp-report"];
 
 // Signed-in sessions end after this long without a visit. Supabase can only do this on its paid plan,
 // so the site tracks the last visit itself. The cookie is only a timestamp; the login stays with Supabase.
@@ -49,7 +49,8 @@ export async function updateSession(request: NextRequest) {
   const isServerAction = request.headers.has("next-action");
 
   const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
+  // "/" is the public marketing page; matched exactly so it doesn't make every path public.
+  const isPublic = path === "/" || PUBLIC_PATHS.some((p) => path.startsWith(p));
 
   const now = Date.now();
   const lastSeen = Number(request.cookies.get(SEEN_COOKIE)?.value) || 0;
@@ -84,9 +85,10 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    if (user && (path === "/login" || path === "/signup")) {
+    // Signed-in people skip the marketing page and the sign-in screens and go straight to the app.
+    if (user && (path === "/" || path === "/login" || path === "/signup")) {
       const url = request.nextUrl.clone();
-      url.pathname = "/";
+      url.pathname = "/dashboard";
       url.search = "";
       return NextResponse.redirect(url);
     }
