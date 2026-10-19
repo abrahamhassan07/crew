@@ -1039,6 +1039,8 @@ export interface QuoteInput {
   expiryDate: string;
   mode: GstMode;
   message: string;
+  /** Optional notes shown under the line items. */
+  serviceNotes?: string;
   requestId: string | null;
   items: QuoteLineInput[];
 }
@@ -1070,6 +1072,7 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
         expiry_date: input.expiryDate,
         mode: input.mode,
         message: input.message,
+        service_notes: (input.serviceNotes ?? "").trim().slice(0, 2000),
         status,
       })
       .eq("id", quoteId);
@@ -1090,6 +1093,7 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
         expiry_date: input.expiryDate,
         mode: input.mode,
         message: input.message,
+        service_notes: (input.serviceNotes ?? "").trim().slice(0, 2000),
         request_id: input.requestId,
         status,
         org_id: viewer.orgId,
@@ -1208,6 +1212,8 @@ export interface InvoiceInput {
   dueDate: string;
   mode: GstMode;
   notes: string;
+  /** Optional notes shown under the line items. */
+  serviceNotes?: string;
   items: InvoiceLineInput[];
 }
 
@@ -1239,6 +1245,7 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
         due_date: input.dueDate,
         mode: input.mode,
         notes: input.notes,
+        service_notes: (input.serviceNotes ?? "").trim().slice(0, 2000),
         status,
       })
       .eq("id", invoiceId);
@@ -1260,6 +1267,7 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
         due_date: input.dueDate,
         mode: input.mode,
         notes: input.notes,
+        service_notes: (input.serviceNotes ?? "").trim().slice(0, 2000),
         status,
         org_id: viewer.orgId,
       })

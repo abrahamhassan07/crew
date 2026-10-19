@@ -191,6 +191,7 @@ export type Quote = {
   mode: GstMode;
   status: QuoteStatus;
   message: string;
+  service_notes: string;
   request_id: string | null;
   job_id: string | null;
   org_id: string;
@@ -234,6 +235,7 @@ export type Invoice = {
   mode: GstMode;
   status: InvoiceStatus;
   notes: string;
+  service_notes: string;
   xero_invoice_id: string | null;
   xero_synced_at: string | null;
   xero_error: string | null;

@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
 import { SendEmailModal } from "@/components/SendEmailModal";
+import { DecimalInput } from "@/components/forms/DecimalInput";
 import { syncInvoiceToXero } from "@/app/(app)/xeroActions";
 import type { EmailDraft } from "@/lib/emailTemplates";
 import { ToastBanner, useToast } from "@/components/Toast";
@@ -86,6 +87,8 @@ export function InvoiceEditor({
   const gstRegistered = organization?.gst_registered ?? true;
   const [mode, setMode] = useState<GstMode>(invoice?.mode ?? (gstRegistered ? "exclusive" : "none"));
   const [notes, setNotes] = useState(invoice?.notes ?? (organization?.payment_details?.trim() || "Please use the invoice number as your payment reference."));
+  const [serviceNotes, setServiceNotes] = useState(invoice?.service_notes ?? "");
+  const [showNotes, setShowNotes] = useState(!!invoice?.service_notes);
   const [lines, setLines] = useState<InvoiceLineInput[]>(
     initialItems.length
       ? initialItems.map((i) => ({ serviceId: i.service_id, serviceName: i.service_name, description: i.description, qty: i.qty, unitPrice: i.unit_price }))
@@ -104,7 +107,7 @@ export function InvoiceEditor({
   const balance = Math.max(0, totals.total - paid);
   const overdue = invoice?.status === "Overdue";
 
-  const input: InvoiceInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, jobId: jobId || null, issueDate, dueDate, mode, notes, items: lines };
+  const input: InvoiceInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, jobId: jobId || null, issueDate, dueDate, mode, notes, serviceNotes, items: lines };
 
   const commitDraft = () => {
     setError(null);
@@ -415,6 +418,13 @@ export function InvoiceEditor({
                   </table>
                 </div>
 
+                {invoice.service_notes && (
+                  <div className="mt-5 text-sm leading-relaxed">
+                    <div className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-1">Notes</div>
+                    <div className="whitespace-pre-wrap">{invoice.service_notes}</div>
+                  </div>
+                )}
+
                 <div className="ml-auto mt-4 w-full sm:w-72 text-sm">
                   {invoice.mode !== "none" && (
                     <>
@@ -599,14 +609,27 @@ export function InvoiceEditor({
                 )}
               </div>
               <div className="p-4 flex flex-col gap-3">
+                <div className="hidden sm:grid grid-cols-[1fr_80px_100px_100px_32px] gap-2 text-[11px] font-bold uppercase tracking-wide text-ink-muted -mb-1">
+                  <span>Item</span>
+                  <span>Qty</span>
+                  <span>Price</span>
+                  <span className="text-right">Amount</span>
+                  <span />
+                </div>
                 {lines.map((l, i) => (
                   <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_80px_100px_100px_32px] gap-2 items-start border-b border-line-soft pb-3">
                     <div className="flex flex-col gap-1.5">
                       <input value={l.serviceName} onChange={(e) => setLine(i, { ...l, serviceName: e.target.value })} placeholder="Item name" className="w-full h-9 border border-field-border rounded-md px-2.5 text-sm font-semibold" />
                       <input value={l.description} onChange={(e) => setLine(i, { ...l, description: e.target.value })} placeholder="Description" className="w-full h-8 border border-field-border rounded-md px-2.5 text-xs" />
                     </div>
-                    <input type="number" min={0} step={0.5} value={l.qty} onChange={(e) => setLine(i, { ...l, qty: Number(e.target.value) })} className="h-9 border border-field-border rounded-md px-2 text-sm" />
-                    <input type="number" min={0} step={0.01} value={l.unitPrice} onChange={(e) => setLine(i, { ...l, unitPrice: Number(e.target.value) })} className="h-9 border border-field-border rounded-md px-2 text-sm" />
+                    <div>
+                      <span className="sm:hidden text-[11px] font-semibold text-ink-muted">Qty</span>
+                      <DecimalInput label="Quantity" value={l.qty} onValue={(qty) => setLine(i, { ...l, qty })} decimals={2} />
+                    </div>
+                    <div>
+                      <span className="sm:hidden text-[11px] font-semibold text-ink-muted">Price</span>
+                      <DecimalInput label="Unit price" prefix="$" value={l.unitPrice} onValue={(unitPrice) => setLine(i, { ...l, unitPrice })} padOnBlur />
+                    </div>
                     <span className="h-9 flex items-center justify-end font-semibold text-sm">${(l.qty * l.unitPrice).toFixed(2)}</span>
                     <button onClick={() => setLines(lines.length > 1 ? lines.filter((_, k) => k !== i) : [blankLine()])} className="h-9 flex items-center justify-center text-ink-muted">
                       <Trash2 className="w-4 h-4" />
@@ -616,6 +639,13 @@ export function InvoiceEditor({
                 <button onClick={() => setLines([...lines, blankLine()])} className="text-sm font-semibold text-brand flex items-center gap-1.5 self-start">
                   <Plus className="w-4 h-4" /> Add line item
                 </button>
+                {showNotes ? (
+                  <TextAreaField label="Notes (optional)" rows={3} maxLength={2000} value={serviceNotes} onChange={(e) => setServiceNotes(e.target.value)} placeholder="e.g. what was done, access details, anything the client should know. Shown on the invoice." />
+                ) : (
+                  <button onClick={() => setShowNotes(true)} className="text-sm font-semibold text-brand flex items-center gap-1.5 self-start">
+                    <Plus className="w-4 h-4" /> Add notes
+                  </button>
+                )}
               </div>
             </Card>
 

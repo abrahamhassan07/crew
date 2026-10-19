@@ -21,6 +21,8 @@ export interface DocData {
   mode: GstMode;
   lines: DocLine[];
   note: string;
+  /** Optional notes shown under the line items. */
+  serviceNotes?: string;
   paid?: number;
   jobNum?: string | null;
 }
@@ -205,6 +207,18 @@ export async function renderDocumentPdf(doc: DocData): Promise<Uint8Array> {
     y = bottom - 4;
     rule();
     y -= 12;
+  }
+
+  if (doc.serviceNotes?.trim()) {
+    ensureSpace(40);
+    text("NOTES", MARGIN, 8, bold, MUTED);
+    y -= 13;
+    for (const l of wrap(doc.serviceNotes, regular, 9.5, PAGE_W - 2 * MARGIN)) {
+      ensureSpace(14);
+      text(l, MARGIN, 9.5, regular, INK);
+      y -= 12.5;
+    }
+    y -= 8;
   }
 
   // Totals.

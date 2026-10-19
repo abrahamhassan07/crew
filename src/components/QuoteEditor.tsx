@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { SendEmailModal } from "@/components/SendEmailModal";
+import { DecimalInput } from "@/components/forms/DecimalInput";
 import type { EmailDraft } from "@/lib/emailTemplates";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
 import { daysFromToday, todayISO } from "@/lib/design";
@@ -51,6 +52,8 @@ export function QuoteEditor({
   const [expiryDate, setExpiryDate] = useState(quote?.expiry_date ?? daysFromToday(30));
   const [mode, setMode] = useState<GstMode>(quote?.mode ?? (gstRegistered ? "exclusive" : "none"));
   const [message, setMessage] = useState(quote?.message ?? "Thanks for the opportunity to quote. Prices are valid for 30 days.");
+  const [serviceNotes, setServiceNotes] = useState(quote?.service_notes ?? "");
+  const [showNotes, setShowNotes] = useState(!!quote?.service_notes);
   const [lines, setLines] = useState<QuoteLineInput[]>(
     initialItems.length
       ? initialItems.map((i) => ({ serviceId: i.service_id, serviceName: i.service_name, description: i.description, qty: i.qty, unitPrice: i.unit_price }))
@@ -61,7 +64,7 @@ export function QuoteEditor({
   const clientProperties = properties.filter((p) => p.client_id === clientId);
   const totals = calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), mode);
 
-  const input: QuoteInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, quoteDate, expiryDate, mode, message, requestId: quote?.request_id ?? initialRequestId ?? null, items: lines };
+  const input: QuoteInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, quoteDate, expiryDate, mode, message, serviceNotes, requestId: quote?.request_id ?? initialRequestId ?? null, items: lines };
 
   // The "Review email" step: id is the saved quote, wasSent says whether it still needs marking Sent.
   const [review, setReview] = useState<{ id: string; draft: EmailDraft; markSent: boolean } | null>(null);
@@ -286,14 +289,27 @@ export function QuoteEditor({
                 )}
               </div>
               <div className="p-4 flex flex-col gap-3">
+                <div className="hidden sm:grid grid-cols-[1fr_80px_100px_100px_32px] gap-2 text-[11px] font-bold uppercase tracking-wide text-ink-muted -mb-1">
+                  <span>Item</span>
+                  <span>Qty</span>
+                  <span>Price</span>
+                  <span className="text-right">Amount</span>
+                  <span />
+                </div>
                 {lines.map((l, i) => (
                   <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_80px_100px_100px_32px] gap-2 items-start border-b border-line-soft pb-3">
                     <div className="flex flex-col gap-1.5">
                       <input disabled={locked} value={l.serviceName} onChange={(e) => setLine(i, { ...l, serviceName: e.target.value })} placeholder="Item name" className="w-full h-9 border border-field-border rounded-md px-2.5 text-sm font-semibold" />
                       <input disabled={locked} value={l.description} onChange={(e) => setLine(i, { ...l, description: e.target.value })} placeholder="Description" className="w-full h-8 border border-field-border rounded-md px-2.5 text-xs" />
                     </div>
-                    <input disabled={locked} type="number" min={0} step={0.5} value={l.qty} onChange={(e) => setLine(i, { ...l, qty: Number(e.target.value) })} className="h-9 border border-field-border rounded-md px-2 text-sm" />
-                    <input disabled={locked} type="number" min={0} step={0.01} value={l.unitPrice} onChange={(e) => setLine(i, { ...l, unitPrice: Number(e.target.value) })} className="h-9 border border-field-border rounded-md px-2 text-sm" />
+                    <div>
+                      <span className="sm:hidden text-[11px] font-semibold text-ink-muted">Qty</span>
+                      <DecimalInput label="Quantity" value={l.qty} onValue={(qty) => setLine(i, { ...l, qty })} decimals={2} disabled={locked} />
+                    </div>
+                    <div>
+                      <span className="sm:hidden text-[11px] font-semibold text-ink-muted">Price</span>
+                      <DecimalInput label="Unit price" prefix="$" value={l.unitPrice} onValue={(unitPrice) => setLine(i, { ...l, unitPrice })} padOnBlur disabled={locked} />
+                    </div>
                     <span className="h-9 flex items-center justify-end font-semibold text-sm">${(l.qty * l.unitPrice).toFixed(2)}</span>
                     {!locked && (
                       <button onClick={() => setLines(lines.length > 1 ? lines.filter((_, k) => k !== i) : [blankLine()])} className="h-9 flex items-center justify-center text-ink-muted">
@@ -306,6 +322,15 @@ export function QuoteEditor({
                   <button onClick={() => setLines([...lines, blankLine()])} className="text-sm font-semibold text-brand flex items-center gap-1.5 self-start">
                     <Plus className="w-4 h-4" /> Add line item
                   </button>
+                )}
+                {showNotes ? (
+                  <TextAreaField label="Notes (optional)" disabled={locked} rows={3} maxLength={2000} value={serviceNotes} onChange={(e) => setServiceNotes(e.target.value)} placeholder="e.g. scope of work, what's included or excluded, access details. Shown on the quote." />
+                ) : (
+                  !locked && (
+                    <button onClick={() => setShowNotes(true)} className="text-sm font-semibold text-brand flex items-center gap-1.5 self-start">
+                      <Plus className="w-4 h-4" /> Add notes
+                    </button>
+                  )
                 )}
               </div>
             </Card>
