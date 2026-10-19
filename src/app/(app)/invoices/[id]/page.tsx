@@ -2,14 +2,14 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
-import { getConnection } from "@/lib/xero";
+import { getConnection, orgMayUseXero } from "@/lib/xero";
 
 export default async function InvoicePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const viewer = await requireAdmin();
   const { id } = await params;
   const sp = await searchParams;
   const supabase = await createClient();
-  const xeroConnected = !!(await getConnection(viewer.orgId));
+  const xeroConnected = !!(await getConnection(viewer.orgId)) && (await orgMayUseXero(viewer.orgId));
 
   const [{ data: invoice }, { data: items }, { data: payments }, { data: clients }, { data: properties }, { data: services }, { data: jobs }, { data: organization }] = await Promise.all([
     supabase.from("invoices").select("*").eq("id", id).single(),

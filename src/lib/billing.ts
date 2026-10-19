@@ -42,6 +42,16 @@ export function emailLimit(org: SeatOrg | null): number | null {
   return billingEnforced() ? EMAIL_LIMITS.trial : EMAIL_LIMITS.pilot;
 }
 
+/**
+ * Xero is part of the paid plan: allowed for subscribers and billing-exempt businesses, and for everyone while
+ * billing isn't enforced (the free pilot). Trial and expired businesses are locked out.
+ */
+export function xeroAllowed(org: SeatOrg | null): boolean {
+  if (!org || org.billing_exempt !== false) return true;
+  if (!billingEnforced()) return true;
+  return getBillingState(org).kind === "active";
+}
+
 /** Email kinds that share the monthly notification cap below (reminderLimit). */
 export const NOTIFICATION_KINDS = ["reminder", "staff", "review"] as const;
 

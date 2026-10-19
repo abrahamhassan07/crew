@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getViewer } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { disconnectXero, getConnection, pushInvoice } from "@/lib/xero";
+import { disconnectXero, getConnection, orgMayUseXero, pushInvoice, XERO_PLAN_MESSAGE } from "@/lib/xero";
 import type { ActionResult } from "./actions";
 
 async function adminViewer() {
@@ -15,6 +15,7 @@ export async function syncInvoiceToXero(invoiceId: string): Promise<ActionResult
   const viewer = await adminViewer();
   if (!viewer) return { ok: false, error: "Only admins can do that." };
   if (!(await getConnection(viewer.orgId))) return { ok: false, error: "Xero isn't connected. Connect it in Settings." };
+  if (!(await orgMayUseXero(viewer.orgId))) return { ok: false, error: XERO_PLAN_MESSAGE };
   const result = await pushInvoice(viewer.orgId, invoiceId);
   revalidatePath("/", "layout");
   return result.ok ? { ok: true } : { ok: false, error: result.error ?? "Couldn't send the invoice to Xero." };

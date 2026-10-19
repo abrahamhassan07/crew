@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { SettingsPageClient } from "@/components/SettingsPageClient";
 import type { XeroSettingsView } from "@/components/XeroCard";
-import { getConnection, listSalesAccounts, xeroConfigured } from "@/lib/xero";
+import { getConnection, listSalesAccounts, orgMayUseXero, xeroConfigured } from "@/lib/xero";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const viewer = await requireAdmin();
@@ -16,9 +16,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
   if (!organization) return null;
 
+  const allowed = await orgMayUseXero(viewer.orgId);
   let accounts: XeroSettingsView["accounts"] = [];
   let accountsFailed = false;
-  if (connection) {
+  if (connection && allowed) {
     try {
       accounts = await listSalesAccounts(viewer.orgId);
     } catch {
@@ -27,6 +28,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   }
   const xero: XeroSettingsView = {
     available: xeroConfigured(),
+    allowed,
     connected: !!connection,
     tenantName: connection?.tenant_name ?? "",
     salesAccountCode: connection?.sales_account_code ?? "200",

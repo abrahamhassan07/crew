@@ -2,6 +2,7 @@ import "server-only";
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "crypto";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { xeroAllowed } from "@/lib/billing";
 import type { GstMode, XeroConnection } from "@/lib/supabase/types";
 
 // Xero accounting integration. Each business connects its own Xero organisation (OAuth 2.0 web app flow);
@@ -13,6 +14,14 @@ const API = "https://api.xero.com";
 // Granular scopes (the broad accounting.transactions scope is being retired). Read-only access to settings is
 // only used to list the business's sales accounts.
 export const XERO_SCOPES = ["offline_access", "accounting.invoices", "accounting.contacts", "accounting.settings.read"];
+
+export const XERO_PLAN_MESSAGE = "Xero is included with a paid plan. Choose a plan to turn it on.";
+
+/** Whether this business's plan includes Xero (see xeroAllowed). */
+export async function orgMayUseXero(orgId: string): Promise<boolean> {
+  const { data } = await createAdminClient().from("organizations").select("billing_exempt, subscription_status, plan, current_period_end, trial_ends_at, team_size").eq("id", orgId).single();
+  return xeroAllowed(data ?? null);
+}
 
 export const xeroConfigured = () => !!process.env.XERO_CLIENT_ID && !!process.env.XERO_CLIENT_SECRET;
 /** Built from the address the user is actually on (www in production, localhost in development), so it always matches what Xero has registered. */
@@ -257,6 +266,7 @@ export async function pushInvoice(orgId: string, invoiceId: string): Promise<{ o
   const admin = createAdminClient();
   const conn = await getConnection(orgId);
   if (!conn) return { ok: false, skipped: true };
+  if (!(await orgMayUseXero(orgId))) return { ok: false, error: XERO_PLAN_MESSAGE };
 
   const fail = async (message: string) => {
     await admin.from("invoices").update({ xero_error: message }).eq("id", invoiceId);
@@ -331,6 +341,6 @@ export async function pushInvoice(orgId: string, invoiceId: string): Promise<{ o
 /** Fire-and-forget sync after an invoice is sent, edited or voided, when the business has auto-sync on. */
 export async function queueXeroSync(orgId: string, invoiceId: string) {
   const conn = await getConnection(orgId);
-  if (!conn?.auto_sync) return;
+  if (!conn?.auto_sync || !(await orgMayUseXero(orgId))) return;
   after(() => pushInvoice(orgId, invoiceId));
 }
