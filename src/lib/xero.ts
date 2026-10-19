@@ -2,7 +2,6 @@ import "server-only";
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "crypto";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { siteUrl } from "@/lib/stripe";
 import type { GstMode, XeroConnection } from "@/lib/supabase/types";
 
 // Xero accounting integration. Each business connects its own Xero organisation (OAuth 2.0 web app flow);
@@ -16,13 +15,14 @@ const API = "https://api.xero.com";
 export const XERO_SCOPES = ["offline_access", "accounting.invoices", "accounting.contacts", "accounting.settings.read"];
 
 export const xeroConfigured = () => !!process.env.XERO_CLIENT_ID && !!process.env.XERO_CLIENT_SECRET;
-export const xeroRedirectUri = () => `${siteUrl()}/api/xero/callback`;
+/** Built from the address the user is actually on (www in production, localhost in development), so it always matches what Xero has registered. */
+export const xeroRedirectUri = (origin: string) => `${origin}/api/xero/callback`;
 
-export function xeroAuthorizeUrl(state: string): string {
+export function xeroAuthorizeUrl(state: string, origin: string): string {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: process.env.XERO_CLIENT_ID!,
-    redirect_uri: xeroRedirectUri(),
+    redirect_uri: xeroRedirectUri(origin),
     scope: XERO_SCOPES.join(" "),
     state,
   });
@@ -74,7 +74,7 @@ async function tokenRequest(body: Record<string, string>): Promise<TokenResponse
   return (await res.json()) as TokenResponse;
 }
 
-export const exchangeCode = (code: string) => tokenRequest({ grant_type: "authorization_code", code, redirect_uri: xeroRedirectUri() });
+export const exchangeCode = (code: string, origin: string) => tokenRequest({ grant_type: "authorization_code", code, redirect_uri: xeroRedirectUri(origin) });
 
 interface XeroTenant {
   id: string; // the connection id

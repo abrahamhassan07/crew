@@ -2,13 +2,13 @@ import { timingSafeEqual } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getViewer } from "@/lib/auth";
-import { siteUrl } from "@/lib/stripe";
 import { exchangeCode, fetchTenants, saveConnection, xeroConfigured } from "@/lib/xero";
 
 // Xero sends the user back here after they approve (or refuse) access.
 export async function GET(req: NextRequest) {
+  const origin = req.nextUrl.origin;
   const back = (result: string) => {
-    const res = NextResponse.redirect(`${siteUrl()}/settings?xero=${result}`);
+    const res = NextResponse.redirect(`${origin}/settings?xero=${result}`);
     res.cookies.delete({ name: "xero_oauth_state", path: "/api/xero" });
     return res;
   };
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   if (!same || !code) return back("error");
 
   try {
-    const tokens = await exchangeCode(code);
+    const tokens = await exchangeCode(code, origin);
     const tenants = await fetchTenants(tokens.access_token);
     if (!tenants.length) return back("error");
     await saveConnection(viewer.orgId, viewer.userId, tokens, tenants[0]);
