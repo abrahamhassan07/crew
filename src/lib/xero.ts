@@ -144,13 +144,21 @@ export async function disconnectXero(orgId: string) {
       // Revoking on Xero's side is best effort; the local connection is removed regardless.
     }
   }
-  await createAdminClient().from("xero_connections").delete().eq("org_id", orgId);
+  const admin = createAdminClient();
+  await admin.from("xero_connections").delete().eq("org_id", orgId);
+  // The saved links pointed into the Xero organisation that was just disconnected.
+  await admin.from("clients").update({ xero_contact_id: null }).eq("org_id", orgId).not("xero_contact_id", "is", null);
+  await admin.from("invoices").update({ xero_invoice_id: null, xero_synced_at: null, xero_error: null }).eq("org_id", orgId).not("xero_invoice_id", "is", null);
 }
 
 // ---------------------------------------------------------------------------
 // API calls
 // ---------------------------------------------------------------------------
-class XeroApiError extends Error {}
+class XeroApiError extends Error {
+  constructor(message: string, readonly status = 0) {
+    super(message);
+  }
+}
 
 function describeFailure(body: unknown, status: number): string {
   const b = body as { Elements?: { ValidationErrors?: { Message: string }[] }[]; Message?: string; Detail?: string } | null;
@@ -176,7 +184,7 @@ async function xero(conn: XeroConnection, path: string, init: { method?: string;
     cache: "no-store",
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok) throw new XeroApiError(describeFailure(json, res.status));
+  if (!res.ok) throw new XeroApiError(describeFailure(json, res.status), res.status);
   return json;
 }
 
@@ -199,7 +207,15 @@ export async function listSalesAccounts(orgId: string): Promise<SalesAccount[]> 
 const q = (v: string) => v.replace(/"/g, "");
 
 async function ensureContact(conn: XeroConnection, client: { id: string; name: string; email: string | null; phone: string | null; address: string | null; xero_contact_id: string | null }) {
-  if (client.xero_contact_id) return client.xero_contact_id;
+  // A saved contact only counts if it still exists in the connected Xero (the business may have switched organisations).
+  if (client.xero_contact_id) {
+    try {
+      await xero(conn, `/Contacts/${client.xero_contact_id}`);
+      return client.xero_contact_id;
+    } catch (e) {
+      if (!(e instanceof XeroApiError) || e.status !== 404) throw e;
+    }
+  }
 
   let contactId: string | undefined;
   const email = client.email?.trim();
@@ -256,9 +272,22 @@ export async function pushInvoice(orgId: string, invoiceId: string): Promise<{ o
     if (invoice.status === "Draft") return { ok: true, skipped: true };
     if (invoice.status === "Voided" && !invoice.xero_invoice_id) return { ok: true, skipped: true };
 
+    // Same for the saved invoice link: if that invoice isn't in the connected Xero, start fresh instead of updating a ghost.
+    let existingId = invoice.xero_invoice_id;
+    if (existingId) {
+      try {
+        await xero(conn, `/Invoices/${existingId}`);
+      } catch (e) {
+        if (!(e instanceof XeroApiError) || e.status !== 404) throw e;
+        existingId = null;
+        await admin.from("invoices").update({ xero_invoice_id: null, xero_synced_at: null }).eq("id", invoiceId);
+      }
+    }
+    if (invoice.status === "Voided" && !existingId) return { ok: true, skipped: true };
+
     let saved;
     if (invoice.status === "Voided") {
-      saved = await xero(conn, `/Invoices/${invoice.xero_invoice_id}`, { method: "POST", body: { InvoiceID: invoice.xero_invoice_id, Status: "VOIDED" } });
+      saved = await xero(conn, `/Invoices/${existingId}`, { method: "POST", body: { InvoiceID: existingId, Status: "VOIDED" } });
     } else {
       const [{ data: client }, { data: job }] = await Promise.all([
         admin.from("clients").select("id, name, email, phone, address, xero_contact_id").eq("id", invoice.client_id).single(),
@@ -268,7 +297,7 @@ export async function pushInvoice(orgId: string, invoiceId: string): Promise<{ o
       const contactId = await ensureContact(conn, client);
       const taxed = invoice.mode !== "none";
       const body = {
-        InvoiceID: invoice.xero_invoice_id ?? undefined,
+        InvoiceID: existingId ?? undefined,
         Type: "ACCREC",
         Contact: { ContactID: contactId },
         InvoiceNumber: invoice.num,
@@ -285,12 +314,12 @@ export async function pushInvoice(orgId: string, invoiceId: string): Promise<{ o
           TaxType: taxed ? "OUTPUT" : "NONE",
         })),
       };
-      saved = await xero(conn, "/Invoices", { method: "POST", body, idempotencyKey: invoice.xero_invoice_id ? undefined : `crew-invoice-${invoice.id}` });
+      saved = await xero(conn, "/Invoices", { method: "POST", body, idempotencyKey: existingId ? undefined : `crew-invoice-${invoice.id}` });
     }
     const xeroId = saved?.Invoices?.[0]?.InvoiceID as string | undefined;
     await admin
       .from("invoices")
-      .update({ xero_invoice_id: xeroId ?? invoice.xero_invoice_id, xero_synced_at: new Date().toISOString(), xero_error: null })
+      .update({ xero_invoice_id: xeroId ?? existingId, xero_synced_at: new Date().toISOString(), xero_error: null })
       .eq("id", invoiceId);
     return { ok: true };
   } catch (e) {
