@@ -43,13 +43,14 @@ export function emailLimit(org: SeatOrg | null): number | null {
 }
 
 /**
- * Xero is part of the paid plan: allowed for subscribers and billing-exempt businesses, and for everyone while
- * billing isn't enforced (the free pilot). Trial and expired businesses are locked out.
+ * Xero comes with the Team plan (2-5 users) and above: allowed for subscribers on a bigger plan than Solo and for
+ * billing-exempt businesses, and for everyone while billing isn't enforced (the free pilot). Trial, expired and
+ * Solo businesses are locked out.
  */
 export function xeroAllowed(org: SeatOrg | null): boolean {
   if (!org || org.billing_exempt !== false) return true;
   if (!billingEnforced()) return true;
-  return getBillingState(org).kind === "active";
+  return getBillingState(org).kind === "active" && org.team_size !== "1";
 }
 
 /** Email kinds that share the monthly notification cap below (reminderLimit). */

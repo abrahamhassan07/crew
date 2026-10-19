@@ -12,7 +12,7 @@ import { disconnectXeroAction, saveXeroSettings } from "@/app/(app)/xeroActions"
 export interface XeroSettingsView {
   /** The app has Xero credentials (the platform owner set it up). */
   available: boolean;
-  /** The business's plan includes Xero (a paid plan). */
+  /** The business's plan includes Xero (Team plan and above). */
   allowed: boolean;
   connected: boolean;
   tenantName: string;
@@ -27,7 +27,7 @@ const RESULT_MESSAGES: Record<string, { text: string; ok: boolean }> = {
   declined: { text: "Xero wasn't connected: access was declined.", ok: false },
   error: { text: "We couldn't connect to Xero. Please try again.", ok: false },
   unavailable: { text: "Xero isn't available right now.", ok: false },
-  plan: { text: "Xero is included with a paid plan.", ok: false },
+  plan: { text: "Xero is included with the Team plan and above.", ok: false },
 };
 
 /** Settings card for the Xero integration: connect, pick the sales account, turn auto-sync on or off, disconnect. */
@@ -70,7 +70,7 @@ export function XeroCard({ xero, result }: { xero: XeroSettingsView; result?: st
     <CollapsibleCard
       className="xl:col-span-2"
       title="Xero"
-      summary={!xero.allowed ? "Included with a paid plan" : xero.connected ? `Connected to ${xero.tenantName}` : "Not connected"}
+      summary={!xero.allowed ? "Included with the Team plan and above" : xero.connected ? `Connected to ${xero.tenantName}` : "Not connected"}
       defaultOpen={!!result}
     >
       <div className="pt-3 space-y-4">
@@ -79,11 +79,11 @@ export function XeroCard({ xero, result }: { xero: XeroSettingsView; result?: st
         {!xero.allowed ? (
           <>
             <p className="text-sm text-ink-muted">
-              Connect Xero and every invoice you send is also created in Xero, with the client, line items and GST filled in. Xero is included with a paid plan.
-              {xero.connected && " Your connection is paused until your plan is active again."}
+              Connect Xero and every invoice you send is also created in Xero, with the client, line items and GST filled in. Xero is included with the Team plan (2–5 users) and above.
+              {xero.connected && " Your connection is paused until your plan includes it again."}
             </p>
             <Link href="/subscription">
-              <Button variant="primary" type="button">Choose a plan</Button>
+              <Button variant="primary" type="button">See plans</Button>
             </Link>
           </>
         ) : !xero.connected ? (

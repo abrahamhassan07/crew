@@ -15,7 +15,7 @@ const API = "https://api.xero.com";
 // only used to list the business's sales accounts.
 export const XERO_SCOPES = ["offline_access", "accounting.invoices", "accounting.contacts", "accounting.settings.read"];
 
-export const XERO_PLAN_MESSAGE = "Xero is included with a paid plan. Choose a plan to turn it on.";
+export const XERO_PLAN_MESSAGE = "Xero is included with the Team plan (2–5 users) and above. See plans to upgrade.";
 
 /** Whether this business's plan includes Xero (see xeroAllowed). */
 export async function orgMayUseXero(orgId: string): Promise<boolean> {

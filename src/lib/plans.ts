@@ -27,7 +27,7 @@ export const PLAN = {
     "Service price list",
     "Equipment tracking",
     "Reports, including crew utilisation",
-    "Xero integration: invoices you send are copied into Xero",
+    "Xero integration, Team plan and above: invoices you send are copied into Xero",
     "Logins for your whole team",
     "Email support",
   ],
