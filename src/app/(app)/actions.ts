@@ -1455,8 +1455,21 @@ export async function getEmailDraft(kind: EmailKind, id: string): Promise<Action
   const loaded = kind === "quote" ? await loadQuoteDoc(id) : await loadInvoiceDoc(id);
   if (!loaded) return { ok: false, error: `${kind === "quote" ? "Quote" : "Invoice"} not found.` };
   const email = buildEmail(loaded, kind);
-  if (!email.to) return { ok: false, error: `${loaded.doc.client?.name ?? "This client"} has no email address on file.` };
-  return { ok: true, draft: { ...email, clientName: loaded.doc.client?.name ?? "", attachmentName: loaded.filename } };
+  // No address on file isn't a dead end: the review step asks for it and saves it on the client.
+  return { ok: true, draft: { ...email, clientId: loaded.doc.client?.id ?? null, clientName: loaded.doc.client?.name ?? "", attachmentName: loaded.filename } };
+}
+
+/** Saves a client's email from the "Review email" step, so a missing address can be fixed without leaving the invoice or quote. */
+export async function updateClientEmail(clientId: string, email: string): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Only admins can do that." };
+  const clean = email.trim();
+  if (!isValidEmail(clean)) return { ok: false, error: "That email address doesn't look right." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("clients").update({ email: clean }).eq("id", clientId);
+  if (error) return { ok: false, error: dbError(error) };
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 export interface EmailOverride {

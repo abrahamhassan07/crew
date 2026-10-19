@@ -78,6 +78,8 @@ export function renderTemplate(text: string, values: Record<string, string>): st
 
 export interface EmailDraft {
   to: string;
+  /** Set so the review step can ask for a missing address and save it on the client. */
+  clientId: string | null;
   clientName: string;
   subject: string;
   body: string;

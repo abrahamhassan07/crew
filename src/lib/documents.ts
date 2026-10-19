@@ -19,7 +19,7 @@ async function loadOrg(orgId: string) {
 async function loadParties(clientId: string, propertyId: string | null) {
   const supabase = await createClient();
   const [{ data: client }, { data: property }] = await Promise.all([
-    supabase.from("clients").select("name, address, email").eq("id", clientId).single(),
+    supabase.from("clients").select("id, name, address, email").eq("id", clientId).single(),
     propertyId ? supabase.from("properties").select("*").eq("id", propertyId).single() : Promise.resolve({ data: null }),
   ]);
   return { client: client ?? null, serviceAddress: property ? formatPropertyAddress(property) : "" };

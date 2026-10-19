@@ -1,5 +1,5 @@
 import "server-only";
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { LineCapStyle, PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { calcTotals } from "@/lib/gst";
 import { logoUrl } from "@/lib/logo";
 import type { Client, GstMode, Organization } from "@/lib/supabase/types";
@@ -15,7 +15,7 @@ export interface DocData {
   kind: "Quote" | "Tax Invoice" | "Invoice";
   num: string;
   org: Organization | null;
-  client: Pick<Client, "name" | "address" | "email"> | null;
+  client: Pick<Client, "id" | "name" | "address" | "email"> | null;
   serviceAddress: string;
   dates: { label: string; value: string }[];
   mode: GstMode;
@@ -28,9 +28,12 @@ export interface DocData {
 const PAGE_W = 595.28;
 const PAGE_H = 841.89;
 const MARGIN = 48;
-const INK = rgb(0.1, 0.13, 0.12);
-const MUTED = rgb(0.4, 0.44, 0.42);
-const FOREST = rgb(0.13, 0.42, 0.25);
+// The same palette as the on-screen invoice (globals.css: ink-primary, ink-muted, forest, ok-fg).
+const hex = (h: number) => rgb(((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255);
+const INK = hex(0x18313d);
+const MUTED = hex(0x64748b);
+const FOREST = hex(0x183e2d);
+const PAID = hex(0x1f6a28);
 const RULE = rgb(0.85, 0.87, 0.86);
 
 // Standard PDF fonts only cover Latin-1; swap anything else for "?" rather than throw.
@@ -110,8 +113,29 @@ export async function renderDocumentPdf(doc: DocData): Promise<Uint8Array> {
     page.drawImage(logo, { x: MARGIN, y: y - h + 14, width: w, height: h });
     y -= h + 6;
   }
-  text(orgName, MARGIN, 16, bold, FOREST);
-  y -= 16;
+  // No logo uploaded: the same green sprout badge the on-screen invoice shows beside the name.
+  const nameX = logo ? MARGIN : MARGIN + 36;
+  if (!logo) {
+    const box = 26;
+    const r = 6;
+    const bottom = y - 7;
+    page.drawSvgPath(`M ${r} 0 H ${box - r} A ${r} ${r} 0 0 1 ${box} ${r} V ${box - r} A ${r} ${r} 0 0 1 ${box - r} ${box} H ${r} A ${r} ${r} 0 0 1 0 ${box - r} V ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`, {
+      x: MARGIN,
+      y: bottom + box,
+      color: FOREST,
+    });
+    const icon = [
+      "M7 20h10",
+      "M10 20c5.5-2.5.8-6.4 3-10",
+      "M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z",
+      "M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z",
+    ];
+    for (const d of icon) {
+      page.drawSvgPath(d, { x: MARGIN + 5.5, y: bottom + box - 5.5, scale: 0.63, borderColor: rgb(1, 1, 1), borderWidth: 2, borderLineCap: LineCapStyle.Round });
+    }
+  }
+  text(orgName, nameX, 16, bold, INK);
+  y -= logo ? 16 : 20;
   const bizLines = [
     doc.org?.abn ? `ABN ${doc.org.abn}` : "",
     doc.org?.address ?? "",
@@ -201,7 +225,7 @@ export async function renderDocumentPdf(doc: DocData): Promise<Uint8Array> {
   y -= 14;
   totalRow("Total AUD", money(totals.total), bold, 12);
   if (doc.paid !== undefined) {
-    totalRow("Amount paid", `-${money(doc.paid)}`, regular, 10, FOREST);
+    totalRow("Amount paid", `-${money(doc.paid)}`, regular, 10, PAID);
     y += 2;
     rule();
     y -= 14;
