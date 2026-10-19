@@ -13,6 +13,7 @@ import { formatAbn, isValidAbn, isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
 import { renderDocumentPdf } from "@/lib/pdf";
+import { queueXeroSync } from "@/lib/xero";
 import { after } from "next/server";
 import { JOB_SNAPSHOT_COLUMNS, notifyJobChange, type JobSnapshot } from "@/lib/staffNotify";
 import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, renderTemplate, templateFor, type EmailDraft, type EmailKind } from "@/lib/emailTemplates";
@@ -1284,6 +1285,9 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
   const { error: itemsError } = await supabase.from("invoice_items").insert(rows);
   if (itemsError) return { ok: false, error: dbError(itemsError) };
 
+  // Edits to an invoice that's already been sent flow through to Xero (drafts never do).
+  if (id && status !== "Draft") await queueXeroSync(viewer.orgId, invoiceId!);
+
   revalidatePath("/", "layout");
   return { ok: true, id: invoiceId };
 }
@@ -1292,6 +1296,8 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Pr
   const supabase = await createClient();
   const { error } = await supabase.from("invoices").update({ status }).eq("id", id);
   if (error) return { ok: false, error: dbError(error) };
+
+  if (status === "Voided") await queueXeroSync((await getViewer()).orgId, id);
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -1515,7 +1521,10 @@ export async function emailQuote(id: string, override?: EmailOverride) {
 }
 
 export async function emailInvoice(id: string, override?: EmailOverride) {
-  return emailDocument(await loadInvoiceDoc(id), "invoice", override);
+  const result = await emailDocument(await loadInvoiceDoc(id), "invoice", override);
+  // Once the invoice has gone to the client, copy it into Xero (when connected).
+  if (result.ok) await queueXeroSync((await getViewer()).orgId, id);
+  return result;
 }
 
 // ---------------------------------------------------------------------------

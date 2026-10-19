@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
 import { SendEmailModal } from "@/components/SendEmailModal";
+import { syncInvoiceToXero } from "@/app/(app)/xeroActions";
 import type { EmailDraft } from "@/lib/emailTemplates";
 import { ToastBanner, useToast } from "@/components/Toast";
 import { calcTotals } from "@/lib/gst";
@@ -44,6 +45,7 @@ export function InvoiceEditor({
   jobs = [],
   organization,
   startInEdit = false,
+  xeroConnected = false,
   prefill,
 }: {
   invoice: Invoice | null;
@@ -55,6 +57,8 @@ export function InvoiceEditor({
   jobs?: JobOption[];
   organization: Organization | null;
   startInEdit?: boolean;
+  /** The business has connected Xero: show the sync controls. */
+  xeroConnected?: boolean;
   /** A new invoice started from a completed job: client, address, job reference and a line item. */
   prefill?: { clientId: string; propertyId: string; jobId: string; lines: InvoiceLineInput[] };
 }) {
@@ -210,6 +214,15 @@ export function InvoiceEditor({
     <SendEmailModal draft={review.draft} confirmLabel="Send email" pending={pending} error={reviewError} onSend={sendReviewed} onCancel={cancelReview} />
   );
 
+  const sendToXero = () => {
+    if (!invoice) return;
+    startTransition(async () => {
+      const result = await syncInvoiceToXero(invoice.id);
+      showToast(result.ok ? `${invoice.num} sent to Xero` : result.error ?? "Couldn't send to Xero.");
+      router.refresh();
+    });
+  };
+
   const savePayment = () => {
     if (!invoice || !payModal) return;
     setError(null);
@@ -241,6 +254,16 @@ export function InvoiceEditor({
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-ink-primary">{invoice.num}</h1>
                 <StatusBadge status={badgeStatusKey(invoice.status)} label={invoice.status} showDot />
+                {invoice.xero_invoice_id && (
+                  <a
+                    href={`https://go.xero.com/app/invoicing/view/${invoice.xero_invoice_id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-semibold text-brand hover:text-brand-hover"
+                  >
+                    In Xero ↗
+                  </a>
+                )}
               </div>
               <div className="flex gap-2 flex-wrap">
                 <a href={`/api/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">
@@ -249,6 +272,11 @@ export function InvoiceEditor({
                     Download PDF
                   </Button>
                 </a>
+                {xeroConnected && invoice.status !== "Draft" && (invoice.status !== "Voided" || invoice.xero_invoice_id) && (
+                  <Button variant="secondary" size="md" onClick={sendToXero} disabled={pending}>
+                    {invoice.xero_invoice_id ? "Resync to Xero" : "Send to Xero"}
+                  </Button>
+                )}
                 {invoice.status === "Draft" && (
                   <>
                     <Button variant="secondary" size="md" onClick={() => setIsEditing(true)}>
@@ -288,6 +316,14 @@ export function InvoiceEditor({
 
         <div className="px-6 py-8">
           <div className="max-w-5xl mx-auto">
+            {xeroConnected && invoice.xero_error && (
+              <div className="flex items-start gap-2.5 px-4 py-3 bg-danger-tint border border-danger-border rounded-lg text-sm text-danger-text mb-6">
+                <Info className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>
+                  This invoice isn&rsquo;t in Xero yet: {invoice.xero_error} Fix that in Xero or here, then use &ldquo;{invoice.xero_invoice_id ? "Resync to Xero" : "Send to Xero"}&rdquo;.
+                </span>
+              </div>
+            )}
             <div className="flex items-start gap-2.5 px-4 py-3 bg-warn-bg border border-warn-fg/25 rounded-lg text-sm text-warn-fg mb-6">
               <Info className="w-4 h-4 mt-0.5 shrink-0" />
               <span>

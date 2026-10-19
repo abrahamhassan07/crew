@@ -112,6 +112,7 @@ export type Client = {
   tags: string[];
   lead_source: string | null;
   review_requested_at: string | null;
+  xero_contact_id: string | null;
   org_id: string;
   created_at: string;
   updated_at: string;
@@ -233,7 +234,25 @@ export type Invoice = {
   mode: GstMode;
   status: InvoiceStatus;
   notes: string;
+  xero_invoice_id: string | null;
+  xero_synced_at: string | null;
+  xero_error: string | null;
   org_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type XeroConnection = {
+  org_id: string;
+  connection_id: string;
+  tenant_id: string;
+  tenant_name: string;
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+  sales_account_code: string;
+  auto_sync: boolean;
+  connected_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -409,6 +428,12 @@ export type Database = {
         Row: Invoice;
         Insert: Partial<Invoice> & Pick<Invoice, "num" | "client_id" | "org_id">;
         Update: Partial<Invoice>;
+        Relationships: [];
+      };
+      xero_connections: {
+        Row: XeroConnection;
+        Insert: Partial<XeroConnection> & Pick<XeroConnection, "org_id" | "connection_id" | "tenant_id" | "access_token" | "refresh_token" | "expires_at">;
+        Update: Partial<XeroConnection>;
         Relationships: [];
       };
       invoice_items: {

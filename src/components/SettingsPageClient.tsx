@@ -9,13 +9,14 @@ import { SelectField } from "@/components/forms/SelectField";
 import { TextAreaField } from "@/components/forms/TextAreaField";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LogoUploader } from "@/components/LogoUploader";
+import { XeroCard, type XeroSettingsView } from "@/components/XeroCard";
 import { logoUrl } from "@/lib/logo";
 import { MessageSquareText } from "lucide-react";
 import { isValidAbn } from "@/lib/validate";
 import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, PLACEHOLDERS, templateFor, type TemplateKind } from "@/lib/emailTemplates";
 import type { Organization } from "@/lib/supabase/types";
 
-export function SettingsPageClient({ organization }: { organization: Organization }) {
+export function SettingsPageClient({ organization, xero, xeroResult }: { organization: Organization; xero: XeroSettingsView; xeroResult?: string }) {
   const [input, setInput] = useState<OrganizationInput>({
     name: organization.name,
     email: organization.email ?? "",
@@ -158,6 +159,8 @@ export function SettingsPageClient({ organization }: { organization: Organizatio
               <p className="text-xs text-warn-fg mt-2">Add your business email first. Notifications aren&rsquo;t sent without it.</p>
             )}
           </CollapsibleCard>
+
+          <XeroCard xero={xero} result={xeroResult} />
 
           <CollapsibleCard title="SMS notifications" summary="Coming soon">
             <div className="flex items-start gap-3 pt-3">
