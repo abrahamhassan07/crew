@@ -18,7 +18,8 @@ export function LoginForm({ next, oauthError, idle }: { next: string; oauthError
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@crewandgrounds.com";
 
   // Password accepted and the account has two-factor on: swap the form for the code step.
-  const needsCode = !!state?.mfa;
+  const [googleNeedsCode, setGoogleNeedsCode] = useState(false);
+  const needsCode = !!state?.mfa || googleNeedsCode;
   const heading = needsCode ? "Two-factor sign-in" : "Welcome back";
   const subheading = needsCode ? "Enter the 6-digit code from your authenticator app" : "Log in to your Crew & Grounds account";
 
@@ -38,7 +39,7 @@ export function LoginForm({ next, oauthError, idle }: { next: string; oauthError
         <MfaChallengeForm next={next.startsWith("/") ? next : "/"} supportEmail={supportEmail} onSignOut={() => window.location.reload()} />
       ) : (
     <div className="flex flex-col gap-4">
-      <GoogleSignInButton next={next} onError={setGoogleError} />
+      <GoogleSignInButton next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
 
       {(googleError || oauthError) && (
         <p className="text-sm text-danger-red">{OAUTH_ERRORS[googleError ?? oauthError ?? ""] ?? "Something went wrong. Please try again."}</p>

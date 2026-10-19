@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { loadGoogleIdentity, sha256Hex } from "@/lib/googleIdentity";
 import { provisionAfterGoogleSignIn } from "@/app/auth/actions";
@@ -20,14 +21,21 @@ export function GoogleSignInButton({
   next,
   businessName,
   onError,
+  onNeedsCode,
 }: {
   next: string;
   businessName?: string;
   onError: (code: string) => void;
+  /** Called instead of navigating when the account has two-factor on and still needs the code. */
+  onNeedsCode?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const businessNameRef = useRef(businessName);
-  businessNameRef.current = businessName;
+  const onNeedsCodeRef = useRef(onNeedsCode);
+  useEffect(() => {
+    businessNameRef.current = businessName;
+    onNeedsCodeRef.current = onNeedsCode;
+  });
 
   const [pending, setPending] = useState(false);
   const isSignup = businessName !== undefined;
@@ -80,6 +88,16 @@ export function GoogleSignInButton({
               onError(result.error ?? "oauth-failed");
               return;
             }
+            // Two-factor on: ask for the code in place instead of letting the
+            // server bounce the dashboard request to the full-page /login/mfa.
+            if (onNeedsCodeRef.current) {
+              const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+              if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+                setPending(false);
+                onNeedsCodeRef.current();
+                return;
+              }
+            }
             window.location.assign(next);
           } catch {
             setPending(false);
@@ -114,7 +132,12 @@ export function GoogleSignInButton({
   return (
     <div className="relative">
       <div ref={containerRef} className="w-full flex justify-center" />
-      {pending && <div className="absolute inset-0 flex items-center justify-center bg-white/70 text-sm text-ink-muted">Signing in…</div>}
+      {pending && (
+        <div className="absolute inset-0 flex items-center justify-center gap-2 rounded-md border border-field-border bg-white text-sm font-semibold text-ink-secondary">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Signing in…
+        </div>
+      )}
     </div>
   );
 }
