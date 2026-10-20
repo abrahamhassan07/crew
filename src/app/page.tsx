@@ -137,7 +137,7 @@ const FAQ = [
   },
   {
     q: "Does it work with Xero?",
-    a: "Yes. On the Team plan and above, connect your Xero organisation and every invoice you send is copied into Xero with the client, line items and GST. Edits and voids are kept in step. Payments are still recorded in Crew & Grounds for now.",
+    a: "Yes. On the Team plan and above, connect your Xero organisation and every invoice you send is copied into Xero with the client, line items and GST. Edits and voids are kept in step, and payments sync both ways: payments you record are added to Xero, and payments recorded in Xero (for example from your bank feed) mark the invoice paid here.",
   },
   {
     q: "Can I use it on my phone?",

@@ -13,7 +13,7 @@ import { formatAbn, isValidAbn, isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
 import { renderDocumentPdf } from "@/lib/pdf";
-import { queueXeroSync } from "@/lib/xero";
+import { queueXeroPayment, queueXeroSync } from "@/lib/xero";
 import { after } from "next/server";
 import { JOB_SNAPSHOT_COLUMNS, notifyJobChange, type JobSnapshot } from "@/lib/staffNotify";
 import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, renderTemplate, templateFor, type EmailDraft, type EmailKind } from "@/lib/emailTemplates";
@@ -1423,6 +1423,9 @@ export async function recordPayment(invoiceId: string, input: PaymentInput): Pro
     const status: InvoiceStatus = paid >= total - 0.01 ? "Paid" : "Partially Paid";
     await supabase.from("invoices").update({ status }).eq("id", invoiceId);
   }
+
+  // Record it in Xero too, when the business has chosen a bank account for payments.
+  await queueXeroPayment(viewer.orgId, invoiceId);
 
   revalidatePath("/", "layout");
   return { ok: true };

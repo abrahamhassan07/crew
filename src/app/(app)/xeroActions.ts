@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getViewer } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { disconnectXero, getConnection, orgMayUseXero, pushInvoice, XERO_PLAN_MESSAGE } from "@/lib/xero";
+import { disconnectXero, getConnection, listBankAccounts, orgMayUseXero, pushInvoice, XERO_PLAN_MESSAGE } from "@/lib/xero";
 import type { ActionResult } from "./actions";
 
 async function adminViewer() {
@@ -21,10 +21,27 @@ export async function syncInvoiceToXero(invoiceId: string): Promise<ActionResult
   return result.ok ? { ok: true } : { ok: false, error: result.error ?? "Couldn't send the invoice to Xero." };
 }
 
-export async function saveXeroSettings(input: { salesAccountCode?: string; autoSync?: boolean }): Promise<ActionResult> {
+export async function saveXeroSettings(input: { salesAccountCode?: string; autoSync?: boolean; bankAccountId?: string | null }): Promise<ActionResult> {
   const viewer = await adminViewer();
   if (!viewer) return { ok: false, error: "Only admins can do that." };
-  const patch: { sales_account_code?: string; auto_sync?: boolean } = {};
+  const patch: { sales_account_code?: string; auto_sync?: boolean; bank_account_id?: string | null; bank_account_name?: string | null } = {};
+  if (input.bankAccountId !== undefined) {
+    if (input.bankAccountId === null) {
+      patch.bank_account_id = null;
+      patch.bank_account_name = null;
+    } else {
+      let accounts: { id: string; name: string }[] = [];
+      try {
+        accounts = await listBankAccounts(viewer.orgId);
+      } catch {
+        return { ok: false, error: "Couldn't load your bank accounts from Xero. Try again in a minute." };
+      }
+      const chosen = accounts.find((a) => a.id === input.bankAccountId);
+      if (!chosen) return { ok: false, error: "Choose one of your Xero bank accounts." };
+      patch.bank_account_id = chosen.id;
+      patch.bank_account_name = chosen.name;
+    }
+  }
   if (input.salesAccountCode !== undefined) {
     const code = input.salesAccountCode.trim();
     if (!code || code.length > 20) return { ok: false, error: "Choose a sales account." };

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/marketing/", "/sitemap.xml", "/robots.txt", "/auth/confirm", "/terms", "/privacy", "/api/stripe/webhook", "/api/health", "/api/cron", "/api/csp-report"];
+const PUBLIC_PATHS = ["/login", "/signup", "/marketing/", "/sitemap.xml", "/robots.txt", "/auth/confirm", "/terms", "/privacy", "/api/stripe/webhook", "/api/xero/webhook", "/api/health", "/api/cron", "/api/csp-report"];
 
 // Signed-in sessions end after this long without a visit. Supabase can only do this on its paid plan,
 // so the site tracks the last visit itself. The cookie is only a timestamp; the login stays with Supabase.

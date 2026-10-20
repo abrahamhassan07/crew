@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { SettingsPageClient } from "@/components/SettingsPageClient";
 import type { XeroSettingsView } from "@/components/XeroCard";
-import { getConnection, listSalesAccounts, orgMayUseXero, xeroConfigured } from "@/lib/xero";
+import { getConnection, hasPaymentScope, listBankAccounts, listSalesAccounts, orgMayUseXero, xeroConfigured } from "@/lib/xero";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const viewer = await requireAdmin();
@@ -18,10 +18,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
   const allowed = await orgMayUseXero(viewer.orgId);
   let accounts: XeroSettingsView["accounts"] = [];
+  let bankAccounts: XeroSettingsView["bankAccounts"] = [];
   let accountsFailed = false;
+  const paymentScope = !!connection && hasPaymentScope(connection);
   if (connection && allowed) {
     try {
-      accounts = await listSalesAccounts(viewer.orgId);
+      [accounts, bankAccounts] = await Promise.all([listSalesAccounts(viewer.orgId), paymentScope ? listBankAccounts(viewer.orgId) : Promise.resolve([])]);
     } catch {
       accountsFailed = true;
     }
@@ -34,6 +36,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     salesAccountCode: connection?.sales_account_code ?? "200",
     autoSync: connection?.auto_sync ?? true,
     accounts,
+    paymentScope,
+    bankAccounts,
+    bankAccountId: connection?.bank_account_id ?? null,
+    bankAccountName: connection?.bank_account_name ?? null,
+    webhookLive: !!process.env.XERO_WEBHOOK_KEY,
     accountsFailed: accountsFailed || (!!connection && accounts.length === 0),
   };
 

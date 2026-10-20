@@ -220,6 +220,8 @@ export type Payment = {
   paid_date: string;
   method: string;
   reference: string;
+  xero_payment_id: string | null;
+  source: "app" | "xero";
   org_id: string;
   created_at: string;
 };
@@ -254,6 +256,9 @@ export type XeroConnection = {
   expires_at: string;
   sales_account_code: string;
   auto_sync: boolean;
+  scopes: string[];
+  bank_account_id: string | null;
+  bank_account_name: string | null;
   connected_by: string | null;
   created_at: string;
   updated_at: string;

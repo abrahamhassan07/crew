@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sendDueReminders } from "@/lib/reminders";
+import { syncAllXeroPayments } from "@/lib/xero";
 
 // Called once a day by Vercel Cron (see vercel.json). Vercel sends
 // "Authorization: Bearer $CRON_SECRET"; without that secret configured the route stays closed.
@@ -10,5 +11,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const dryRun = request.nextUrl.searchParams.get("dry") === "1";
-  return NextResponse.json(await sendDueReminders(dryRun));
+  const reminders = await sendDueReminders(dryRun);
+  // Once a day, also catch any Xero payments the webhook missed.
+  let xeroPayments: unknown = "skipped (dry run)";
+  if (!dryRun) {
+    try {
+      xeroPayments = await syncAllXeroPayments();
+    } catch (e) {
+      xeroPayments = { error: e instanceof Error ? e.message : "failed" };
+    }
+  }
+  return NextResponse.json({ ...reminders, xeroPayments });
 }

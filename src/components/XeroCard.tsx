@@ -19,6 +19,13 @@ export interface XeroSettingsView {
   salesAccountCode: string;
   autoSync: boolean;
   accounts: { code: string; name: string }[];
+  /** The connection includes the payments scope (connections made before payments sync need to reconnect once). */
+  paymentScope: boolean;
+  bankAccounts: { id: string; name: string }[];
+  bankAccountId: string | null;
+  bankAccountName: string | null;
+  /** Xero notifies us of payments as they happen (webhook set up); otherwise they're checked once a day. */
+  webhookLive: boolean;
   accountsFailed: boolean;
 }
 
@@ -35,11 +42,12 @@ export function XeroCard({ xero, result }: { xero: XeroSettingsView; result?: st
   const router = useRouter();
   const [code, setCode] = useState(xero.salesAccountCode);
   const [autoSync, setAutoSync] = useState(xero.autoSync);
+  const [bank, setBank] = useState(xero.bankAccountId ?? "");
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(result ? (RESULT_MESSAGES[result] ?? null) : null);
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const save = (patch: { salesAccountCode?: string; autoSync?: boolean }, undo: () => void) => {
+  const save = (patch: { salesAccountCode?: string; autoSync?: boolean; bankAccountId?: string | null }, undo: () => void) => {
     setMessage(null);
     startTransition(async () => {
       const res = await saveXeroSettings(patch);
@@ -89,8 +97,8 @@ export function XeroCard({ xero, result }: { xero: XeroSettingsView; result?: st
         ) : !xero.connected ? (
           <>
             <p className="text-sm text-ink-muted">
-              Connect your Xero organisation and every invoice you send from Crew &amp; Grounds is also created in Xero, with the client, line items and GST filled in. Nothing is
-              read from Xero except your list of sales accounts.
+              Connect your Xero organisation and every invoice you send from Crew &amp; Grounds is also created in Xero, with the client, line items and GST filled in, and payments
+              sync both ways. Crew &amp; Grounds only reads your account lists and the payments on invoices it sent.
             </p>
             {xero.available ? (
               // A full page navigation: the connection starts on Xero's own sign-in page.
@@ -105,7 +113,6 @@ export function XeroCard({ xero, result }: { xero: XeroSettingsView; result?: st
           <>
             <p className="text-sm text-ink-muted">
               Invoices you send are copied into <strong className="text-ink-primary">{xero.tenantName}</strong>. Drafts stay in Crew &amp; Grounds until they&rsquo;re sent.
-              Payments are still recorded here and aren&rsquo;t sent to Xero.
             </p>
 
             <div className="max-w-md">
@@ -150,6 +157,40 @@ export function XeroCard({ xero, result }: { xero: XeroSettingsView; result?: st
                 <span className="block text-xs text-ink-muted">When off, use the &ldquo;Send to Xero&rdquo; button on each invoice.</span>
               </span>
             </label>
+
+            <div className="rounded-lg border border-line p-4 space-y-3">
+              <div className="text-sm font-semibold text-ink-primary">Payments</div>
+              {!xero.paymentScope ? (
+                <>
+                  <p className="text-sm text-ink-muted">
+                    Payments can now sync both ways: payments you record here are added to Xero, and payments recorded in Xero (for example when you reconcile your bank feed) show up here. Reconnect Xero once to allow it.
+                  </p>
+                  <a href="/api/xero/connect">
+                    <Button variant="secondary" size="sm" type="button">Reconnect Xero</Button>
+                  </a>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-ink-muted">
+                    Payments recorded in Xero show up here {xero.webhookLive ? "within a minute or so" : "once a day, or straight away when you press \u201cResync to Xero\u201d on an invoice"}, and mark the invoice paid.
+                  </p>
+                  <div className="max-w-md">
+                    <SelectField
+                      label="Send payments recorded here to"
+                      help="The Xero bank account the money was paid into. Choose “Don’t send” to record payments in Xero yourself."
+                      value={bank}
+                      disabled={pending || xero.accountsFailed}
+                      onChange={(e) => {
+                        const previous = bank;
+                        setBank(e.target.value);
+                        save({ bankAccountId: e.target.value || null }, () => setBank(previous));
+                      }}
+                      options={[{ value: "", label: "Don\u2019t send payments to Xero" }, ...xero.bankAccounts.map((a) => ({ value: a.id, label: a.name }))]}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
 
             <div className="pt-1">
               {confirming ? (

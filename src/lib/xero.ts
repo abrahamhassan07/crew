@@ -3,6 +3,7 @@ import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "crypto"
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { xeroAllowed } from "@/lib/billing";
+import { calcTotals } from "@/lib/gst";
 import type { GstMode, XeroConnection } from "@/lib/supabase/types";
 
 // Xero accounting integration. Each business connects its own Xero organisation (OAuth 2.0 web app flow);
@@ -12,8 +13,9 @@ const AUTHORIZE = "https://login.xero.com/identity/connect/authorize";
 const API = "https://api.xero.com";
 
 // Granular scopes (the broad accounting.transactions scope is being retired). Read-only access to settings is
-// only used to list the business's sales accounts.
-export const XERO_SCOPES = ["offline_access", "accounting.invoices", "accounting.contacts", "accounting.settings.read"];
+// only used to list the business's sales and bank accounts; payments is for syncing payments both ways.
+export const XERO_SCOPES = ["offline_access", "accounting.invoices", "accounting.contacts", "accounting.settings.read", "accounting.payments"];
+const PAYMENT_SCOPE = "accounting.payments";
 
 export const XERO_PLAN_MESSAGE = "Xero is included with the Team plan (2–5 users) and above. See plans to upgrade.";
 
@@ -118,11 +120,25 @@ export async function saveConnection(orgId: string, userId: string, tokens: Toke
     refresh_token: encryptToken(tokens.refresh_token),
     expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
     connected_by: userId,
+    scopes: tokenScopes(tokens.access_token),
   };
   // Reconnecting keeps the chosen sales account and auto-sync setting.
   const { error } = await admin.from("xero_connections").upsert(row, { onConflict: "org_id" });
   if (error) throw new Error(error.message);
 }
+
+/** The scopes the business approved, read from the access token (a JWT). */
+function tokenScopes(accessToken: string): string[] {
+  try {
+    const scope = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString()).scope;
+    return Array.isArray(scope) ? scope : typeof scope === "string" ? scope.split(" ") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Connections made before payments sync existed lack the payments scope and need to reconnect once. */
+export const hasPaymentScope = (conn: Pick<XeroConnection, "scopes">) => (conn.scopes ?? []).includes(PAYMENT_SCOPE);
 
 export async function getConnection(orgId: string): Promise<XeroConnection | null> {
   const { data } = await createAdminClient().from("xero_connections").select("*").eq("org_id", orgId).maybeSingle();
@@ -284,9 +300,11 @@ export async function pushInvoice(orgId: string, invoiceId: string): Promise<{ o
 
     // Same for the saved invoice link: if that invoice isn't in the connected Xero, start fresh instead of updating a ghost.
     let existingId = invoice.xero_invoice_id;
+    let remotePaid = 0;
     if (existingId) {
       try {
-        await xero(conn, `/Invoices/${existingId}`);
+        const remote = await xero(conn, `/Invoices/${existingId}`);
+        remotePaid = Number(remote?.Invoices?.[0]?.AmountPaid ?? 0);
       } catch (e) {
         if (!(e instanceof XeroApiError) || e.status !== 404) throw e;
         existingId = null;
@@ -296,7 +314,10 @@ export async function pushInvoice(orgId: string, invoiceId: string): Promise<{ o
     if (invoice.status === "Voided" && !existingId) return { ok: true, skipped: true };
 
     let saved;
-    if (invoice.status === "Voided") {
+    if (existingId && remotePaid > 0 && invoice.status !== "Voided") {
+      // Xero won't let an invoice with payments on it be edited, so once it's being paid only payments sync.
+      saved = null;
+    } else if (invoice.status === "Voided") {
       saved = await xero(conn, `/Invoices/${existingId}`, { method: "POST", body: { InvoiceID: existingId, Status: "VOIDED" } });
     } else {
       const [{ data: client }, { data: job }] = await Promise.all([
@@ -331,6 +352,12 @@ export async function pushInvoice(orgId: string, invoiceId: string): Promise<{ o
       .from("invoices")
       .update({ xero_invoice_id: xeroId ?? existingId, xero_synced_at: new Date().toISOString(), xero_error: null })
       .eq("id", invoiceId);
+    if (invoice.status !== "Voided" && (xeroId ?? existingId)) {
+      // Bring Xero's payments over first (so a payment entered in both places is matched, not doubled), then send ours.
+      await pullPayments(conn, [invoiceId]);
+      const pushed = await pushPendingPayments(conn, invoiceId);
+      if (pushed.error) return await fail(pushed.error);
+    }
     return { ok: true };
   } catch (e) {
     console.error("[xero sync]", e instanceof Error ? e.message : e);
@@ -343,4 +370,193 @@ export async function queueXeroSync(orgId: string, invoiceId: string) {
   const conn = await getConnection(orgId);
   if (!conn?.auto_sync || !(await orgMayUseXero(orgId))) return;
   after(() => pushInvoice(orgId, invoiceId));
+}
+
+// ---------------------------------------------------------------------------
+// Payments: sent to Xero when recorded here, and brought back when recorded in Xero (bank reconciliation etc.)
+// ---------------------------------------------------------------------------
+export interface BankAccount {
+  id: string;
+  name: string;
+}
+
+/** The business's bank accounts, for choosing where payments recorded here are paid into. */
+export async function listBankAccounts(orgId: string): Promise<BankAccount[]> {
+  const conn = await getConnection(orgId);
+  if (!conn) return [];
+  const data = await xero(conn, `/Accounts?where=${encodeURIComponent('Type=="BANK"')}`);
+  return ((data?.Accounts ?? []) as { AccountID: string; Name: string; Status: string }[])
+    .filter((a) => a.Status === "ACTIVE")
+    .map((a) => ({ id: a.AccountID, name: a.Name }));
+}
+
+/** Xero's JSON dates look like "/Date(1760918400000+0000)/". */
+function xeroDate(v: unknown): string {
+  const m = typeof v === "string" ? v.match(/\/Date\((-?\d+)/) : null;
+  return (m ? new Date(Number(m[1])) : new Date()).toISOString().slice(0, 10);
+}
+
+/** Paid, Partially Paid or back to Sent/Overdue, from the payments recorded against an invoice. */
+async function refreshInvoiceStatus(invoiceId: string) {
+  const admin = createAdminClient();
+  const [{ data: invoice }, { data: items }, { data: payments }] = await Promise.all([
+    admin.from("invoices").select("status, mode").eq("id", invoiceId).single(),
+    admin.from("invoice_items").select("qty, unit_price").eq("invoice_id", invoiceId),
+    admin.from("payments").select("amount").eq("invoice_id", invoiceId),
+  ]);
+  if (!invoice || invoice.status === "Draft" || invoice.status === "Voided") return;
+  const total = calcTotals(items ?? [], invoice.mode).total;
+  const paid = (payments ?? []).reduce((s, p) => s + Number(p.amount), 0);
+  // Same rule as recording a payment here; with nothing paid (a Xero payment was deleted) it goes back to Sent.
+  const status = paid >= total - 0.01 ? "Paid" : paid > 0 ? "Partially Paid" : invoice.status === "Overdue" ? "Overdue" : "Sent";
+  if (status !== invoice.status) await admin.from("invoices").update({ status }).eq("id", invoiceId);
+}
+
+interface RemotePayment {
+  PaymentID: string;
+  Date: string;
+  Amount: number;
+  Reference?: string;
+}
+
+/**
+ * Brings payments recorded in Xero into Crew & Grounds for the given invoices (local ids). A payment already
+ * recorded here for the same amount within a few days is linked rather than added twice. Payments that came from
+ * Xero and have since been deleted there are removed here.
+ */
+export async function pullPayments(conn: XeroConnection, invoiceIds: string[]): Promise<{ added: number; removed: number }> {
+  const admin = createAdminClient();
+  const result = { added: 0, removed: 0 };
+  const { data: invoices } = await admin.from("invoices").select("id, xero_invoice_id, status").eq("org_id", conn.org_id).in("id", invoiceIds).not("xero_invoice_id", "is", null);
+  for (let i = 0; i < (invoices ?? []).length; i += 40) {
+    const batch = invoices!.slice(i, i + 40);
+    const data = await xero(conn, `/Invoices?IDs=${batch.map((b) => b.xero_invoice_id).join(",")}`);
+    for (const remote of (data?.Invoices ?? []) as { InvoiceID: string; Status: string; Payments?: RemotePayment[] }[]) {
+      const local = batch.find((b) => b.xero_invoice_id === remote.InvoiceID);
+      if (!local || local.status === "Voided" || ["VOIDED", "DELETED"].includes(remote.Status)) continue;
+      const remotePayments = remote.Payments ?? [];
+      const { data: existing } = await admin.from("payments").select("id, amount, paid_date, xero_payment_id, source").eq("invoice_id", local.id);
+      let changed = false;
+
+      for (const rp of remotePayments) {
+        if ((existing ?? []).some((p) => p.xero_payment_id === rp.PaymentID)) continue;
+        const date = xeroDate(rp.Date);
+        const twin = (existing ?? []).find(
+          (p) => !p.xero_payment_id && p.source === "app" && Math.abs(Number(p.amount) - rp.Amount) < 0.01 && Math.abs(Date.parse(p.paid_date) - Date.parse(date)) <= 5 * 864e5
+        );
+        if (twin) {
+          await admin.from("payments").update({ xero_payment_id: rp.PaymentID }).eq("id", twin.id);
+          twin.xero_payment_id = rp.PaymentID;
+          continue;
+        }
+        const { error } = await admin.from("payments").insert({
+          org_id: conn.org_id,
+          invoice_id: local.id,
+          amount: rp.Amount,
+          paid_date: date,
+          method: "Recorded in Xero",
+          reference: rp.Reference?.trim() || "—",
+          xero_payment_id: rp.PaymentID,
+          source: "xero",
+        });
+        if (!error) {
+          result.added++;
+          changed = true;
+        }
+      }
+
+      const remoteIds = new Set(remotePayments.map((p) => p.PaymentID));
+      const gone = (existing ?? []).filter((p) => p.source === "xero" && p.xero_payment_id && !remoteIds.has(p.xero_payment_id));
+      if (gone.length) {
+        await admin.from("payments").delete().in("id", gone.map((p) => p.id));
+        result.removed += gone.length;
+        changed = true;
+      }
+      if (changed) await refreshInvoiceStatus(local.id);
+    }
+  }
+  return result;
+}
+
+/** Sends payments recorded here (and not yet in Xero) for one invoice, when a bank account has been chosen. */
+async function pushPendingPayments(conn: XeroConnection, invoiceId: string): Promise<{ sent: number; error?: string }> {
+  if (!conn.bank_account_id || !hasPaymentScope(conn)) return { sent: 0 };
+  const admin = createAdminClient();
+  const [{ data: invoice }, { data: pending }] = await Promise.all([
+    admin.from("invoices").select("xero_invoice_id").eq("id", invoiceId).single(),
+    admin.from("payments").select("*").eq("invoice_id", invoiceId).eq("source", "app").is("xero_payment_id", null).order("paid_date"),
+  ]);
+  if (!invoice?.xero_invoice_id || !pending?.length) return { sent: 0 };
+  let sent = 0;
+  for (const p of pending) {
+    try {
+      const saved = await xero(conn, "/Payments", {
+        method: "PUT",
+        idempotencyKey: `crew-payment-${p.id}`,
+        body: {
+          Invoice: { InvoiceID: invoice.xero_invoice_id },
+          Account: { AccountID: conn.bank_account_id },
+          Date: p.paid_date,
+          Amount: Number(p.amount),
+          Reference: [p.method, p.reference !== "—" ? p.reference : ""].filter(Boolean).join(" · ").slice(0, 255) || undefined,
+        },
+      });
+      const id = saved?.Payments?.[0]?.PaymentID as string | undefined;
+      if (id) {
+        await admin.from("payments").update({ xero_payment_id: id }).eq("id", p.id);
+        sent++;
+      }
+    } catch (e) {
+      const why = e instanceof XeroApiError ? e.message : "Couldn't reach Xero.";
+      return { sent, error: `A payment couldn't be sent to Xero: ${why}` };
+    }
+  }
+  return { sent };
+}
+
+/** Fire-and-forget after a payment is recorded here: make sure the invoice is in Xero, then send the payment. */
+export async function queueXeroPayment(orgId: string, invoiceId: string) {
+  const conn = await getConnection(orgId);
+  if (!conn?.auto_sync || !conn.bank_account_id || !hasPaymentScope(conn) || !(await orgMayUseXero(orgId))) return;
+  after(() => pushInvoice(orgId, invoiceId));
+}
+
+/** Daily safety net (cron) and webhook catch-up: pull payments for every unpaid invoice that is in Xero. */
+export async function syncAllXeroPayments(): Promise<{ orgs: number; added: number; removed: number; errors: number }> {
+  const admin = createAdminClient();
+  const summary = { orgs: 0, added: 0, removed: 0, errors: 0 };
+  const { data: conns } = await admin.from("xero_connections").select("*");
+  for (const conn of conns ?? []) {
+    if (!(await orgMayUseXero(conn.org_id))) continue;
+    const { data: open } = await admin.from("invoices").select("id").eq("org_id", conn.org_id).in("status", ["Sent", "Overdue", "Partially Paid", "Paid"]).not("xero_invoice_id", "is", null).limit(400);
+    if (!open?.length) continue;
+    summary.orgs++;
+    try {
+      const r = await pullPayments(conn, open.map((i) => i.id));
+      summary.added += r.added;
+      summary.removed += r.removed;
+    } catch (e) {
+      summary.errors++;
+      console.error("[xero payments sync]", conn.org_id, e instanceof Error ? e.message : e);
+    }
+  }
+  return summary;
+}
+
+/** Xero webhook: an invoice changed in a connected organisation. Pull its payments for every business linked to it. */
+export async function handleInvoiceEvents(events: { tenantId: string; resourceId: string; eventCategory: string }[]) {
+  const admin = createAdminClient();
+  for (const ev of events.filter((e) => e.eventCategory === "INVOICE")) {
+    const { data: conns } = await admin.from("xero_connections").select("*").eq("tenant_id", ev.tenantId);
+    for (const conn of conns ?? []) {
+      if (!(await orgMayUseXero(conn.org_id))) continue;
+      const { data: inv } = await admin.from("invoices").select("id").eq("org_id", conn.org_id).eq("xero_invoice_id", ev.resourceId).maybeSingle();
+      if (!inv) continue;
+      try {
+        await pullPayments(conn, [inv.id]);
+      } catch (e) {
+        console.error("[xero webhook]", e instanceof Error ? e.message : e);
+      }
+    }
+  }
 }
