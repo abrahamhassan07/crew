@@ -93,6 +93,7 @@ export async function loadInvoiceDoc(id: string): Promise<LoadedDoc | null> {
       serviceNotes: invoice.service_notes,
       paid,
       jobNum: job.data?.num ?? null,
+      reference: invoice.reference ?? null,
     },
     total: calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), invoice.mode).total,
     filename: `${invoice.num}.pdf`,

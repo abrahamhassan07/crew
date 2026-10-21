@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
 import { SendEmailModal } from "@/components/SendEmailModal";
 import { DecimalInput } from "@/components/forms/DecimalInput";
+import { DEFAULT_REFERENCE_TEMPLATE, renderReference } from "@/lib/invoiceNumbers";
 import { syncInvoiceToXero } from "@/app/(app)/xeroActions";
 import type { EmailDraft } from "@/lib/emailTemplates";
 import { ToastBanner, useToast } from "@/components/Toast";
@@ -47,6 +48,7 @@ export function InvoiceEditor({
   organization,
   startInEdit = false,
   xeroConnected = false,
+  suggestedNum = "",
   prefill,
 }: {
   invoice: Invoice | null;
@@ -60,6 +62,8 @@ export function InvoiceEditor({
   startInEdit?: boolean;
   /** The business has connected Xero: show the sync controls. */
   xeroConnected?: boolean;
+  /** The number a new invoice will get (shown, and editable, on the form). */
+  suggestedNum?: string;
   /** A new invoice started from a completed job: client, address, job reference and a line item. */
   prefill?: { clientId: string; propertyId: string; jobId: string; lines: InvoiceLineInput[] };
 }) {
@@ -87,6 +91,9 @@ export function InvoiceEditor({
   const gstRegistered = organization?.gst_registered ?? true;
   const [mode, setMode] = useState<GstMode>(invoice?.mode ?? (gstRegistered ? "exclusive" : "none"));
   const [notes, setNotes] = useState(invoice?.notes ?? (organization?.payment_details?.trim() || "Please use the invoice number as your payment reference."));
+  const [num, setNum] = useState(invoice?.num ?? suggestedNum);
+  // null = not edited yet, so the reference follows the default pattern as the job and client are chosen.
+  const [refText, setRefText] = useState<string | null>(invoice?.reference ?? null);
   const [serviceNotes, setServiceNotes] = useState(invoice?.service_notes ?? "");
   const [showNotes, setShowNotes] = useState(!!invoice?.service_notes);
   const [lines, setLines] = useState<InvoiceLineInput[]>(
@@ -107,7 +114,15 @@ export function InvoiceEditor({
   const balance = Math.max(0, totals.total - paid);
   const overdue = invoice?.status === "Overdue";
 
-  const input: InvoiceInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, jobId: jobId || null, issueDate, dueDate, mode, notes, serviceNotes, items: lines };
+  const defaultReference = renderReference(organization?.invoice_reference_template ?? DEFAULT_REFERENCE_TEMPLATE, {
+    job_number: jobs.find((j) => j.id === jobId)?.num ?? "",
+    client_name: (isNewClient ? newClient.name : clients.find((c) => c.id === clientId)?.name) ?? "",
+    service_address: property ? `${property.street}, ${property.suburb}` : isNewClient ? newClient.address : (clients.find((c) => c.id === clientId)?.address ?? ""),
+  });
+  const reference = refText ?? defaultReference;
+  const numberLocked = !!invoice && invoice.status !== "Draft";
+
+  const input: InvoiceInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, jobId: jobId || null, issueDate, dueDate, mode, notes, serviceNotes, num: numberLocked ? undefined : num, reference, items: lines };
 
   const commitDraft = () => {
     setError(null);
@@ -375,6 +390,12 @@ export function InvoiceEditor({
                           Job: {job.num}
                         </>
                       )}
+                      {invoice.reference && (
+                        <>
+                          <br />
+                          Ref: {invoice.reference}
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -563,7 +584,7 @@ export function InvoiceEditor({
                 <div className="flex items-end text-xs text-ink-muted pb-2">They&rsquo;ll be added to your Clients list as a Lead when you save.</div>
               ) : (
                 <SelectField
-                  label="Job reference"
+                  label="Linked job"
                   value={jobId}
                   onChange={(e) => setJobId(e.target.value)}
                   options={clientJobs.map((j) => ({ value: j.id, label: `${j.num} · ${j.title || j.job_type}${j.job_date ? ` · ${fmtDateLabel(j.job_date)}` : ""}` }))}
@@ -592,6 +613,26 @@ export function InvoiceEditor({
               </div>
               <div className="lg:col-span-3!">
                 <TextField label="Due date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </div>
+              <div className="lg:col-span-2!">
+                <TextField
+                  label="Invoice number"
+                  value={num}
+                  maxLength={40}
+                  disabled={numberLocked}
+                  onChange={(e) => setNum(e.target.value)}
+                  help={xeroConnected ? "Used in Xero too. Set your prefix and next number in Settings." : "Set your prefix and next number in Settings."}
+                />
+              </div>
+              <div className="lg:col-span-4!">
+                <TextField
+                  label="Reference (optional)"
+                  value={reference}
+                  maxLength={255}
+                  onChange={(e) => setRefText(e.target.value)}
+                  placeholder="e.g. PO number or job number"
+                  help={xeroConnected ? "Shown on the invoice and sent to Xero as its Reference." : "Shown on the invoice."}
+                />
               </div>
             </Card>
 

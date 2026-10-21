@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getViewer } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { disconnectXero, getConnection, listBankAccounts, orgMayUseXero, pushInvoice, XERO_PLAN_MESSAGE } from "@/lib/xero";
+import { disconnectXero, getConnection, listBankAccounts, orgMayUseXero, pushInvoice, suggestNumberingFromXero, XERO_PLAN_MESSAGE } from "@/lib/xero";
 import type { ActionResult } from "./actions";
 
 async function adminViewer() {
@@ -60,4 +60,19 @@ export async function disconnectXeroAction(): Promise<ActionResult> {
   await disconnectXero(viewer.orgId);
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+/** "Match my Xero numbering": the latest sales invoice number in Xero, split into prefix, next number and digits. */
+export async function readXeroNumbering(): Promise<ActionResult & { prefix?: string; next?: number; digits?: number; sample?: string }> {
+  const viewer = await adminViewer();
+  if (!viewer) return { ok: false, error: "Only admins can do that." };
+  if (!(await orgMayUseXero(viewer.orgId))) return { ok: false, error: XERO_PLAN_MESSAGE };
+  if (!(await getConnection(viewer.orgId))) return { ok: false, error: "Xero isn't connected. Connect it in Settings." };
+  try {
+    const found = await suggestNumberingFromXero(viewer.orgId);
+    if (!found) return { ok: false, error: "No sales invoices with a numeric ending were found in Xero." };
+    return { ok: true, ...found };
+  } catch {
+    return { ok: false, error: "Couldn't read your invoices from Xero. Try again in a minute." };
+  }
 }

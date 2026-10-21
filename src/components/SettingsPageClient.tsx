@@ -10,6 +10,7 @@ import { TextAreaField } from "@/components/forms/TextAreaField";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LogoUploader } from "@/components/LogoUploader";
 import { XeroCard, type XeroSettingsView } from "@/components/XeroCard";
+import { InvoiceNumberingCard } from "@/components/InvoiceNumberingCard";
 import { logoUrl } from "@/lib/logo";
 import { MessageSquareText } from "lucide-react";
 import { isValidAbn } from "@/lib/validate";
@@ -159,6 +160,8 @@ export function SettingsPageClient({ organization, xero, xeroResult }: { organiz
               <p className="text-xs text-warn-fg mt-2">Add your business email first. Notifications aren&rsquo;t sent without it.</p>
             )}
           </CollapsibleCard>
+
+          <InvoiceNumberingCard organization={organization} xeroConnected={xero.connected && xero.allowed} />
 
           <XeroCard xero={xero} result={xeroResult} />
 

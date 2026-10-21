@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { xeroAllowed } from "@/lib/billing";
 import { calcTotals } from "@/lib/gst";
+import { splitInvoiceNumber } from "@/lib/invoiceNumbers";
 import type { GstMode, XeroConnection } from "@/lib/supabase/types";
 
 // Xero accounting integration. Each business connects its own Xero organisation (OAuth 2.0 web app flow);
@@ -332,7 +333,8 @@ export async function pushInvoice(orgId: string, invoiceId: string): Promise<{ o
         Type: "ACCREC",
         Contact: { ContactID: contactId },
         InvoiceNumber: invoice.num,
-        Reference: job?.num ? `Job ${job.num}` : undefined,
+        // The invoice's own reference (free text). Invoices made before references existed keep the old "Job J-123".
+        Reference: (invoice.reference ?? (job?.num ? `Job ${job.num}` : "")) || undefined,
         Date: invoice.issue_date,
         DueDate: invoice.due_date,
         LineAmountTypes: LINE_AMOUNT_TYPES[invoice.mode],
@@ -559,4 +561,24 @@ export async function handleInvoiceEvents(events: { tenantId: string; resourceId
       }
     }
   }
+}
+
+/**
+ * Reads the business's most recent sales invoice number from Xero (e.g. "INV-0350") and works out the prefix,
+ * digits and the next number, so numbering here can carry on from what they already have.
+ */
+export async function suggestNumberingFromXero(orgId: string): Promise<{ prefix: string; next: number; digits: number; sample: string } | null> {
+  const conn = await getConnection(orgId);
+  if (!conn) return null;
+  const data = await xero(conn, `/Invoices?where=${encodeURIComponent('Type=="ACCREC"')}&order=${encodeURIComponent("Date DESC")}&page=1`);
+  const parsed = ((data?.Invoices ?? []) as { InvoiceNumber?: string }[])
+    .map((i) => splitInvoiceNumber(i.InvoiceNumber ?? ""))
+    .filter((p): p is NonNullable<typeof p> => p !== null);
+  const latest = parsed[0];
+  if (!latest) return null;
+  // The highest number with the same prefix among the latest invoices (Xero's date order isn't always number order).
+  const same = parsed.filter((p) => p.prefix === latest.prefix);
+  const highest = same.reduce((m, p) => (p.n > m.n ? p : m), latest);
+  const digits = Math.max(...same.map((p) => p.digits));
+  return { prefix: latest.prefix, next: highest.n + 1, digits, sample: `${highest.prefix}${String(highest.n).padStart(digits, "0")}` };
 }

@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { fmtDateLabel } from "@/lib/design";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
-import type { InvoiceLineInput } from "@/app/(app)/actions";
+import { suggestInvoiceNum, type InvoiceLineInput } from "@/app/(app)/actions";
+import { getConnection, orgMayUseXero } from "@/lib/xero";
 
 export default async function NewInvoicePage({ searchParams }: PageProps<"/invoices/new">) {
   const viewer = await requireAdmin();
@@ -33,9 +34,14 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
     };
   }
 
+  const suggestedNum = await suggestInvoiceNum();
+  const xeroConnected = !!(await getConnection(viewer.orgId)) && (await orgMayUseXero(viewer.orgId));
+
   return (
     <InvoiceEditor
       invoice={null}
+      suggestedNum={suggestedNum}
+      xeroConnected={xeroConnected}
       items={[]}
       payments={[]}
       clients={clients ?? []}

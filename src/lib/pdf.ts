@@ -25,6 +25,8 @@ export interface DocData {
   serviceNotes?: string;
   paid?: number;
   jobNum?: string | null;
+  /** The invoice's free-text reference (PO number etc.). */
+  reference?: string | null;
 }
 
 const PAGE_W = 595.28;
@@ -143,7 +145,7 @@ export async function renderDocumentPdf(doc: DocData): Promise<Uint8Array> {
     doc.org?.address ?? "",
     [doc.org?.phone, doc.org?.email].filter(Boolean).join("  |  "),
   ].filter(Boolean);
-  const metaLines = [doc.num, ...doc.dates.map((d) => `${d.label}: ${d.value}`), ...(doc.jobNum ? [`Job: ${doc.jobNum}`] : [])];
+  const metaLines = [doc.num, ...doc.dates.map((d) => `${d.label}: ${d.value}`), ...(doc.jobNum ? [`Job: ${doc.jobNum}`] : []), ...(doc.reference ? [`Ref: ${doc.reference}`] : [])];
   const headerRows = Math.max(bizLines.length, metaLines.length);
   for (let i = 0; i < headerRows; i++) {
     if (bizLines[i]) text(bizLines[i], MARGIN, 9, regular, MUTED);

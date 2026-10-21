@@ -19,6 +19,7 @@ import { JOB_SNAPSHOT_COLUMNS, notifyJobChange, type JobSnapshot } from "@/lib/s
 import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, renderTemplate, templateFor, type EmailDraft, type EmailKind } from "@/lib/emailTemplates";
 import { addDays, fmtISO, parseISO, STAFF_HUES, todayISO } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
+import { MAX_NUMBER_LENGTH, MAX_REFERENCE_LENGTH, PREFIX_PATTERN, nextInvoiceNumber, numberPart, type NumberingSettings } from "@/lib/invoiceNumbers";
 import type { FeedbackKind, FeedbackStatus, CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
 
 export interface ActionResult {
@@ -1188,10 +1189,20 @@ export async function convertQuoteToJob(quoteId: string): Promise<CreateResult> 
   return { ok: true, id: job.id };
 }
 
-async function nextInvoiceNum(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
-  const { data } = await supabase.from("invoices").select("num");
-  const max = (data ?? []).reduce((m, r) => Math.max(m, parseInt(r.num.replace(/\D/g, ""), 10) || 0), 1000);
-  return `INV-${max + 1}`;
+/** The business's numbering settings (prefix, next number, digits) with the defaults filled in. */
+function numberingOf(org: { invoice_prefix?: string | null; invoice_next_number?: number | null; invoice_number_digits?: number | null } | null): NumberingSettings {
+  return { prefix: org?.invoice_prefix ?? "INV-", next: org?.invoice_next_number ?? null, digits: org?.invoice_number_digits ?? 1 };
+}
+
+/** What the next invoice would be numbered, for showing on the "New invoice" form. */
+export async function suggestInvoiceNum(): Promise<string> {
+  const viewer = await getViewer();
+  const supabase = await createClient();
+  const [{ data: org }, { data: rows }] = await Promise.all([
+    supabase.from("organizations").select("invoice_prefix, invoice_next_number, invoice_number_digits").eq("id", viewer.orgId).single(),
+    supabase.from("invoices").select("num"),
+  ]);
+  return nextInvoiceNumber(numberingOf(org), (rows ?? []).map((r) => r.num)).num;
 }
 
 export interface InvoiceLineInput {
@@ -1214,12 +1225,21 @@ export interface InvoiceInput {
   notes: string;
   /** Optional notes shown under the line items. */
   serviceNotes?: string;
+  /** The invoice number, editable while it's a draft. Left out, the next number in the sequence is used. */
+  num?: string;
+  /** Free-text reference (a PO number, job number, anything). Sent to Xero as the invoice's Reference. */
+  reference?: string;
   items: InvoiceLineInput[];
 }
 
 export async function saveInvoice(id: string | null, rawInput: InvoiceInput, status: InvoiceStatus): Promise<CreateResult> {
   if (!rawInput.clientId && !rawInput.newClient) return { ok: false, error: "Choose a client, or enter the new client's name." };
   if (!rawInput.items.length || rawInput.items.some((i) => !i.serviceName.trim())) return { ok: false, error: "Every line item needs a name." };
+
+  const typedNum = (rawInput.num ?? "").trim();
+  if (typedNum.length > MAX_NUMBER_LENGTH) return { ok: false, error: "That invoice number is too long." };
+  if (id && rawInput.num !== undefined && !typedNum) return { ok: false, error: "The invoice needs a number." };
+  const reference = (rawInput.reference ?? "").trim().slice(0, MAX_REFERENCE_LENGTH);
 
   const supabase = await createClient();
   const viewer = await getViewer();
@@ -1235,6 +1255,9 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
   }
 
   if (invoiceId) {
+    // The number can only be changed while the invoice is a draft (once sent, it's what the client and Xero have).
+    const { data: current } = await supabase.from("invoices").select("status").eq("id", invoiceId).single();
+    const existingStatus = current?.status;
     const { error } = await supabase
       .from("invoices")
       .update({
@@ -1246,20 +1269,29 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
         mode: input.mode,
         notes: input.notes,
         service_notes: (input.serviceNotes ?? "").trim().slice(0, 2000),
+        reference,
+        ...(typedNum && existingStatus === "Draft" ? { num: typedNum } : {}),
         status,
       })
       .eq("id", invoiceId);
     if (error) {
       if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
-      return { ok: false, error: dbError(error) };
+      return { ok: false, error: error.code === "23505" ? `Invoice number ${typedNum} is already used. Choose a different number.` : dbError(error) };
     }
     await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
   } else {
-    const num = await nextInvoiceNum(supabase);
+    const [{ data: org }, { data: rows }] = await Promise.all([
+      supabase.from("organizations").select("invoice_prefix, invoice_next_number, invoice_number_digits").eq("id", viewer.orgId).single(),
+      supabase.from("invoices").select("num"),
+    ]);
+    const settings = numberingOf(org);
+    const auto = nextInvoiceNumber(settings, (rows ?? []).map((r) => r.num));
+    const num = typedNum || auto.num;
     const { data, error } = await supabase
       .from("invoices")
       .insert({
         num,
+        reference,
         client_id: input.clientId,
         property_id: input.propertyId,
         job_id: input.jobId,
@@ -1275,9 +1307,14 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
       .single();
     if (error || !data) {
       if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
-      return { ok: false, error: error ? dbError(error) : "Could not create invoice." };
+      return { ok: false, error: error?.code === "23505" ? `Invoice number ${num} is already used. Choose a different number.` : error ? dbError(error) : "Could not create invoice." };
     }
     invoiceId = data.id;
+    // Keep the counter moving: the next invoice follows the one just made (including a number typed by hand).
+    if (settings.next != null) {
+      const used = typedNum ? numberPart(settings.prefix, typedNum) : auto.n;
+      if (used != null && used >= settings.next) await supabase.from("organizations").update({ invoice_next_number: used + 1 }).eq("id", viewer.orgId);
+    }
   }
 
   const rows = input.items.map((i, k) => ({
@@ -1307,6 +1344,37 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Pr
 
   if (status === "Voided") await queueXeroSync((await getViewer()).orgId, id);
 
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export interface InvoiceNumberingInput {
+  prefix: string;
+  /** Empty = carry on from the highest existing number. */
+  nextNumber: string;
+  digits: number;
+  referenceTemplate: string;
+}
+
+export async function saveInvoiceNumbering(input: InvoiceNumberingInput): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Only admins can do that." };
+  const prefix = input.prefix;
+  if (!PREFIX_PATTERN.test(prefix)) return { ok: false, error: "The prefix can use letters, numbers and - _ / . # only, up to 12 characters." };
+  const nextRaw = input.nextNumber.trim();
+  let next: number | null = null;
+  if (nextRaw) {
+    if (!/^\d{1,8}$/.test(nextRaw) || Number(nextRaw) < 1) return { ok: false, error: "The next number must be a whole number, 1 or more." };
+    next = Number(nextRaw);
+  }
+  if (!Number.isInteger(input.digits) || input.digits < 1 || input.digits > 8) return { ok: false, error: "Digits must be between 1 and 8." };
+  if (input.referenceTemplate.length > 100) return { ok: false, error: "Keep the default reference under 100 characters." };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("organizations")
+    .update({ invoice_prefix: prefix, invoice_next_number: next, invoice_number_digits: input.digits, invoice_reference_template: input.referenceTemplate.trim() })
+    .eq("id", viewer.orgId);
+  if (error) return { ok: false, error: dbError(error) };
   revalidatePath("/", "layout");
   return { ok: true };
 }

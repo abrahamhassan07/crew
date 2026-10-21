@@ -34,6 +34,10 @@ export type Organization = {
   review_email_subject: string | null;
   review_email_body: string | null;
   logo_path: string | null;
+  invoice_prefix: string;
+  invoice_next_number: number | null;
+  invoice_number_digits: number;
+  invoice_reference_template: string;
   plan: string | null;
   team_size: string | null;
   billing_interval: "month" | "year" | null;
@@ -238,6 +242,7 @@ export type Invoice = {
   status: InvoiceStatus;
   notes: string;
   service_notes: string;
+  reference: string | null;
   xero_invoice_id: string | null;
   xero_synced_at: string | null;
   xero_error: string | null;
