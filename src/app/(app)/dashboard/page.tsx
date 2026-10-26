@@ -265,9 +265,11 @@ export default async function DashboardPage() {
                 {todaySchedule.length > 0 ? (
                   <div className="divide-y divide-line-soft">
                     {todaySchedule.map((job) => (
-                      <div
+                      <Link
                         key={job.id}
-                        className="p-4 hover:bg-page-bg transition-colors cursor-pointer grid grid-cols-[80px_minmax(0,1fr)_auto] gap-3 items-center"
+                        href={`/jobs/${job.id}`}
+                        aria-label={`Open job for ${job.client_name}`}
+                        className="p-4 hover:bg-page-bg focus-visible:bg-page-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 transition-colors cursor-pointer grid grid-cols-[80px_minmax(0,1fr)_auto] gap-3 items-center"
                       >
                         <div>
                           <div className="text-sm font-bold text-ink-primary">
@@ -319,7 +321,7 @@ export default async function DashboardPage() {
                           }
                           showDot
                         />
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 ) : (
