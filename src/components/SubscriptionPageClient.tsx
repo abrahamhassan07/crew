@@ -162,7 +162,7 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
               <div className="text-sm text-ink-muted mt-1">free, no card needed</div>
               <div className="mt-4 rounded-lg bg-page-bg px-3.5 py-3 text-sm flex flex-col gap-1.5">
                 <div className="flex justify-between">
-                  <span className="text-ink-secondary">Invoices sent</span>
+                  <span className="text-ink-secondary">Invoices</span>
                   <span className="font-semibold">{FREE_PLAN.invoices} a month</span>
                 </div>
                 <div className="flex justify-between">
@@ -214,7 +214,7 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
 
                   <div className="mt-4 rounded-lg bg-page-bg px-3.5 py-3 text-sm flex flex-col gap-1.5">
                     <div className="flex justify-between">
-                      <span className="text-ink-secondary">Invoices sent</span>
+                      <span className="text-ink-secondary">Invoices</span>
                       <span className="font-semibold">{t.invoices} a month</span>
                     </div>
                     <div className="flex justify-between">
