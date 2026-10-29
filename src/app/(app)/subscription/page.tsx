@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { emailLimit, getBillingState, seatLimit } from "@/lib/billing";
+import { getBillingState, invoiceLimit, seatLimit } from "@/lib/billing";
+import { invoicesSentThisMonth } from "@/lib/usage";
 import { SubscriptionPageClient } from "@/components/SubscriptionPageClient";
 
 export default async function SubscriptionPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -14,9 +14,7 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
   ]);
   const billing = getBillingState(org);
 
-  const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-  const { count: emailsUsed } = await createAdminClient().from("email_log").select("id", { count: "exact", head: true }).eq("org_id", viewer.orgId).gte("created_at", monthStart);
+  const invoicesUsed = await invoicesSentThisMonth(viewer.orgId);
 
   return (
     <SubscriptionPageClient
@@ -29,8 +27,9 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
       interval={org?.billing_interval ?? null}
       seatsUsed={seatsUsed ?? 0}
       seatLimit={seatLimit(org)}
-      emailsUsed={emailsUsed ?? 0}
-      emailLimit={emailLimit(org)}
+      invoicesUsed={invoicesUsed}
+      invoiceLimit={invoiceLimit(org)}
+      onFree={billing.kind === "free"}
     />
   );
 }

@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
-import { getBillingState, NOTIFICATION_KINDS, reminderLimit } from "@/lib/billing";
+import { NOTIFICATION_KINDS, reminderLimit } from "@/lib/billing";
 import { daysFromToday, fmtTime12, parseISO } from "@/lib/design";
 import { dateLabel } from "@/lib/staffNotify";
 import { renderTemplate, templateFor } from "@/lib/emailTemplates";
@@ -37,10 +37,6 @@ export async function sendDueReminders(dryRun = false): Promise<ReminderSummary>
     summary.businesses++;
     if (!org.email?.trim()) {
       summary.details.push(`${org.name}: no business email set, skipped`);
-      continue;
-    }
-    if (getBillingState(org).kind === "expired") {
-      summary.details.push(`${org.name}: subscription expired, skipped`);
       continue;
     }
     if (org.reminders_enabled) await remindCustomers(admin, org, date, monthStart, dryRun, summary);

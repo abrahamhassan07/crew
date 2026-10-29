@@ -8,7 +8,8 @@ import { getViewer } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { authError, dbError } from "@/lib/errors";
 import { LOGO_BUCKET, LOGO_MAX_BYTES, logoUrl } from "@/lib/logo";
-import { billingEnforced, emailLimit, getBillingState, seatLimit } from "@/lib/billing";
+import { billingEnforced, emailLimit, planName, seatLimit } from "@/lib/billing";
+import { invoiceCapError } from "@/lib/usage";
 import { formatAbn, isValidAbn, isValidEmail } from "@/lib/validate";
 import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
@@ -271,7 +272,7 @@ async function seatError(supabase: Db, orgId: string, excludeStaffId?: string): 
   let q = supabase.from("staff").select("id", { count: "exact", head: true }).eq("active", true);
   if (excludeStaffId) q = q.neq("id", excludeStaffId);
   const { count } = await q;
-  if ((count ?? 0) >= limit) return `Your plan covers ${limit} user${limit === 1 ? "" : "s"}. Change your team size under Subscription to add more.`;
+  if ((count ?? 0) >= limit) return `Your plan covers ${limit} user${limit === 1 ? "" : "s"}. Upgrade under Subscription to add more.`;
   return null;
 }
 
@@ -1339,10 +1340,24 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
 
 export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.from("invoices").update({ status }).eq("id", id);
+  const viewer = await getViewer();
+  const patch: { status: InvoiceStatus; first_sent_at?: string | null } = { status };
+  if (status === "Draft") {
+    // Back to draft (a first send that failed): it was never sent, so it doesn't count towards the monthly cap.
+    patch.first_sent_at = null;
+  } else if (status !== "Voided") {
+    // The first time an invoice goes out it counts towards the plan's monthly invoice cap; later changes don't.
+    const { data: current } = await supabase.from("invoices").select("first_sent_at").eq("id", id).single();
+    if (current && !current.first_sent_at) {
+      const capError = await invoiceCapError(viewer.orgId);
+      if (capError) return { ok: false, error: capError };
+      patch.first_sent_at = new Date().toISOString();
+    }
+  }
+  const { error } = await supabase.from("invoices").update(patch).eq("id", id);
   if (error) return { ok: false, error: dbError(error) };
 
-  if (status === "Voided") await queueXeroSync((await getViewer()).orgId, id);
+  if (status === "Voided") await queueXeroSync(viewer.orgId, id);
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -1584,12 +1599,9 @@ async function emailDocument(loaded: LoadedDoc | null, kind: EmailKind, override
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
     const { count, error: countError } = await admin.from("email_log").select("id", { count: "exact", head: true }).eq("org_id", org.id).in("kind", ["quote", "invoice"]).gte("created_at", monthStart);
     if (!countError && (count ?? 0) >= cap) {
-      const onTrial = getBillingState(org).kind !== "active" && billingEnforced();
       return {
         ok: false,
-        error: onTrial
-          ? `You've emailed ${cap} quotes and invoices this month, which is the limit on the free trial. Subscribe to send more.`
-          : `You've reached this month's limit of ${cap} emailed quotes and invoices. Contact support if you need more.`,
+        error: `You've emailed ${cap} quotes and invoices this month (resends count), which is the limit on ${planName(org)}. Upgrade under Subscription to send more.`,
       };
     }
   }
@@ -1698,10 +1710,22 @@ export async function updateFeedbackStatus(id: string, status: FeedbackStatus): 
 }
 
 /** Called before marking a quote/invoice as sent, so nothing is marked Sent when it can't be emailed. */
-export async function checkCanSendDocuments(): Promise<ActionResult> {
+export async function checkCanSendDocuments(kind?: "quote" | "invoice", invoiceId?: string | null): Promise<ActionResult> {
   const viewer = await getViewer();
   if (viewer.profile.role !== "admin") return { ok: false, error: "Only admins can send documents." };
   const supabase = await createClient();
+  // Sending a new invoice counts towards the plan's monthly cap: say so before the person writes the email.
+  if (kind === "invoice") {
+    let alreadySent = false;
+    if (invoiceId) {
+      const { data: inv } = await supabase.from("invoices").select("first_sent_at").eq("id", invoiceId).single();
+      alreadySent = !!inv?.first_sent_at;
+    }
+    if (!alreadySent) {
+      const capError = await invoiceCapError(viewer.orgId);
+      if (capError) return { ok: false, error: capError };
+    }
+  }
   const { data: org } = await supabase.from("organizations").select("email").eq("id", viewer.orgId).single();
   if (!org?.email?.trim()) {
     return { ok: false, error: "Add your business email under Settings > Business Information first, so your client's replies reach you." };

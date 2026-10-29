@@ -24,7 +24,7 @@ export interface AdminBusiness {
   email: string | null;
   createdAt: string;
   billing: string;
-  billingKind: "exempt" | "active" | "trial" | "expired";
+  billingKind: "exempt" | "active" | "trial" | "free";
   reminders: boolean;
   staffNotifications: boolean;
   clients: number;
@@ -94,7 +94,7 @@ export function AdminBusinessesClient({ businesses, audit }: { businesses: Admin
                       <span>{b.users.length} user{b.users.length === 1 ? "" : "s"}</span>
                       <span>{b.clients} clients</span>
                       <span>{b.jobs} jobs</span>
-                      <span className={b.billingKind === "expired" ? "text-danger font-semibold" : "font-semibold"}>{b.billing}</span>
+                      <span className="font-semibold">{b.billing}</span>
                     </div>
                     <ChevronDown className={`w-4 h-4 text-ink-muted shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
                   </button>

@@ -1,13 +1,11 @@
 import Link from "next/link";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
 import { JobModalProvider } from "@/components/JobModalContext";
 import { getViewer } from "@/lib/auth";
 import { billingEnforced, getBillingState } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
 import { isPlatformAdmin } from "@/lib/platform";
-import { TRIAL_REMINDER_DAYS } from "@/lib/plans";
+import { FREE_PLAN, TRIAL_REMINDER_DAYS } from "@/lib/plans";
 import { isWithinDays } from "@/lib/design";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -21,10 +19,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const billing = getBillingState(organization);
   const enforced = billingEnforced();
-  if (enforced && billing.kind === "expired") {
-    const path = (await headers()).get("x-pathname") ?? "";
-    if (viewer.profile.role === "admin" && !path.startsWith("/subscription")) redirect("/subscription");
-  }
 
   let banner: React.ReactNode = null;
   if (enforced && viewer.profile.role === "admin") {
@@ -34,9 +28,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       banner = (
         <div className={`px-6 py-2.5 text-sm font-semibold flex flex-wrap items-center justify-between gap-2 ${urgent ? "bg-warn-bg text-warn-fg" : "bg-info-bg text-info-fg"}`}>
           <span>
-            Your free trial ends in {billing.daysLeft} day{billing.daysLeft === 1 ? "" : "s"}. Choose a plan to keep using Crew &amp; Grounds.
+            Your free trial ends in {billing.daysLeft} day{billing.daysLeft === 1 ? "" : "s"}. After that you&rsquo;ll move to the Free plan ({FREE_PLAN.users} user, {FREE_PLAN.invoices} invoices a month) unless you choose a plan.
           </span>
-          <Link href="/subscription" className="underline">Choose a plan</Link>
+          <Link href="/subscription" className="underline">See plans</Link>
         </div>
       );
     } else if (billing.kind === "active" && billing.status === "past_due") {

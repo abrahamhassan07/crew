@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, Info, Tag } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ToastBanner, useToast } from "@/components/Toast";
-import { ANNUAL_DISCOUNT, PLAN, POPULAR_TEAM, TEAM_SIZES, perUser, priceFor, type TeamSize } from "@/lib/plans";
+import { ANNUAL_DISCOUNT, FREE_PLAN, PLAN, POPULAR_TEAM, TEAM_SIZES, perUser, priceFor, type TeamSize } from "@/lib/plans";
 
 export interface SubscriptionPageProps {
   status: string | null;
@@ -17,14 +17,16 @@ export interface SubscriptionPageProps {
   seatsUsed: number;
   /** null = no limit */
   seatLimit: number | null;
-  emailsUsed: number;
-  /** null = no limit */
-  emailLimit: number | null;
+  invoicesUsed: number;
+  /** Invoices that can be sent per month; null = no limit */
+  invoiceLimit: number | null;
+  /** On the Free plan (no subscription and the trial is over) */
+  onFree: boolean;
 }
 
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@crewandgrounds.com";
 
-export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, checkoutResult, teamSize, interval, seatsUsed, seatLimit, emailsUsed, emailLimit }: SubscriptionPageProps) {
+export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, checkoutResult, teamSize, interval, seatsUsed, seatLimit, invoicesUsed, invoiceLimit, onFree }: SubscriptionPageProps) {
   const { toast, showToast } = useToast();
   const subscribed = !!status && ["active", "trialing", "past_due"].includes(status);
   const currentTeam = TEAM_SIZES.find((t) => t.k === teamSize) ?? null;
@@ -108,14 +110,14 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
               <Info className="w-4 h-4 mt-0.5 shrink-0" />
               <span>
                 {trialDaysLeft != null
-                  ? `You're on a free trial with ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left. Subscribe any time. You won't be charged until your trial ends.`
-                  : "Your free trial has ended. Subscribe to keep using Crew & Grounds."}
+                  ? `You're on a free trial with ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left. Subscribe any time and you won't be charged until the trial ends. If you don't, you'll move to the Free plan (${FREE_PLAN.users} user, ${FREE_PLAN.invoices} invoices a month).`
+                  : `You're on the Free plan: ${FREE_PLAN.users} user and ${FREE_PLAN.invoices} invoices a month. Upgrade any time for more users and invoices.`}
               </span>
             </div>
           )}
 
           <h1 className="text-3xl font-extrabold tracking-tight text-ink-primary">{subscribed ? "Your plan" : "Simple pricing"}</h1>
-          <p className="text-base text-ink-secondary mt-2 mb-6 max-w-2xl">Every plan includes everything. You only pay for the size of your team, and a bigger team costs less per person.</p>
+          <p className="text-base text-ink-secondary mt-2 mb-6 max-w-2xl">Every plan has the same features (Xero is on Team and above). You choose by team size and how many invoices you send each month, and a bigger team costs less per person.</p>
 
           {!subscribed && (
             <div className="flex flex-wrap items-center gap-3.5 mb-6">
@@ -145,7 +147,42 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4.5">
+            <div className="bg-card-bg rounded-xl p-6 flex flex-col" style={{ border: onFree ? "2px solid var(--color-ink-primary)" : "1px solid var(--color-line)" }}>
+              <div className="flex justify-between items-center gap-2">
+                <h2 className="text-2xl font-extrabold tracking-tight">{FREE_PLAN.name}</h2>
+                {onFree && <span className="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap bg-ink-primary text-white">Current plan</span>}
+              </div>
+              <div className="text-sm text-ink-secondary mt-1">Just you</div>
+              <div className="mt-5 min-h-[22px]" />
+              <div className="flex items-baseline gap-1">
+                <span className="text-[44px] font-extrabold tracking-tight leading-none">$0</span>
+                <span className="text-base text-ink-secondary">/mo</span>
+              </div>
+              <div className="text-sm text-ink-muted mt-1">free, no card needed</div>
+              <div className="mt-4 rounded-lg bg-page-bg px-3.5 py-3 text-sm flex flex-col gap-1.5">
+                <div className="flex justify-between">
+                  <span className="text-ink-secondary">Invoices sent</span>
+                  <span className="font-semibold">{FREE_PLAN.invoices} a month</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-secondary">Xero</span>
+                  <span className="font-semibold">Not included</span>
+                </div>
+              </div>
+              <div className="text-xs font-bold uppercase tracking-wide text-ink-muted mt-5 mb-2.5">Includes</div>
+              <div className="flex flex-col gap-2.5 flex-1">
+                {PLAN.features.filter((f) => !f.startsWith("Xero") && !f.startsWith("Logins")).map((f) => (
+                  <div key={f} className="flex gap-2.5 text-sm leading-snug">
+                    <Check className="w-4 h-4 text-brand mt-0.5 shrink-0" />
+                    <span>{f}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="text-xs text-ink-muted mt-3.5">
+                {onFree || exempt ? "You can upgrade any time." : subscribed ? "To move to Free, cancel under Manage billing." : "Where you land when your free trial ends, unless you choose a plan."}
+              </div>
+            </div>
             {TEAM_SIZES.map((t) => {
               const { monthly, now } = priceFor(t, billedAnnually);
               const isCurrent = subscribed && currentTeam?.k === t.k;
@@ -176,6 +213,14 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
                   <div className="text-sm text-ink-muted mt-1">{billedAnnually ? `billed annually ($${now * 12}/yr)` : "billed monthly"}</div>
 
                   <div className="mt-4 rounded-lg bg-page-bg px-3.5 py-3 text-sm flex flex-col gap-1.5">
+                    <div className="flex justify-between">
+                      <span className="text-ink-secondary">Invoices sent</span>
+                      <span className="font-semibold">{t.invoices} a month</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-secondary">Xero</span>
+                      <span className="font-semibold">{t.k === "1" ? "Not included" : "Included"}</span>
+                    </div>
                     <div className="flex justify-between">
                       <span className="text-ink-secondary">Per user</span>
                       <span className="font-semibold">{t.users === 1 ? perUser(t) : `${perUser(t)} when full`}</span>
@@ -217,7 +262,7 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
           {!exempt && (
             <div className="text-sm text-ink-muted mt-2 flex flex-col gap-0.5">
               <p>{seatLimit === null ? `${seatsUsed} active user${seatsUsed === 1 ? "" : "s"}.` : `You're using ${seatsUsed} of ${seatLimit} users.`}</p>
-              <p>{emailLimit === null ? `${emailsUsed} quote${emailsUsed === 1 ? "" : "s"} and invoice${emailsUsed === 1 ? "" : "s"} emailed this month.` : `${emailsUsed} of ${emailLimit} quotes and invoices emailed this month.`}</p>
+              <p>{invoiceLimit === null ? `${invoicesUsed} invoice${invoicesUsed === 1 ? "" : "s"} sent this month.` : `${invoicesUsed} of ${invoiceLimit} invoices sent this month. The count starts again on the 1st.`}</p>
             </div>
           )}
         </div>

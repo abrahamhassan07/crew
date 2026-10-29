@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Reveal } from "@/components/marketing/Reveal";
-import { ANNUAL_DISCOUNT, PLAN, POPULAR_TEAM, TEAM_SIZES } from "@/lib/plans";
+import { ANNUAL_DISCOUNT, FREE_PLAN, PLAN, POPULAR_TEAM, TEAM_SIZES } from "@/lib/plans";
 
 // The public marketing page. Signed-in people never see it: the proxy sends them to /dashboard.
 // Every claim here is a feature that is live today; keep it that way (no weather, SMS is marked "Coming soon").
@@ -149,7 +149,7 @@ const FAQ = [
   },
   {
     q: "Do I need a credit card to try it?",
-    a: "No. Start a free trial without a card. When you're ready, choose a plan by team size. Plans renew monthly or yearly and you can cancel any time.",
+    a: `No. Start free without a card. Every new business gets a free trial of the app, and afterwards you can stay on the Free plan (${FREE_PLAN.users} user, ${FREE_PLAN.invoices} invoices a month) or choose a paid plan by team size and invoice volume. Paid plans renew monthly or yearly and you can cancel any time.`,
   },
   {
     q: "Is my data secure?",
@@ -171,9 +171,9 @@ export default function LandingPage() {
       offers: {
         "@type": "AggregateOffer",
         priceCurrency: "AUD",
-        lowPrice: Math.min(...TEAM_SIZES.map((t) => t.price)),
+        lowPrice: 0,
         highPrice: Math.max(...TEAM_SIZES.map((t) => t.price)),
-        offerCount: TEAM_SIZES.length,
+        offerCount: TEAM_SIZES.length + 1,
       },
     },
     {
@@ -216,7 +216,7 @@ export default function LandingPage() {
                   See how it works
                 </a>
               </div>
-              <p className="text-sm text-ink-muted mt-4">Free trial. No credit card needed.</p>
+              <p className="text-sm text-ink-muted mt-4">Start free. No credit card needed.</p>
             </div>
 
             <div className="relative">
@@ -371,10 +371,27 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <SectionHeading
               eyebrow="Pricing"
-              title="Simple pricing by team size"
-              text={`Start with a free trial, no card needed. Prices in AUD per month. Save ${Math.round(ANNUAL_DISCOUNT * 100)}% when you pay yearly.`}
+              title="Start free. Upgrade as you grow."
+              text={`No card needed to start. Prices in AUD per month. Save ${Math.round(ANNUAL_DISCOUNT * 100)}% when you pay yearly.`}
             />
-            <div className="grid md:grid-cols-3 gap-4 mt-12 max-w-5xl mx-auto">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-12 max-w-6xl mx-auto">
+              <div className="relative rounded-2xl bg-card-bg p-6 border border-line shadow-sm">
+                <h3 className="font-bold text-lg">{FREE_PLAN.name}</h3>
+                <p className="text-sm text-ink-muted">{FREE_PLAN.label}</p>
+                <p className="mt-4">
+                  <span className="text-4xl font-extrabold text-forest">$0</span>
+                  <span className="text-ink-secondary">/mo</span>
+                </p>
+                <ul className="mt-5 space-y-2 text-sm">
+                  <li className="flex gap-2"><Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden />1 user</li>
+                  <li className="flex gap-2"><Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden />{FREE_PLAN.invoices} invoices sent a month</li>
+                  <li className="flex gap-2"><Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden />Every feature below</li>
+                  <li className="flex gap-2 text-ink-muted"><span className="w-4 shrink-0 text-center" aria-hidden>–</span>Xero not included</li>
+                </ul>
+                <Link href={SIGNUP} className="mt-6 w-full inline-flex justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors border border-field-border hover:bg-page-bg">
+                  Start free
+                </Link>
+              </div>
               {TEAM_SIZES.map((t) => {
                 const popular = t.k === POPULAR_TEAM;
                 const xero = t.k !== "1";
@@ -389,6 +406,7 @@ export default function LandingPage() {
                     </p>
                     <ul className="mt-5 space-y-2 text-sm">
                       <li className="flex gap-2"><Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden />{t.users === 1 ? "1 user" : `Up to ${t.users} users`}</li>
+                      <li className="flex gap-2"><Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden />{t.invoices} invoices sent a month</li>
                       <li className="flex gap-2"><Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden />Every feature below</li>
                       <li className={`flex gap-2 ${xero ? "" : "text-ink-muted"}`}>
                         {xero ? <Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden /> : <span className="w-4 shrink-0 text-center" aria-hidden>–</span>}
@@ -409,13 +427,13 @@ export default function LandingPage() {
               <p className="text-sm font-bold">Every plan includes</p>
               <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 mt-3 text-sm text-ink-secondary">
                 {PLAN.features
-                  .filter((f) => !f.startsWith("Xero"))
-                  .concat(["Customer reminders and staff notifications", "Google review requests"])
+                  .filter((f) => !f.startsWith("Xero") && !f.startsWith("Logins"))
+                  .concat(["Customer reminders and staff notifications (20 reminder emails a month on Free)", "Google review requests"])
                   .map((f) => (
                     <li key={f} className="flex gap-2"><Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden />{f}</li>
                   ))}
               </ul>
-              <p className="text-xs text-ink-muted mt-4">Plans renew monthly or yearly and can be cancelled any time.</p>
+              <p className="text-xs text-ink-muted mt-4">Invoice limits count invoices sent to clients each calendar month; drafts and quotes don&rsquo;t count. Paid plans renew monthly or yearly and can be cancelled any time.</p>
             </div>
           </div>
         </section>
@@ -447,7 +465,7 @@ export default function LandingPage() {
             <div className="absolute -top-20 -left-20 w-56 h-56 rounded-full bg-white/5" aria-hidden />
             <div className="relative">
               <h2 className="font-serif font-semibold text-3xl sm:text-5xl leading-tight">Less admin. More jobs done.</h2>
-              <p className="text-white/75 mt-4 text-lg max-w-xl mx-auto">Start your free trial today. No credit card needed. Add your clients and start scheduling straight away.</p>
+              <p className="text-white/75 mt-4 text-lg max-w-xl mx-auto">Start free today. No credit card needed. Add your clients and start scheduling straight away.</p>
               <div className="mt-8 flex justify-center">
                 <Link href={SIGNUP} className="inline-flex items-center gap-2 rounded-lg bg-white text-forest px-6 py-3 text-base font-bold hover:bg-ok-bg transition-colors">
                   Get started with Crew &amp; Grounds <ArrowRight className="w-4 h-4" aria-hidden />
@@ -500,7 +518,7 @@ function SiteFooter() {
           <span className="text-ink-muted">© {new Date().getFullYear()}</span>
         </div>
         <nav className="flex flex-wrap gap-x-5 gap-y-2" aria-label="Footer">
-          <Link href="/signup" className="hover:text-ink-primary">Start free trial</Link>
+          <Link href="/signup" className="hover:text-ink-primary">Start free</Link>
           <Link href="/login" className="hover:text-ink-primary">Log in</Link>
           <Link href="/terms" className="hover:text-ink-primary">Terms</Link>
           <Link href="/privacy" className="hover:text-ink-primary">Privacy</Link>

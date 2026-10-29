@@ -243,6 +243,7 @@ export type Invoice = {
   notes: string;
   service_notes: string;
   reference: string | null;
+  first_sent_at: string | null;
   xero_invoice_id: string | null;
   xero_synced_at: string | null;
   xero_error: string | null;

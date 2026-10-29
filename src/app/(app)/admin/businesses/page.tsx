@@ -51,7 +51,7 @@ export default async function AdminBusinessesPage() {
   const businesses: AdminBusiness[] = (orgs ?? []).map((o) => {
     const state = getBillingState(o);
     const billing =
-      state.kind === "exempt" ? "Exempt" : state.kind === "active" ? `Subscribed${o.team_size ? ` (${o.team_size})` : ""}` : state.kind === "trial" ? `Trial, ${state.daysLeft}d left` : "Trial ended";
+      state.kind === "exempt" ? "Exempt" : state.kind === "active" ? `Subscribed${o.team_size ? ` (${o.team_size})` : ""}` : state.kind === "trial" ? `Trial, ${state.daysLeft}d left` : "Free plan";
     const orgLogs = (logs ?? []).filter((l) => l.org_id === o.id);
     return {
       id: o.id,

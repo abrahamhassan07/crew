@@ -162,7 +162,7 @@ export function InvoiceEditor({
   const startSend = () => {
     setError(null);
     startTransition(async () => {
-      const ready = await checkCanSendDocuments();
+      const ready = await checkCanSendDocuments("invoice", invoice?.id ?? null);
       if (!ready.ok) {
         setError(ready.error ?? "Can't send yet.");
         return;
@@ -185,7 +185,7 @@ export function InvoiceEditor({
   const sendByEmail = (markSent: boolean) => {
     if (!invoice) return;
     startTransition(async () => {
-      const ready = await checkCanSendDocuments();
+      const ready = await checkCanSendDocuments("invoice", invoice.id);
       if (!ready.ok) {
         showToast(ready.error ?? "Can't send yet.");
         return;
