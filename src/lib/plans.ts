@@ -64,20 +64,25 @@ export interface TierLimits {
   reminders: number | null;
   /** Xero integration (Team and above). It stays off during the trial: Xero limits how many businesses one app can connect. */
   xero: boolean;
+  /** AI features (Client Service Auditor, Voice-to-Quote/Invoice): Team and above, plus a small taste on the trial. */
+  ai: boolean;
+  /** AI uses per calendar month (a voice draft or an audit written with AI each count as 1); null = no ceiling. */
+  aiMonthly: number | null;
 }
 
-const paid = (k: (typeof TEAM_SIZES)[number]["k"]): Omit<TierLimits, "xero"> => {
+const paid = (k: (typeof TEAM_SIZES)[number]["k"]): Omit<TierLimits, "xero" | "ai" | "aiMonthly"> => {
   const t = TEAM_SIZES.find((x) => x.k === k)!;
   return { users: t.users, invoices: t.invoices, emails: t.invoices * 2, reminders: 1000 };
 };
 
 export const TIER_LIMITS: Record<TierKey, TierLimits> = {
-  free: { users: FREE_PLAN.users, invoices: FREE_PLAN.invoices, emails: FREE_PLAN.invoices * 2, reminders: 20, xero: false },
-  trial: { users: 5, invoices: 100, emails: 200, reminders: 100, xero: false },
-  solo: { ...paid("1"), xero: false },
-  team: { ...paid("2-5"), xero: true },
-  business: { ...paid("6-10"), xero: true },
+  free: { users: FREE_PLAN.users, invoices: FREE_PLAN.invoices, emails: FREE_PLAN.invoices * 2, reminders: 20, xero: false, ai: false, aiMonthly: 0 },
+  trial: { users: 5, invoices: 100, emails: 200, reminders: 100, xero: false, ai: true, aiMonthly: 5 },
+  solo: { ...paid("1"), xero: false, ai: false, aiMonthly: 0 },
+  // Ceilings, not allowances: they stop a runaway loop from becoming a surprise bill. Raise them here when needed.
+  team: { ...paid("2-5"), xero: true, ai: true, aiMonthly: 300 },
+  business: { ...paid("6-10"), xero: true, ai: true, aiMonthly: 600 },
 };
 
 /** Used while billing isn't enforced (a free pilot, local development): generous, and Xero is open. */
-export const PILOT_LIMITS: TierLimits = { users: null, invoices: 100, emails: 200, reminders: 300, xero: true };
+export const PILOT_LIMITS: TierLimits = { users: null, invoices: 100, emails: 200, reminders: 300, xero: true, ai: true, aiMonthly: 300 };

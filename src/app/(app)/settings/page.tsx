@@ -2,6 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { SettingsPageClient } from "@/components/SettingsPageClient";
 import type { XeroSettingsView } from "@/components/XeroCard";
+import type { AiSettingsView } from "@/components/AiFeaturesCard";
+import { aiAllowed, aiMonthlyLimit, getBillingState } from "@/lib/billing";
+import { aiUsageThisMonth } from "@/lib/ai/access";
 import { getConnection, hasPaymentScope, listBankAccounts, listSalesAccounts, orgMayUseXero, xeroConfigured } from "@/lib/xero";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -44,5 +47,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     accountsFailed: accountsFailed || (!!connection && accounts.length === 0),
   };
 
-  return <SettingsPageClient organization={organization} xero={xero} xeroResult={typeof sp.xero === "string" ? sp.xero : undefined} />;
+  const ai: AiSettingsView = {
+    allowed: aiAllowed(organization),
+    monthlyLimit: aiMonthlyLimit(organization),
+    usedThisMonth: await aiUsageThisMonth(viewer.orgId),
+    onTrial: getBillingState(organization).kind === "trial",
+    auditor: organization.ai_auditor_enabled,
+    voiceQuote: organization.ai_voice_quote_enabled,
+    voiceInvoice: organization.ai_voice_invoice_enabled,
+  };
+
+  return <SettingsPageClient organization={organization} xero={xero} ai={ai} xeroResult={typeof sp.xero === "string" ? sp.xero : undefined} />;
 }

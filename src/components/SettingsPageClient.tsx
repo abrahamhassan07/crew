@@ -11,13 +11,14 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { LogoUploader } from "@/components/LogoUploader";
 import { XeroCard, type XeroSettingsView } from "@/components/XeroCard";
 import { InvoiceNumberingCard } from "@/components/InvoiceNumberingCard";
+import { AiFeaturesCard, type AiSettingsView } from "@/components/AiFeaturesCard";
 import { logoUrl } from "@/lib/logo";
 import { MessageSquareText } from "lucide-react";
 import { isValidAbn } from "@/lib/validate";
 import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, PLACEHOLDERS, templateFor, type TemplateKind } from "@/lib/emailTemplates";
 import type { Organization } from "@/lib/supabase/types";
 
-export function SettingsPageClient({ organization, xero, xeroResult }: { organization: Organization; xero: XeroSettingsView; xeroResult?: string }) {
+export function SettingsPageClient({ organization, xero, ai, xeroResult }: { organization: Organization; xero: XeroSettingsView; ai: AiSettingsView; xeroResult?: string }) {
   const [input, setInput] = useState<OrganizationInput>({
     name: organization.name,
     email: organization.email ?? "",
@@ -162,6 +163,8 @@ export function SettingsPageClient({ organization, xero, xeroResult }: { organiz
           </CollapsibleCard>
 
           <InvoiceNumberingCard organization={organization} xeroConnected={xero.connected && xero.allowed} />
+
+          <AiFeaturesCard ai={ai} />
 
           <XeroCard xero={xero} result={xeroResult} />
 

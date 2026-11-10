@@ -38,6 +38,9 @@ export type Organization = {
   invoice_next_number: number | null;
   invoice_number_digits: number;
   invoice_reference_template: string;
+  ai_auditor_enabled: boolean;
+  ai_voice_quote_enabled: boolean;
+  ai_voice_invoice_enabled: boolean;
   plan: string | null;
   team_size: string | null;
   billing_interval: "month" | "year" | null;
@@ -198,6 +201,11 @@ export type Quote = {
   service_notes: string;
   request_id: string | null;
   job_id: string | null;
+  created_by: string | null;
+  ai_generated: boolean;
+  approval_status: "pending" | "approved" | null;
+  approved_by: string | null;
+  approved_at: string | null;
   org_id: string;
   created_at: string;
   updated_at: string;
@@ -244,6 +252,11 @@ export type Invoice = {
   service_notes: string;
   reference: string | null;
   first_sent_at: string | null;
+  created_by: string | null;
+  ai_generated: boolean;
+  approval_status: "pending" | "approved" | null;
+  approved_by: string | null;
+  approved_at: string | null;
   xero_invoice_id: string | null;
   xero_synced_at: string | null;
   xero_error: string | null;
@@ -274,7 +287,7 @@ export type EmailLog = {
   id: string;
   org_id: string;
   user_id: string | null;
-  kind: "quote" | "invoice" | "reminder" | "staff" | "review";
+  kind: "quote" | "invoice" | "reminder" | "staff" | "review" | "audit";
   created_at: string;
 };
 
@@ -286,6 +299,102 @@ export type PlatformAudit = {
   target_id: string | null;
   target_label: string | null;
   details: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AiFeature = "auditor_summary" | "voice_quote" | "voice_invoice";
+
+export type AiRequest = {
+  id: string;
+  org_id: string;
+  user_id: string | null;
+  feature: AiFeature;
+  provider: string;
+  model: string;
+  status: "ok" | "error" | "blocked";
+  audio_seconds: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost_usd_est: number | null;
+  detail: string | null;
+  created_at: string;
+};
+
+export type ServiceFrequency = "weekly" | "fortnightly" | "monthly" | "custom";
+
+export type RecurringService = {
+  id: string;
+  org_id: string;
+  client_id: string;
+  title: string;
+  job_type: string;
+  frequency: ServiceFrequency;
+  interval_days: number | null;
+  anchor_date: string;
+  paused_until: string | null;
+  active: boolean;
+  series_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AuditStatus = "overdue" | "not_scheduled" | "upcoming" | "on_track" | "needs_review";
+
+export type ServiceAudit = {
+  id: string;
+  org_id: string;
+  period_key: string | null;
+  trigger: "scheduled" | "manual";
+  as_of: string;
+  totals: Record<string, number>;
+  summary: string | null;
+  summary_source: "ai" | "plain" | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type ServiceAuditItem = {
+  id: string;
+  audit_id: string;
+  org_id: string;
+  client_id: string | null;
+  client_name: string;
+  service_title: string;
+  frequency: string;
+  interval_days: number | null;
+  last_completed: string | null;
+  next_expected: string | null;
+  next_scheduled: string | null;
+  days_overdue: number;
+  status: AuditStatus;
+  reason: string;
+};
+
+export type JobPhoto = {
+  id: string;
+  job_id: string;
+  org_id: string;
+  kind: "before" | "after" | "general";
+  storage_path: string;
+  expires_at: string;
+  preserved: boolean;
+  uploaded_by: string | null;
+  size_bytes: number | null;
+  width: number | null;
+  height: number | null;
+  quote_id: string | null;
+  invoice_id: string | null;
+  created_at: string;
+};
+
+export type PhotoGalleryLink = {
+  id: string;
+  org_id: string;
+  job_id: string;
+  token_hash: string;
+  created_by: string | null;
+  expires_at: string;
+  revoked_at: string | null;
   created_at: string;
 };
 
@@ -465,6 +574,48 @@ export type Database = {
         Row: Equipment;
         Insert: Partial<Equipment> & Pick<Equipment, "name" | "org_id">;
         Update: Partial<Equipment>;
+        Relationships: [];
+      };
+      ai_requests: {
+        Row: AiRequest;
+        Insert: Partial<AiRequest> & Pick<AiRequest, "org_id" | "feature" | "status">;
+        Update: Partial<AiRequest>;
+        Relationships: [];
+      };
+      recurring_services: {
+        Row: RecurringService;
+        Insert: Partial<RecurringService> & Pick<RecurringService, "org_id" | "client_id" | "frequency" | "anchor_date">;
+        Update: Partial<RecurringService>;
+        Relationships: [];
+      };
+      service_audits: {
+        Row: ServiceAudit;
+        Insert: Partial<ServiceAudit> & Pick<ServiceAudit, "org_id" | "trigger" | "as_of">;
+        Update: Partial<ServiceAudit>;
+        Relationships: [];
+      };
+      service_audit_items: {
+        Row: ServiceAuditItem;
+        Insert: Partial<ServiceAuditItem> & Pick<ServiceAuditItem, "audit_id" | "org_id" | "client_name" | "status">;
+        Update: Partial<ServiceAuditItem>;
+        Relationships: [];
+      };
+      job_photos: {
+        Row: JobPhoto;
+        Insert: Partial<JobPhoto> & Pick<JobPhoto, "job_id" | "org_id" | "kind" | "storage_path">;
+        Update: Partial<JobPhoto>;
+        Relationships: [];
+      };
+      photo_gallery_links: {
+        Row: PhotoGalleryLink;
+        Insert: Partial<PhotoGalleryLink> & Pick<PhotoGalleryLink, "org_id" | "job_id" | "token_hash" | "expires_at">;
+        Update: Partial<PhotoGalleryLink>;
+        Relationships: [];
+      };
+      photo_cleanup_runs: {
+        Row: { id: string; run_at: string; photos_deleted: number; files_failed: number; bytes_freed: number; detail: string | null };
+        Insert: { photos_deleted?: number; files_failed?: number; bytes_freed?: number; detail?: string | null };
+        Update: Partial<{ photos_deleted: number; files_failed: number; bytes_freed: number; detail: string | null }>;
         Relationships: [];
       };
       platform_audit: {

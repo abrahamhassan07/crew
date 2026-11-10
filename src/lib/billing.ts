@@ -63,6 +63,15 @@ export function xeroAllowed(org: SeatOrg | null): boolean {
   return limitsFor(org)?.xero ?? true;
 }
 
+/** Whether the plan includes the AI features (Team and Business, a taste on the trial, complimentary accounts). */
+export function aiAllowed(org: SeatOrg | null): boolean {
+  if (!org || org.billing_exempt !== false) return true;
+  return limitsFor(org)?.ai ?? true;
+}
+
+/** AI uses per month on this plan, or null for no ceiling. */
+export const aiMonthlyLimit = (org: SeatOrg | null): number | null => limitsFor(org)?.aiMonthly ?? null;
+
 /** Email kinds that share the monthly notification cap above (reminderLimit). */
 export const NOTIFICATION_KINDS = ["reminder", "staff", "review"] as const;
 
