@@ -11,6 +11,8 @@ import { SendEmailModal } from "@/components/SendEmailModal";
 import { DecimalInput } from "@/components/forms/DecimalInput";
 import type { EmailDraft } from "@/lib/emailTemplates";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
+import { VoiceDraftPanel } from "@/components/VoiceDraftPanel";
+import type { VoiceDraft } from "@/lib/ai/voiceDraft";
 import { daysFromToday, todayISO } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
 import type { Client, GstMode, Property, Quote, QuoteItem, Service } from "@/lib/supabase/types";
@@ -29,6 +31,7 @@ export function QuoteEditor({
   initialRequestId,
   notice,
   gstRegistered = true,
+  voiceEnabled = false,
 }: {
   quote: Quote | null;
   items: QuoteItem[];
@@ -39,6 +42,8 @@ export function QuoteEditor({
   initialRequestId?: string;
   notice?: { text: string; tone: "ok" | "error" } | null;
   gstRegistered?: boolean;
+  /** Show "Dictate quote" (plan includes AI and the business switched Voice-to-Quote on). */
+  voiceEnabled?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -60,11 +65,31 @@ export function QuoteEditor({
       : [blankLine()]
   );
 
+
+  const [aiGenerated, setAiGenerated] = useState(false);
+  const applyVoiceDraft = (d: VoiceDraft) => {
+    setAiGenerated(true);
+    if (!clientId && !isNewClient) {
+      if (d.customer.clientId) {
+        setClientId(d.customer.clientId);
+      } else if (!d.customer.candidates.length && d.customer.spokenName) {
+        setIsNewClient(true);
+        setNewClient({ name: d.customer.spokenName, email: d.customer.email, phone: d.customer.phone, address: d.customer.address });
+      }
+    }
+    const fresh: QuoteLineInput[] = d.lines.map((l) => ({ serviceId: l.serviceId, serviceName: l.serviceName, description: l.description, qty: l.qty, unitPrice: l.unitPrice }));
+    if (fresh.length) setLines((cur) => (cur.every((l) => !l.serviceName.trim() && !l.unitPrice) ? fresh : [...cur, ...fresh]));
+    if (d.notes) {
+      setServiceNotes((cur) => (cur ? `${cur}\n${d.notes}` : d.notes));
+      setShowNotes(true);
+    }
+  };
+
   const locked = quote ? !["Draft", "Sent"].includes(quote.status) : false;
   const clientProperties = properties.filter((p) => p.client_id === clientId);
   const totals = calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), mode);
 
-  const input: QuoteInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, quoteDate, expiryDate, mode, message, serviceNotes, requestId: quote?.request_id ?? initialRequestId ?? null, items: lines };
+  const input: QuoteInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, quoteDate, expiryDate, mode, message, serviceNotes, requestId: quote?.request_id ?? initialRequestId ?? null, items: lines, aiGenerated: quote ? undefined : aiGenerated };
 
   // The "Review email" step: id is the saved quote, wasSent says whether it still needs marking Sent.
   const [review, setReview] = useState<{ id: string; draft: EmailDraft; markSent: boolean } | null>(null);
@@ -245,6 +270,7 @@ export function QuoteEditor({
         )}
         <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-5 items-start">
           <div className="flex-[3] w-full min-w-0 flex flex-col gap-5">
+            {voiceEnabled && !quote && <VoiceDraftPanel kind="quote" onDraft={applyVoiceDraft} />}
             <Card className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3.5">
               <ClientPicker
                 required

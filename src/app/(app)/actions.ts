@@ -1053,6 +1053,8 @@ export interface QuoteInput {
   serviceNotes?: string;
   requestId: string | null;
   items: QuoteLineInput[];
+  /** Set by the Voice-to-Quote screen; only recorded on creation. */
+  aiGenerated?: boolean;
 }
 
 export async function saveQuote(id: string | null, rawInput: QuoteInput, status: QuoteStatus): Promise<CreateResult> {
@@ -1107,6 +1109,8 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
         request_id: input.requestId,
         status,
         org_id: viewer.orgId,
+        created_by: viewer.userId,
+        ai_generated: input.aiGenerated === true,
       })
       .select("id")
       .single();
@@ -1239,6 +1243,8 @@ export interface InvoiceInput {
   /** Free-text reference (a PO number, job number, anything). Sent to Xero as the invoice's Reference. */
   reference?: string;
   items: InvoiceLineInput[];
+  /** Set by the Voice-to-Invoice screen; only recorded on creation. */
+  aiGenerated?: boolean;
 }
 
 export async function saveInvoice(id: string | null, rawInput: InvoiceInput, status: InvoiceStatus): Promise<CreateResult> {
@@ -1311,6 +1317,8 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
         service_notes: (input.serviceNotes ?? "").trim().slice(0, 2000),
         status,
         org_id: viewer.orgId,
+        created_by: viewer.userId,
+        ai_generated: input.aiGenerated === true,
       })
       .select("id")
       .single();

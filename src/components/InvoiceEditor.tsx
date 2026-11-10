@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { VoiceDraftPanel } from "@/components/VoiceDraftPanel";
+import type { VoiceDraft } from "@/lib/ai/voiceDraft";
 import { Ban, ChevronLeft, Download, Info, Pencil, Plus, Send, Sprout, Trash2, Wallet } from "lucide-react";
 import { checkCanSendDocuments, emailInvoice, getEmailDraft, recordPayment, saveInvoice, updateInvoiceStatus, type InvoiceInput, type InvoiceLineInput, type PaymentInput } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
@@ -50,6 +52,7 @@ export function InvoiceEditor({
   xeroConnected = false,
   suggestedNum = "",
   prefill,
+  voiceEnabled = false,
 }: {
   invoice: Invoice | null;
   items: InvoiceItem[];
@@ -66,6 +69,8 @@ export function InvoiceEditor({
   suggestedNum?: string;
   /** A new invoice started from a completed job: client, address, job reference and a line item. */
   prefill?: { clientId: string; propertyId: string; jobId: string; lines: InvoiceLineInput[] };
+  /** Show "Dictate invoice" (plan includes AI and the business switched Voice-to-Invoice on). */
+  voiceEnabled?: boolean;
 }) {
   const BIZ = {
     name: organization?.name ?? "Your business",
@@ -104,6 +109,26 @@ export function InvoiceEditor({
         : [blankLine()]
   );
 
+
+  const [aiGenerated, setAiGenerated] = useState(false);
+  const applyVoiceDraft = (d: VoiceDraft) => {
+    setAiGenerated(true);
+    if (!clientId && !isNewClient) {
+      if (d.customer.clientId) {
+        setClientId(d.customer.clientId);
+      } else if (!d.customer.candidates.length && d.customer.spokenName) {
+        setIsNewClient(true);
+        setNewClient({ name: d.customer.spokenName, email: d.customer.email, phone: d.customer.phone, address: d.customer.address });
+      }
+    }
+    const fresh: InvoiceLineInput[] = d.lines.map((l) => ({ serviceId: l.serviceId, serviceName: l.serviceName, description: l.description, qty: l.qty, unitPrice: l.unitPrice }));
+    if (fresh.length) setLines((cur) => (cur.every((l) => !l.serviceName.trim() && !l.unitPrice) ? fresh : [...cur, ...fresh]));
+    if (d.notes) {
+      setServiceNotes((cur) => (cur ? `${cur}\n${d.notes}` : d.notes));
+      setShowNotes(true);
+    }
+  };
+
   const client = clients.find((c) => c.id === (invoice?.client_id ?? clientId));
   const clientProperties = properties.filter((p) => p.client_id === clientId);
   const clientJobs = jobs.filter((j) => j.client_id === clientId);
@@ -122,7 +147,7 @@ export function InvoiceEditor({
   const reference = refText ?? defaultReference;
   const numberLocked = !!invoice && invoice.status !== "Draft";
 
-  const input: InvoiceInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, jobId: jobId || null, issueDate, dueDate, mode, notes, serviceNotes, num: numberLocked ? undefined : num, reference, items: lines };
+  const input: InvoiceInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, jobId: jobId || null, issueDate, dueDate, mode, notes, serviceNotes, num: numberLocked ? undefined : num, reference, items: lines, aiGenerated: invoice ? undefined : aiGenerated };
 
   const commitDraft = () => {
     setError(null);
@@ -567,6 +592,7 @@ export function InvoiceEditor({
       <div className="px-6 py-6">
         <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-5 items-start">
           <div className="flex-[3] w-full min-w-0 flex flex-col gap-5">
+            {voiceEnabled && !invoice && <VoiceDraftPanel kind="invoice" onDraft={applyVoiceDraft} />}
             <Card className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-x-4 gap-y-3.5 [&>*]:lg:col-span-2">
               <ClientPicker
                 required

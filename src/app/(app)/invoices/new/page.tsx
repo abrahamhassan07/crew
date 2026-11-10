@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { fmtDateLabel } from "@/lib/design";
+import { aiAllowed } from "@/lib/billing";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { suggestInvoiceNum, type InvoiceLineInput } from "@/app/(app)/actions";
 import { getConnection, orgMayUseXero } from "@/lib/xero";
@@ -50,6 +51,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
       jobs={jobs ?? []}
       organization={organization ?? null}
       prefill={prefill}
+      voiceEnabled={aiAllowed(organization) && !!organization?.ai_voice_invoice_enabled}
     />
   );
 }
