@@ -1150,9 +1150,14 @@ const PENDING_MESSAGE = "This draft was prepared by a team member. Review it and
 
 /** Drafts made by staff (or waiting for review) can't go out until an owner or admin approves them. */
 async function approvalBlock(table: "quotes" | "invoices", id: string): Promise<string | null> {
+  // Only owners and admins may send or settle documents at all. Checked here first so a refused request says so
+  // plainly instead of being silently ignored by row-level security.
+  if ((await getViewer()).profile.role !== "admin") return "Only owners and admins can do that.";
   const supabase = await createClient();
   const { data } = await supabase.from(table).select("approval_status").eq("id", id).maybeSingle();
-  return data?.approval_status === "pending" ? PENDING_MESSAGE : null;
+  // Not visible to this user's business = not theirs: refuse rather than assume it's fine.
+  if (!data) return `${table === "quotes" ? "Quote" : "Invoice"} not found.`;
+  return data.approval_status === "pending" ? PENDING_MESSAGE : null;
 }
 
 /** An owner or admin reviews a staff draft and approves it, which lets it be sent. Records who and when. */
@@ -1173,6 +1178,7 @@ export async function approveDocument(kind: "quote" | "invoice", id: string): Pr
 }
 
 export async function updateQuoteStatus(id: string, status: QuoteStatus): Promise<ActionResult> {
+  if ((await getViewer()).profile.role !== "admin") return { ok: false, error: "Only owners and admins can do that." };
   if (status === "Sent") {
     const blocked = await approvalBlock("quotes", id);
     if (blocked) return { ok: false, error: blocked };
@@ -1393,6 +1399,7 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
 }
 
 export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Promise<ActionResult> {
+  if ((await getViewer()).profile.role !== "admin") return { ok: false, error: "Only owners and admins can do that." };
   if (status !== "Draft" && status !== "Voided") {
     const blocked = await approvalBlock("invoices", id);
     if (blocked) return { ok: false, error: blocked };
