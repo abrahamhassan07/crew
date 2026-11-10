@@ -21,6 +21,7 @@ import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, renderTemplate, templateFor, 
 import { addDays, fmtISO, parseISO, STAFF_HUES, todayISO } from "@/lib/design";
 import { addMonthsClamped } from "@/lib/audit/engine";
 import { calcTotals } from "@/lib/gst";
+import { deleteJobPhotoFiles } from "@/lib/photos";
 import { MAX_NUMBER_LENGTH, MAX_REFERENCE_LENGTH, PREFIX_PATTERN, nextInvoiceNumber, numberPart, type NumberingSettings } from "@/lib/invoiceNumbers";
 import type { FeedbackKind, FeedbackStatus, CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
 
@@ -191,6 +192,8 @@ export async function deleteJob(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const viewer = await getViewer();
   const { data: before } = await supabase.from("jobs").select(JOB_SNAPSHOT_COLUMNS).eq("id", id).single();
+  // The photo rows go with the job, so remove the stored files first (RLS already limited the job lookup to this business).
+  if (before && viewer.profile.role === "admin") await deleteJobPhotoFiles(viewer.orgId, id);
   const { error } = await supabase.from("jobs").delete().eq("id", id);
   if (error) return { ok: false, error: dbError(error) };
   if (before) {

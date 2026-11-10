@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updateJobStatus } from "@/app/(app)/actions";
 import { Badge } from "@/components/Badge";
+import { JobPhotosPanel } from "@/components/JobPhotosPanel";
 import { Button } from "@/components/ui/Button";
 import { durationLabel, fmtDateLabel, fmtTime12, STATUS_META, TYPE_META } from "@/lib/design";
 import type { Job, JobStatus } from "@/lib/supabase/types";
@@ -63,6 +64,10 @@ export function StaffJobDrawer({
             <p className="text-sm text-ink-muted whitespace-pre-wrap">{job.notes}</p>
           </div>
         )}
+
+        <div className="border-t border-line -mx-6">
+          <JobPhotosPanel jobId={job.id} />
+        </div>
 
         {error && <p className="text-sm text-danger">{error}</p>}
 

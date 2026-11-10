@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Calendar, Clock, DollarSign, HardHat, MapPin, Phone, Receipt } from "lucide-react";
 import { updateJobChecklist, updateJobNotes, updateJobStatus } from "@/app/(app)/actions";
 import { useJobModal } from "@/components/JobModalContext";
+import { JobPhotosPanel } from "@/components/JobPhotosPanel";
 import { CreateInvoicePrompt } from "@/components/CreateInvoicePrompt";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -115,6 +116,10 @@ export function JobDetailClient({ job, invoiceId }: { job: EnrichedJob; invoiceI
                 ))}
                 {!checklist.length && <p className="text-sm text-ink-muted px-2 py-2">No checklist items for this job yet.</p>}
               </div>
+            </Card>
+
+            <Card className="p-0">
+              <JobPhotosPanel jobId={job.id} />
             </Card>
           </div>
 

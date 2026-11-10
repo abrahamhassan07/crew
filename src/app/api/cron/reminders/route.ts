@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { sendDueReminders } from "@/lib/reminders";
 import { syncAllXeroPayments } from "@/lib/xero";
 import { runScheduledAudits } from "@/lib/audit/run";
+import { runPhotoCleanup } from "@/lib/photoCleanup";
 
 // Called once a day by Vercel Cron (see vercel.json). Vercel sends
 // "Authorization: Bearer $CRON_SECRET"; without that secret configured the route stays closed.
@@ -31,5 +32,12 @@ export async function GET(request: NextRequest) {
       serviceAudit = { error: e instanceof Error ? e.message : "failed" };
     }
   }
-  return NextResponse.json({ ...reminders, xeroPayments, serviceAudit });
+  // Temporary job photos past their 30 days (unless kept) are deleted, files first.
+  let photoCleanup: unknown;
+  try {
+    photoCleanup = await runPhotoCleanup(dryRun);
+  } catch (e) {
+    photoCleanup = { error: e instanceof Error ? e.message : "failed" };
+  }
+  return NextResponse.json({ ...reminders, xeroPayments, serviceAudit, photoCleanup });
 }
