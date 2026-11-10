@@ -11,7 +11,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Tabs } from "@/components/ui/Tabs";
 import { useJobModal } from "@/components/JobModalContext";
 import { initialsOf, type EnrichedJob } from "@/lib/design";
-import type { Client, ClientNote, Property } from "@/lib/supabase/types";
+import { RecurringServicesPanel } from "@/components/RecurringServicesPanel";
+import type { Client, ClientNote, Property, RecurringService } from "@/lib/supabase/types";
 
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
@@ -51,12 +52,14 @@ export function ClientProfileClient({
   notes,
   jobs,
   today,
+  recurring,
 }: {
   client: Client;
   properties: Property[];
   notes: (ClientNote & { staffName: string | null })[];
   jobs: EnrichedJob[];
   today: string;
+  recurring: RecurringService[];
 }) {
   const router = useRouter();
   const { openNewJob } = useJobModal();
@@ -184,6 +187,12 @@ export function ClientProfileClient({
                     {!notes.length && <p className="text-sm text-ink-muted pt-2">No notes yet.</p>}
                   </Card>
                 ),
+              },
+              {
+                id: "recurring",
+                label: "Recurring",
+                count: recurring.length,
+                content: <RecurringServicesPanel clientId={client.id} services={recurring} />,
               },
               {
                 id: "jobs",

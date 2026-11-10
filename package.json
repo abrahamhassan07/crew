@@ -10,7 +10,8 @@
     "test:isolation": "node scripts/test-tenant-isolation.mjs",
     "create-admin": "node scripts/create-admin.mjs",
     "supabase:start": "supabase start",
-    "supabase:stop": "supabase stop"
+    "supabase:stop": "supabase stop",
+    "test": "node --no-warnings --test tests/*.test.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.7.0",

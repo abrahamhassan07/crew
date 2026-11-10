@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -310,6 +311,7 @@ export function ReportsPageClient({
 
       <div className="px-6 py-8">
         <div className="max-w-[1600px] mx-auto">
+          <Link href="/reports/service-health" className="inline-block mb-4 text-sm font-semibold text-brand hover:underline">Client Service Health report →</Link>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
             {kpis.map((k) => (
               <div key={k.label} className="bg-card-bg border border-line rounded-lg p-4">

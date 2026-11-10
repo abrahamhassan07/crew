@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sendDueReminders } from "@/lib/reminders";
 import { syncAllXeroPayments } from "@/lib/xero";
+import { runScheduledAudits } from "@/lib/audit/run";
 
 // Called once a day by Vercel Cron (see vercel.json). Vercel sends
 // "Authorization: Bearer $CRON_SECRET"; without that secret configured the route stays closed.
@@ -21,5 +22,14 @@ export async function GET(request: NextRequest) {
       xeroPayments = { error: e instanceof Error ? e.message : "failed" };
     }
   }
-  return NextResponse.json({ ...reminders, xeroPayments });
+  // The daily run also catches the Sunday audit when the weekly one fired before 7:00 am Melbourne (winter time).
+  let serviceAudit: unknown = "skipped (dry run)";
+  if (!dryRun) {
+    try {
+      serviceAudit = await runScheduledAudits();
+    } catch (e) {
+      serviceAudit = { error: e instanceof Error ? e.message : "failed" };
+    }
+  }
+  return NextResponse.json({ ...reminders, xeroPayments, serviceAudit });
 }

@@ -19,6 +19,7 @@ import { after } from "next/server";
 import { JOB_SNAPSHOT_COLUMNS, notifyJobChange, type JobSnapshot } from "@/lib/staffNotify";
 import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, renderTemplate, templateFor, type EmailDraft, type EmailKind } from "@/lib/emailTemplates";
 import { addDays, fmtISO, parseISO, STAFF_HUES, todayISO } from "@/lib/design";
+import { addMonthsClamped } from "@/lib/audit/engine";
 import { calcTotals } from "@/lib/gst";
 import { MAX_NUMBER_LENGTH, MAX_REFERENCE_LENGTH, PREFIX_PATTERN, nextInvoiceNumber, numberPart, type NumberingSettings } from "@/lib/invoiceNumbers";
 import type { FeedbackKind, FeedbackStatus, CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
@@ -104,12 +105,12 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
   const firstNum = await nextJobNum(supabase);
   const rows = [{ ...base, job_date: input.date, num: firstNum }];
   if (input.repeat !== "none" && input.date) {
-    const stepDays = input.repeat === "weekly" ? 7 : input.repeat === "fortnightly" ? 14 : 30;
-    let d = parseISO(input.date);
+    const stepDays = input.repeat === "weekly" ? 7 : 14;
     const startNum = parseInt(firstNum.replace(/\D/g, ""), 10);
     for (let i = 1; i <= 6; i++) {
-      d = addDays(d, stepDays);
-      rows.push({ ...base, job_date: fmtISO(d), status: "scheduled", num: `J-${startNum + i}` });
+      // Monthly repeats on the same day of each calendar month (clamped to the month's last day), not every 30 days.
+      const date = input.repeat === "monthly" ? addMonthsClamped(input.date, i) : fmtISO(addDays(parseISO(input.date), stepDays * i));
+      rows.push({ ...base, job_date: date, status: "scheduled", num: `J-${startNum + i}` });
     }
   }
 
@@ -117,6 +118,13 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
   if (error) {
     if (createdClientId) await supabase.from("clients").delete().eq("id", createdClientId);
     return { ok: false, error: dbError(error) };
+  }
+  // A repeating job also becomes a recurring service on the client, which the Client Service Auditor checks.
+  if (seriesId && clientId && input.date && viewer.profile.role === "admin") {
+    await supabase.from("recurring_services").insert({
+      org_id: viewer.orgId, client_id: clientId, title: input.client.trim() ? `${input.type[0].toUpperCase()}${input.type.slice(1)} service` : "Regular service",
+      job_type: input.type, frequency: input.repeat as "weekly" | "fortnightly" | "monthly", anchor_date: input.date, series_id: seriesId,
+    });
   }
   // One email for the first job; a repeating job is described rather than sending seven emails.
   const first = (inserted as JobSnapshot[] | null)?.find((j) => j.num === firstNum);

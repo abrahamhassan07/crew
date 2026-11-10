@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/auth";
 import { addDays, BUSINESS_TZ, businessHour, buildStaffMap, enrichJob, fmtDateLabel, fmtISO, startOfWeek, todayISO } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
+import { aiAllowed } from "@/lib/billing";
 import { StatCard, Card } from "@/components/ui/Card";
 import { NewJobQuickAction } from "@/components/NewJobQuickAction";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -55,6 +56,13 @@ export default async function DashboardPage() {
     supabase.from("quotes").select("*"),
     supabase.from("quote_items").select("quote_id, qty, unit_price"),
   ]);
+
+  // Client Service Health: only for owners/admins whose plan includes the auditor and who switched it on.
+  const isAdminViewer = viewer.profile.role === "admin";
+  const { data: orgRow } = isAdminViewer ? await supabase.from("organizations").select("*").single() : { data: null };
+  const showHealth = isAdminViewer && aiAllowed(orgRow) && !!orgRow?.ai_auditor_enabled;
+  const { data: latestAudit } = showHealth ? await supabase.from("service_audits").select("id, as_of, totals").order("created_at", { ascending: false }).limit(1).maybeSingle() : { data: null };
+  const health = (latestAudit?.totals ?? null) as unknown as Record<string, number> | null;
 
   const staffById = buildStaffMap(staffList ?? []);
   const enriched = (jobs ?? []).map((j) => enrichJob(j, staffById));
@@ -239,6 +247,27 @@ export default async function DashboardPage() {
               </>
             )}
           </div>
+
+          {showHealth && (
+            <Card className="p-5 mb-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <h2 className="text-base font-bold text-ink-primary">Client Service Health</h2>
+                <Link href={latestAudit ? `/reports/service-health?audit=${latestAudit.id}` : "/reports/service-health"} className="text-sm font-semibold text-brand hover:underline">View Full Report</Link>
+              </div>
+              {health ? (
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+                  {[["Overdue", health.overdue, "text-danger"], ["Not scheduled", health.notScheduled, "text-warn-fg"], ["Needs review", health.needsReview, "text-ink-secondary"], ["Upcoming", health.upcoming, "text-ink-primary"], ["On track", health.onTrack, "text-ok-fg"]].map(([label, n, tone]) => (
+                    <div key={label as string}>
+                      <div className={`text-2xl font-bold ${tone}`}>{n ?? 0}</div>
+                      <div className="text-xs text-ink-muted">{label}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-ink-muted">No report yet. The first one is created on Sunday, or open the full report and run one now.</p>
+              )}
+            </Card>
+          )}
 
           {/* Two-column layout */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
