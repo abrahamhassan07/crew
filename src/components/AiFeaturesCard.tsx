@@ -16,17 +16,19 @@ export interface AiSettingsView {
   auditor: boolean;
   voiceQuote: boolean;
   voiceInvoice: boolean;
+  staffDrafts: boolean;
 }
 
 const FEATURES = [
   { key: "auditor", label: "Client Service Auditor", help: "Every Sunday morning, checks that each recurring client received their regular service, saves a report under Reports and emails you a summary." },
-  { key: "voiceQuote", label: "Voice-to-Quote", help: "Speak a quote and get a draft. A microphone button appears on the Quotes page." },
-  { key: "voiceInvoice", label: "Voice-to-Invoice", help: "Speak an invoice and get a draft. A microphone button appears on the Invoices page." },
+  { key: "voiceQuote", label: "Voice-to-Quote", help: "Speak a quote and get a draft. A Dictate button appears on the New quote page." },
+  { key: "voiceInvoice", label: "Voice-to-Invoice", help: "Speak an invoice and get a draft. A Dictate button appears on the New invoice page." },
+  { key: "staffDrafts", label: "Staff drafts", help: "Let staff prepare draft quotes and invoices (by typing or by voice) for the clients on jobs assigned to them. Staff can never send, approve or void anything, and see only their own drafts. You review each draft and approve it before it can be sent." },
 ] as const;
 
 /** Settings card for the AI features: three independent switches. Drafts are never sent automatically. */
 export function AiFeaturesCard({ ai }: { ai: AiSettingsView }) {
-  const [on, setOn] = useState({ auditor: ai.auditor, voiceQuote: ai.voiceQuote, voiceInvoice: ai.voiceInvoice });
+  const [on, setOn] = useState({ auditor: ai.auditor, voiceQuote: ai.voiceQuote, voiceInvoice: ai.voiceInvoice, staffDrafts: ai.staffDrafts });
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -51,7 +53,7 @@ export function AiFeaturesCard({ ai }: { ai: AiSettingsView }) {
     <CollapsibleCard
       className="xl:col-span-2"
       title="AI features"
-      summary={!ai.allowed ? "Included with the Team plan and above" : enabledCount ? `${enabledCount} of 3 switched on` : "All switched off"}
+      summary={!ai.allowed ? "Included with the Team plan and above" : enabledCount ? `${enabledCount} of 4 switched on` : "All switched off"}
     >
       <div className="pt-3 space-y-4">
         <p className="text-sm text-ink-muted">

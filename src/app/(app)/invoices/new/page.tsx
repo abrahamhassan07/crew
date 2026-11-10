@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth";
+import { getViewer } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { publicOrg, staffDraftContext, staffDraftData } from "@/lib/staffDrafts";
 import { fmtDateLabel } from "@/lib/design";
 import { aiAllowed } from "@/lib/billing";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
@@ -7,7 +9,13 @@ import { suggestInvoiceNum, type InvoiceLineInput } from "@/app/(app)/actions";
 import { getConnection, orgMayUseXero } from "@/lib/xero";
 
 export default async function NewInvoicePage({ searchParams }: PageProps<"/invoices/new">) {
-  const viewer = await requireAdmin();
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") {
+    const ctx = await staffDraftContext();
+    if (!ctx.ok) redirect("/dashboard");
+    const d = await staffDraftData(viewer.orgId, ctx.staffId);
+    return <InvoiceEditor invoice={null} items={[]} payments={[]} clients={d.clients} properties={d.properties} services={d.services} jobs={d.jobs} organization={publicOrg(ctx.org)} staffMode voiceEnabled={ctx.org.ai_voice_invoice_enabled} />;
+  }
   const supabase = await createClient();
   const params = await searchParams;
   const fromJobId = typeof params.job === "string" ? params.job : null;

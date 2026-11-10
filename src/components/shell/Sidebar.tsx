@@ -76,6 +76,10 @@ interface SidebarProps {
   bizName: string;
   roleLabel: string;
   isPlatformAdmin?: boolean;
+  /** Staff: the business lets them prepare drafts, so show "My drafts". */
+  staffDrafts?: boolean;
+  /** Owners: drafts waiting for approval, shown as a badge on Quotes and Invoices. */
+  pending?: { quotes: number; invoices: number };
   onSignOut: () => void;
 }
 
@@ -89,6 +93,8 @@ export function Sidebar({
   bizName,
   roleLabel,
   isPlatformAdmin,
+  staffDrafts,
+  pending,
   onSignOut,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -122,7 +128,7 @@ export function Sidebar({
               </div>
             )}
             <div className="flex flex-col gap-0.5">
-              {[...group.items, ...(group.title === "Account" && isPlatformAdmin ? [{ href: "/admin/businesses", label: "Businesses", icon: Building2 }, { href: "/admin/feedback", label: "All feedback", icon: Inbox }] : [])]
+              {[...group.items.map((i) => (i.href === "/quotes" && pending?.quotes ? { ...i, count: pending.quotes } : i.href === "/invoices" && pending?.invoices ? { ...i, count: pending.invoices } : i)), ...(group.title === "Main" && staffDrafts ? [{ href: "/drafts", label: "My drafts", icon: FileText }] : []), ...(group.title === "Account" && isPlatformAdmin ? [{ href: "/admin/businesses", label: "Businesses", icon: Building2 }, { href: "/admin/feedback", label: "All feedback", icon: Inbox }] : [])]
                 .filter((item) => role === "admin" || !("adminOnly" in item && item.adminOnly))
                 .map((item) => {
                   const isActive = pathname.startsWith(item.href);

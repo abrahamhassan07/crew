@@ -1061,6 +1061,10 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
   if (!rawInput.clientId && !rawInput.newClient) return { ok: false, error: "Choose a client, or enter the new client's name." };
   if (!rawInput.items.length || rawInput.items.some((i) => !i.serviceName.trim())) return { ok: false, error: "Every line item needs a name." };
 
+  if (id && status === "Sent") {
+    const blocked = await approvalBlock("quotes", id);
+    if (blocked) return { ok: false, error: blocked };
+  }
   const supabase = await createClient();
   const viewer = await getViewer();
   let quoteId = id;
@@ -1142,7 +1146,37 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
   return { ok: true, id: quoteId };
 }
 
+const PENDING_MESSAGE = "This draft was prepared by a team member. Review it and press Approve before sending.";
+
+/** Drafts made by staff (or waiting for review) can't go out until an owner or admin approves them. */
+async function approvalBlock(table: "quotes" | "invoices", id: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.from(table).select("approval_status").eq("id", id).maybeSingle();
+  return data?.approval_status === "pending" ? PENDING_MESSAGE : null;
+}
+
+/** An owner or admin reviews a staff draft and approves it, which lets it be sent. Records who and when. */
+export async function approveDocument(kind: "quote" | "invoice", id: string): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Only owners and admins can approve." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from(kind === "quote" ? "quotes" : "invoices")
+    .update({ approval_status: "approved", approved_by: viewer.userId, approved_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("approval_status", "pending")
+    .select("id");
+  if (error) return { ok: false, error: dbError(error) };
+  if (!data?.length) return { ok: false, error: "That draft isn't waiting for approval." };
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function updateQuoteStatus(id: string, status: QuoteStatus): Promise<ActionResult> {
+  if (status === "Sent") {
+    const blocked = await approvalBlock("quotes", id);
+    if (blocked) return { ok: false, error: blocked };
+  }
   const supabase = await createClient();
   const { error } = await supabase.from("quotes").update({ status }).eq("id", id);
   if (error) return { ok: false, error: dbError(error) };
@@ -1256,6 +1290,10 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
   if (id && rawInput.num !== undefined && !typedNum) return { ok: false, error: "The invoice needs a number." };
   const reference = (rawInput.reference ?? "").trim().slice(0, MAX_REFERENCE_LENGTH);
 
+  if (id && status !== "Draft" && status !== "Voided") {
+    const blocked = await approvalBlock("invoices", id);
+    if (blocked) return { ok: false, error: blocked };
+  }
   const supabase = await createClient();
   const viewer = await getViewer();
   let invoiceId = id;
@@ -1355,6 +1393,10 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
 }
 
 export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Promise<ActionResult> {
+  if (status !== "Draft" && status !== "Voided") {
+    const blocked = await approvalBlock("invoices", id);
+    if (blocked) return { ok: false, error: blocked };
+  }
   const supabase = await createClient();
   const viewer = await getViewer();
   const patch: { status: InvoiceStatus; first_sent_at?: string | null } = { status };
@@ -1497,6 +1539,8 @@ export interface PaymentInput {
 
 export async function recordPayment(invoiceId: string, input: PaymentInput): Promise<ActionResult> {
   if (!(input.amount > 0)) return { ok: false, error: "Enter an amount greater than $0." };
+  const blocked = await approvalBlock("invoices", invoiceId);
+  if (blocked) return { ok: false, error: blocked };
 
   const supabase = await createClient();
   const viewer = await getViewer();
@@ -1562,6 +1606,8 @@ function buildEmail(loaded: LoadedDoc, kind: EmailKind) {
 export async function getEmailDraft(kind: EmailKind, id: string): Promise<ActionResult & { draft?: EmailDraft }> {
   const viewer = await getViewer();
   if (viewer.profile.role !== "admin") return { ok: false, error: "Only admins can send documents." };
+  const blocked = await approvalBlock(kind === "quote" ? "quotes" : "invoices", id);
+  if (blocked) return { ok: false, error: blocked };
   const loaded = kind === "quote" ? await loadQuoteDoc(id) : await loadInvoiceDoc(id);
   if (!loaded) return { ok: false, error: `${kind === "quote" ? "Quote" : "Invoice"} not found.` };
   const email = buildEmail(loaded, kind);
@@ -1637,10 +1683,14 @@ async function emailDocument(loaded: LoadedDoc | null, kind: EmailKind, override
 }
 
 export async function emailQuote(id: string, override?: EmailOverride) {
+  const blocked = await approvalBlock("quotes", id);
+  if (blocked) return { ok: false as const, error: blocked };
   return emailDocument(await loadQuoteDoc(id), "quote", override);
 }
 
 export async function emailInvoice(id: string, override?: EmailOverride) {
+  const blocked = await approvalBlock("invoices", id);
+  if (blocked) return { ok: false as const, error: blocked };
   const result = await emailDocument(await loadInvoiceDoc(id), "invoice", override);
   // Once the invoice has gone to the client, copy it into Xero (when connected).
   if (result.ok) await queueXeroSync((await getViewer()).orgId, id);

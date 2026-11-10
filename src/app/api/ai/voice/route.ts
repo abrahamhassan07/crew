@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/auth";
 import { checkAiAccess, logAiRequest } from "@/lib/ai/access";
 import { AiProviderError, extractJson, llmModel, transcribe } from "@/lib/ai/providers";
+import { staffDraftContext, staffDraftData } from "@/lib/staffDrafts";
 import { buildDraft, EXTRACTION_SCHEMA, EXTRACTION_SYSTEM, type Extraction } from "@/lib/ai/voiceDraft";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,10 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   const viewer = await getViewer();
-  if (viewer.profile.role !== "admin") return NextResponse.json({ error: "Only owners and admins can use voice drafts." }, { status: 403 });
+  const isAdmin = viewer.profile.role === "admin";
+  // Staff may dictate drafts only when their business switched staff drafts on, and only for their own clients.
+  const staffCtx = isAdmin ? null : await staffDraftContext();
+  if (!isAdmin && !staffCtx?.ok) return NextResponse.json({ error: staffCtx && !staffCtx.ok ? staffCtx.error : "Not allowed." }, { status: 403 });
 
   let form: FormData;
   try {
@@ -49,10 +53,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: access.message, upgrade: access.upgrade }, { status: access.code === "rate" ? 429 : 403 });
   }
 
-  const [{ data: clients }, { data: services }] = await Promise.all([
-    supabase.from("clients").select("id, name").neq("status", "Archived").order("name").limit(2000),
-    supabase.from("services").select("id, name, description, price").eq("active", true).order("name").limit(500),
-  ]);
+  let clients: { id: string; name: string }[] | null;
+  let services: { id: string; name: string; description: string; price: number }[] | null;
+  if (isAdmin) {
+    [{ data: clients }, { data: services }] = await Promise.all([
+      supabase.from("clients").select("id, name").neq("status", "Archived").order("name").limit(2000),
+      supabase.from("services").select("id, name, description, price").eq("active", true).order("name").limit(500),
+    ]);
+  } else {
+    const d = await staffDraftData(viewer.orgId, (staffCtx as { staffId: string }).staffId);
+    clients = d.clients.map((c) => ({ id: c.id, name: c.name }));
+    services = d.services;
+  }
 
   try {
     const bytes = new Uint8Array(await audio.arrayBuffer());

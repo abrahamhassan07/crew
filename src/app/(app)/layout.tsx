@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/shell/AppShell";
 import { JobModalProvider } from "@/components/JobModalContext";
 import { getViewer } from "@/lib/auth";
-import { billingEnforced, getBillingState } from "@/lib/billing";
+import { aiAllowed, billingEnforced, getBillingState } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
 import { isPlatformAdmin } from "@/lib/platform";
 import { FREE_PLAN, TRIAL_REMINDER_DAYS } from "@/lib/plans";
@@ -43,9 +43,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
   }
 
+  const isAdmin = viewer.profile.role === "admin";
+  const staffDrafts = !isAdmin && !!organization?.staff_drafts_enabled && aiAllowed(organization);
+  const [{ count: pendingQuotes }, { count: pendingInvoices }] = isAdmin
+    ? await Promise.all([
+        supabase.from("quotes").select("id", { count: "exact", head: true }).eq("approval_status", "pending"),
+        supabase.from("invoices").select("id", { count: "exact", head: true }).eq("approval_status", "pending"),
+      ])
+    : [{ count: 0 }, { count: 0 }];
+
   return (
     <JobModalProvider role={viewer.profile.role}>
-      <AppShell role={viewer.profile.role} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner} isPlatformAdmin={isPlatformAdmin(viewer.email)} tourAutoStart={!!organization && isWithinDays(organization.created_at, 14)}>
+      <AppShell role={viewer.profile.role} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner} isPlatformAdmin={isPlatformAdmin(viewer.email)} staffDrafts={staffDrafts} pending={{ quotes: pendingQuotes ?? 0, invoices: pendingInvoices ?? 0 }} tourAutoStart={!!organization && isWithinDays(organization.created_at, 14)}>
         {children}
       </AppShell>
     </JobModalProvider>

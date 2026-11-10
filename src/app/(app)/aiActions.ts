@@ -10,7 +10,7 @@ import { runAuditForOrg } from "@/lib/audit/run";
 import type { ActionResult } from "./actions";
 
 /** Owner/admin switches for the AI features. Allowed only when the plan includes them (checked again on every AI request). */
-export async function saveAiSettings(input: { auditor: boolean; voiceQuote: boolean; voiceInvoice: boolean }): Promise<ActionResult> {
+export async function saveAiSettings(input: { auditor: boolean; voiceQuote: boolean; voiceInvoice: boolean; staffDrafts: boolean }): Promise<ActionResult> {
   const viewer = await getViewer();
   if (viewer.profile.role !== "admin") return { ok: false, error: "Only owners and admins can change AI settings." };
   const supabase = await createClient();
@@ -18,7 +18,7 @@ export async function saveAiSettings(input: { auditor: boolean; voiceQuote: bool
   if (!aiAllowed(org)) return { ok: false, error: "AI features are included with the Team and Business plans. Upgrade under Subscription to use them." };
   const { error } = await supabase
     .from("organizations")
-    .update({ ai_auditor_enabled: input.auditor, ai_voice_quote_enabled: input.voiceQuote, ai_voice_invoice_enabled: input.voiceInvoice })
+    .update({ ai_auditor_enabled: input.auditor, ai_voice_quote_enabled: input.voiceQuote, ai_voice_invoice_enabled: input.voiceInvoice, staff_drafts_enabled: input.staffDrafts })
     .eq("id", viewer.orgId);
   if (error) return { ok: false, error: dbError(error) };
   revalidatePath("/", "layout");

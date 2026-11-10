@@ -82,7 +82,12 @@ export function QuotesPageClient({
   }, [filtered, sortBy, sortOrder]);
 
   const columns: Column<QuoteRow>[] = [
-    { key: "num", label: "Quote", sortable: true },
+    { key: "num", label: "Quote", sortable: true, render: (n: string, row: { approval_status: "pending" | "approved" | null }) => (
+        <span>
+          {n}
+          {row.approval_status === "pending" && <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded bg-warn-bg text-warn-fg">Needs approval</span>}
+        </span>
+      ), },
     { key: "clientName", label: "Client", sortable: true },
     { key: "quote_date", label: "Quote date", sortable: true },
     { key: "expiry_date", label: "Expiry", sortable: true },

@@ -97,7 +97,12 @@ export function InvoicesPageClient({
   }, [filtered, sortBy, sortOrder, jobNumById]);
 
   const columns: Column<InvoiceRow>[] = [
-    { key: "num", label: "Invoice", sortable: true },
+    { key: "num", label: "Invoice", sortable: true, render: (n: string, row: { approval_status: "pending" | "approved" | null }) => (
+        <span>
+          {n}
+          {row.approval_status === "pending" && <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded bg-warn-bg text-warn-fg">Needs approval</span>}
+        </span>
+      ), },
     { key: "clientName", label: "Client", sortable: true },
     { key: "job_id", label: "Job ref", sortable: true, render: (jobId: string | null) => <span className="text-ink-secondary">{jobId ? (jobNumById[jobId] ?? "—") : "—"}</span> },
     { key: "issue_date", label: "Issued", sortable: true },

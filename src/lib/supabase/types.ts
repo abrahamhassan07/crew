@@ -41,6 +41,7 @@ export type Organization = {
   ai_auditor_enabled: boolean;
   ai_voice_quote_enabled: boolean;
   ai_voice_invoice_enabled: boolean;
+  staff_drafts_enabled: boolean;
   plan: string | null;
   team_size: string | null;
   billing_interval: "month" | "year" | null;

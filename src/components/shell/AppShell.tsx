@@ -15,6 +15,8 @@ interface AppShellProps {
   bizName: string;
   roleLabel: string;
   isPlatformAdmin?: boolean;
+  staffDrafts?: boolean;
+  pending?: { quotes: number; invoices: number };
   /** Show the guided tour automatically (brand-new businesses). */
   tourAutoStart?: boolean;
 }
@@ -26,7 +28,7 @@ function initialsOf(name: string): string {
   return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 }
 
-export function AppShell({ role, children, userName, bizName, roleLabel, banner, isPlatformAdmin, tourAutoStart }: AppShellProps) {
+export function AppShell({ role, children, userName, bizName, roleLabel, banner, isPlatformAdmin, staffDrafts, pending, tourAutoStart }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,6 +75,8 @@ export function AppShell({ role, children, userName, bizName, roleLabel, banner,
         bizName={bizName}
         roleLabel={roleLabel}
         isPlatformAdmin={isPlatformAdmin}
+        staffDrafts={staffDrafts}
+        pending={pending}
         onSignOut={handleSignOut}
       />
 

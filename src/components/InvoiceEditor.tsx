@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ApprovalBanner, type ApprovalInfo } from "@/components/ApprovalBanner";
+import { deleteStaffDraft, saveStaffInvoice } from "@/app/(app)/staffDraftActions";
 import { VoiceDraftPanel } from "@/components/VoiceDraftPanel";
 import type { VoiceDraft } from "@/lib/ai/voiceDraft";
 import { Ban, ChevronLeft, Download, Info, Pencil, Plus, Send, Sprout, Trash2, Wallet } from "lucide-react";
@@ -53,6 +55,8 @@ export function InvoiceEditor({
   suggestedNum = "",
   prefill,
   voiceEnabled = false,
+  staffMode = false,
+  approval = null,
 }: {
   invoice: Invoice | null;
   items: InvoiceItem[];
@@ -71,6 +75,10 @@ export function InvoiceEditor({
   prefill?: { clientId: string; propertyId: string; jobId: string; lines: InvoiceLineInput[] };
   /** Show "Dictate invoice" (plan includes AI and the business switched Voice-to-Invoice on). */
   voiceEnabled?: boolean;
+  /** A staff member preparing their own draft: saves as pending approval, nothing can be sent from here. */
+  staffMode?: boolean;
+  /** Who prepared the draft and whether it has been approved (shown to owners and admins). */
+  approval?: ApprovalInfo | null;
 }) {
   const BIZ = {
     name: organization?.name ?? "Your business",
@@ -152,12 +160,22 @@ export function InvoiceEditor({
   const commitDraft = () => {
     setError(null);
     startTransition(async () => {
-      const result = await saveInvoice(invoice?.id ?? null, input, "Draft");
+      const result = staffMode ? await saveStaffInvoice(invoice?.id ?? null, input) : await saveInvoice(invoice?.id ?? null, input, "Draft");
       if (!result.ok) {
         setError(result.error ?? "Could not save invoice.");
         return;
       }
       router.push(`/invoices/${result.id}`);
+      router.refresh();
+    });
+  };
+
+  const deleteDraft = () => {
+    if (!invoice || !window.confirm("Delete this draft?")) return;
+    startTransition(async () => {
+      const result = await deleteStaffDraft("invoice", invoice.id);
+      if (!result.ok) return setError(result.error ?? "Could not delete.");
+      router.push("/drafts");
       router.refresh();
     });
   };
@@ -570,7 +588,12 @@ export function InvoiceEditor({
     <div className="min-h-screen bg-page-bg">
       <div className="px-6 py-5 border-b border-line bg-card-bg">
         <div className="max-w-[1400px] mx-auto flex flex-wrap items-center gap-x-4 gap-y-2">
-          {invoice ? (
+          {staffMode ? (
+            <Link href="/drafts" className="text-sm font-semibold text-brand hover:text-brand-hover inline-flex items-center gap-1">
+              <ChevronLeft className="w-4 h-4" />
+              My drafts
+            </Link>
+          ) : invoice ? (
             <Link href={`/invoices/${invoice.id}`} className="text-sm font-semibold text-brand hover:text-brand-hover inline-flex items-center gap-1">
               <ChevronLeft className="w-4 h-4" />
               {invoice.num}
@@ -583,13 +606,16 @@ export function InvoiceEditor({
           )}
           <h1 className="text-2xl font-bold text-ink-primary">{invoice ? `Edit ${invoice.num}` : "New invoice"}</h1>
           <div className="flex gap-2 flex-wrap ml-auto">
-            <Button variant="secondary" onClick={commitDraft} disabled={pending}>Save draft</Button>
-            <Button variant="primary" onClick={startSend} disabled={pending}>Send</Button>
+            {staffMode && invoice && <Button variant="secondary" onClick={deleteDraft} disabled={pending}>Delete draft</Button>}
+            <Button variant={staffMode ? "primary" : "secondary"} onClick={commitDraft} disabled={pending}>Save draft</Button>
+            {!staffMode && <Button variant="primary" onClick={startSend} disabled={pending || approval?.status === "pending"}>Send</Button>}
           </div>
         </div>
       </div>
 
       <div className="px-6 py-6">
+        {invoice && !staffMode && approval && <ApprovalBanner kind="invoice" id={invoice.id} info={approval} />}
+        {staffMode && <div className="max-w-[1400px] mx-auto mb-5 px-4 py-3 rounded-lg text-sm border bg-info-bg text-info-fg border-info-fg/25">This is a draft. Your owner reviews and approves it before it can be sent to the client.</div>}
         <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-5 items-start">
           <div className="flex-[3] w-full min-w-0 flex flex-col gap-5">
             {voiceEnabled && !invoice && <VoiceDraftPanel kind="invoice" onDraft={applyVoiceDraft} />}
@@ -598,7 +624,7 @@ export function InvoiceEditor({
                 required
                 clients={clients}
                 value={isNewClient ? NEW_CLIENT : clientId}
-                allowNew={!invoice}
+                allowNew={!invoice && !staffMode}
                 onChange={(v) => {
                   setIsNewClient(v === NEW_CLIENT);
                   setClientId(v === NEW_CLIENT ? "" : v);

@@ -55,6 +55,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     auditor: organization.ai_auditor_enabled,
     voiceQuote: organization.ai_voice_quote_enabled,
     voiceInvoice: organization.ai_voice_invoice_enabled,
+    staffDrafts: organization.staff_drafts_enabled,
   };
 
   return <SettingsPageClient organization={organization} xero={xero} ai={ai} xeroResult={typeof sp.xero === "string" ? sp.xero : undefined} />;

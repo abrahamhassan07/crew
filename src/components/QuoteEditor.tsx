@@ -11,6 +11,8 @@ import { SendEmailModal } from "@/components/SendEmailModal";
 import { DecimalInput } from "@/components/forms/DecimalInput";
 import type { EmailDraft } from "@/lib/emailTemplates";
 import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from "@/components/forms";
+import { ApprovalBanner, type ApprovalInfo } from "@/components/ApprovalBanner";
+import { deleteStaffDraft, saveStaffQuote } from "@/app/(app)/staffDraftActions";
 import { VoiceDraftPanel } from "@/components/VoiceDraftPanel";
 import type { VoiceDraft } from "@/lib/ai/voiceDraft";
 import { daysFromToday, todayISO } from "@/lib/design";
@@ -32,6 +34,8 @@ export function QuoteEditor({
   notice,
   gstRegistered = true,
   voiceEnabled = false,
+  staffMode = false,
+  approval = null,
 }: {
   quote: Quote | null;
   items: QuoteItem[];
@@ -44,6 +48,10 @@ export function QuoteEditor({
   gstRegistered?: boolean;
   /** Show "Dictate quote" (plan includes AI and the business switched Voice-to-Quote on). */
   voiceEnabled?: boolean;
+  /** A staff member preparing their own draft: saves as pending approval, nothing can be sent from here. */
+  staffMode?: boolean;
+  /** Who prepared the draft and whether it has been approved (shown to owners and admins). */
+  approval?: ApprovalInfo | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -85,7 +93,7 @@ export function QuoteEditor({
     }
   };
 
-  const locked = quote ? !["Draft", "Sent"].includes(quote.status) : false;
+  const locked = quote ? !["Draft", "Sent"].includes(quote.status) || (staffMode && quote.status !== "Draft") : false;
   const clientProperties = properties.filter((p) => p.client_id === clientId);
   const totals = calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), mode);
 
@@ -156,12 +164,22 @@ export function QuoteEditor({
   const commit = (status: "Draft" | "Approved" | "Declined") => {
     setError(null);
     startTransition(async () => {
-      const result = await saveQuote(quote?.id ?? null, input, status);
+      const result = staffMode ? await saveStaffQuote(quote?.id ?? null, input) : await saveQuote(quote?.id ?? null, input, status);
       if (!result.ok) {
         setError(result.error ?? "Could not save quote.");
         return;
       }
       router.push(`/quotes/${result.id}`);
+      router.refresh();
+    });
+  };
+
+  const deleteDraft = () => {
+    if (!quote || !window.confirm("Delete this draft?")) return;
+    startTransition(async () => {
+      const result = await deleteStaffDraft("quote", quote.id);
+      if (!result.ok) return setError(result.error ?? "Could not delete.");
+      router.push("/drafts");
       router.refresh();
     });
   };
@@ -214,7 +232,14 @@ export function QuoteEditor({
             <h1 className="text-2xl font-bold text-ink-primary">{quote ? quote.num : "New quote"}</h1>
             {quote && <StatusBadge status={quote.status.toLowerCase() as "draft" | "sent" | "approved" | "declined" | "expired" | "cancelled"} label={quote.status} showDot />}
           </div>
-          <div className="flex gap-2 flex-wrap">
+          {staffMode && (
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="secondary" onClick={() => router.push("/drafts")} disabled={pending}>Back</Button>
+              {quote && <Button variant="secondary" onClick={deleteDraft} disabled={pending}>Delete draft</Button>}
+              {(!quote || quote.status === "Draft") && <Button variant="primary" onClick={() => commit("Draft")} disabled={pending}>Save draft</Button>}
+            </div>
+          )}
+          <div className={staffMode ? "hidden" : "flex gap-2 flex-wrap"}>
             {quote && (
               <a href={`/api/quotes/${quote.id}/pdf`} target="_blank" rel="noreferrer">
                 <Button variant="secondary" type="button">
@@ -236,7 +261,7 @@ export function QuoteEditor({
               <Button variant="secondary" onClick={() => commit("Draft")} disabled={pending}>Save draft</Button>
             )}
             {(!quote || ["Draft", "Sent"].includes(quote.status)) && (
-              <Button variant="primary" onClick={startSend} disabled={pending}>Send quote</Button>
+              <Button variant="primary" onClick={startSend} disabled={pending || approval?.status === "pending"}>Send quote</Button>
             )}
             {quote?.status === "Sent" && (
               <>
@@ -268,6 +293,8 @@ export function QuoteEditor({
             {notice.text}
           </div>
         )}
+        {quote && !staffMode && approval && <ApprovalBanner kind="quote" id={quote.id} info={approval} />}
+        {staffMode && <div className="max-w-[1400px] mx-auto mb-5 px-4 py-3 rounded-lg text-sm border bg-info-bg text-info-fg border-info-fg/25">This is a draft. Your owner reviews and approves it before it can be sent to the client.</div>}
         <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-5 items-start">
           <div className="flex-[3] w-full min-w-0 flex flex-col gap-5">
             {voiceEnabled && !quote && <VoiceDraftPanel kind="quote" onDraft={applyVoiceDraft} />}
@@ -277,7 +304,7 @@ export function QuoteEditor({
                 disabled={locked}
                 clients={clients}
                 value={isNewClient ? NEW_CLIENT : clientId}
-                allowNew={!quote || quote.status === "Draft"}
+                allowNew={(!quote || quote.status === "Draft") && !staffMode}
                 onChange={(v) => {
                   setIsNewClient(v === NEW_CLIENT);
                   setClientId(v === NEW_CLIENT ? "" : v);
