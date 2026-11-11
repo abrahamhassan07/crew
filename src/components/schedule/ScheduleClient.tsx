@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { NewJobButton } from "@/components/NewJobButton";
 import { useJobModal } from "@/components/JobModalContext";
 import { rescheduleJob, convertRequestToJob } from "@/app/(app)/actions";
-import { addDays, DAYS, fmtDateLabel, fmtISO, fmtMonthDay, MONTHS, startOfWeek, todayISO } from "@/lib/design";
+import { addDays, DAYS, fmtDateLabel, fmtISO, fmtMonthDay, MONTHS, parseISO, startOfWeek, todayISO } from "@/lib/design";
 import type { EnrichedJob } from "@/lib/design";
 import type { Crew, Service, ServiceRequest } from "@/lib/supabase/types";
 import { TimeGrid, type GridDay } from "./TimeGrid";
@@ -17,6 +17,16 @@ import { UnscheduledPanel } from "./UnscheduledPanel";
 import { GRID_END_MIN, GRID_START_MIN, minutesToTime } from "./scheduleTime";
 
 type View = "day" | "week" | "month" | "crew";
+
+// The week view is one long strip of days you can scroll sideways. It starts a few weeks either side of the week
+// you're looking at and grows by STRIP_GROW days whenever you get close to either end.
+const STRIP_BEFORE = 28;
+const STRIP_DAYS = 91;
+const STRIP_GROW = 28;
+const STRIP_EDGE = 7;
+const HOUR_LABEL_PX = 56;
+const midnight = (d: Date) => parseISO(fmtISO(d));
+const daysBetween = (a: Date, b: Date) => Math.round((midnight(b).getTime() - midnight(a).getTime()) / 86_400_000);
 
 export function ScheduleClient({
   jobs,
@@ -54,16 +64,121 @@ export function ScheduleClient({
     });
   };
 
-  const goToday = () => setAnchor(new Date());
+  // ---- Scrolling week strip ----
+  const scroller = useRef<HTMLDivElement>(null);
+  const [stripStart, setStripStart] = useState(() => addDays(midnight(startOfWeek(new Date())), -STRIP_BEFORE));
+  const [stripDays, setStripDays] = useState(STRIP_DAYS);
+  const [colWidth, setColWidth] = useState(120);
+  const [visibleCols, setVisibleCols] = useState(7);
+  const [firstVisible, setFirstVisible] = useState(STRIP_BEFORE);
+  // A day index (may be fractional) to scroll to once the grid has rendered: first load, switching to week, jumping
+  // far away, or keeping your place when earlier days are added on the left.
+  const pendingScroll = useRef<number | null>(STRIP_BEFORE);
+  const growing = useRef(false);
+
+  // Seven days fill the width on a computer; on a phone each day keeps a readable minimum and you swipe.
+  useEffect(() => {
+    const el = scroller.current;
+    if (view !== "week" || !el) return;
+    const measure = () => {
+      const w = Math.max(90, Math.floor((el.clientWidth - HOUR_LABEL_PX) / 7));
+      setColWidth(w);
+      setVisibleCols(Math.max(1, Math.min(7, Math.floor((el.clientWidth - HOUR_LABEL_PX) / w))));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [view]);
+
+  // Once added days are on screen, nearing an edge can grow the strip again.
+  useLayoutEffect(() => {
+    growing.current = false;
+  }, [stripStart, stripDays]);
+
+  // Applies a pending scroll position. Always an exact position (never "move by"), so it can't be applied twice.
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    const p = pendingScroll.current;
+    if (view === "week" && el && p != null) {
+      pendingScroll.current = null;
+      el.scrollLeft = p * colWidth;
+    }
+  });
+
+  // Keep the first visible day in place when the column width changes (window resized).
+  const prevColWidth = useRef(colWidth);
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (el && prevColWidth.current !== colWidth && !pendingScroll.current) el.scrollLeft = firstVisible * colWidth;
+    prevColWidth.current = colWidth;
+  }, [colWidth, firstVisible]);
+
+  /** Scrolls the strip so `date` is the first column, rebuilding the strip around it if it's out of range. */
+  const scrollStripTo = useCallback(
+    (date: Date, smooth: boolean) => {
+      const idx = daysBetween(stripStart, date);
+      const inRange = idx >= STRIP_EDGE && idx <= stripDays - 7 - STRIP_EDGE;
+      if (inRange && scroller.current) {
+        scroller.current.scrollTo({ left: idx * colWidth, behavior: smooth ? "smooth" : "auto" });
+        return;
+      }
+      if (inRange) {
+        // The grid isn't on screen yet (switching to week view): scroll once it renders.
+        pendingScroll.current = idx;
+        setFirstVisible(idx);
+        return;
+      }
+      setStripStart(addDays(midnight(date), -STRIP_BEFORE));
+      setStripDays(STRIP_DAYS);
+      setFirstVisible(STRIP_BEFORE);
+      pendingScroll.current = STRIP_BEFORE;
+    },
+    [stripStart, stripDays, colWidth]
+  );
+
+  const onStripScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const first = Math.round(el.scrollLeft / colWidth);
+    if (first !== firstVisible) setFirstVisible(first);
+    if (growing.current) return;
+    if (first + visibleCols > stripDays - STRIP_EDGE) {
+      growing.current = true;
+      setStripDays((n) => n + STRIP_GROW);
+    } else if (first < STRIP_EDGE) {
+      growing.current = true;
+      // Keep exactly the same spot: the days you're looking at move STRIP_GROW columns to the right.
+      pendingScroll.current = el.scrollLeft / colWidth + STRIP_GROW;
+      setStripStart((d) => addDays(d, -STRIP_GROW));
+      setStripDays((n) => n + STRIP_GROW);
+    }
+  };
+
+  // The day the strip is showing first, used for the label, New job's date and when switching views.
+  const stripFirstDay = addDays(stripStart, firstVisible);
+
+  const goToday = () => {
+    setAnchor(new Date());
+    if (view === "week") scrollStripTo(midnight(startOfWeek(new Date())), true);
+  };
   const goPrev = () => {
     if (view === "day") setAnchor((d) => addDays(d, -1));
     else if (view === "month") setAnchor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+    else if (view === "week") scrollStripTo(addDays(stripFirstDay, -7), true);
     else setAnchor((d) => addDays(d, -7));
   };
   const goNext = () => {
     if (view === "day") setAnchor((d) => addDays(d, 1));
     else if (view === "month") setAnchor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+    else if (view === "week") scrollStripTo(addDays(stripFirstDay, 7), true);
     else setAnchor((d) => addDays(d, 7));
+  };
+
+  const changeView = (v: View) => {
+    // Carry the date across: leaving the strip keeps the day you scrolled to; entering it opens on the anchor's week.
+    if (view === "week" && v !== "week") setAnchor(stripFirstDay);
+    if (v === "week" && view !== "week") scrollStripTo(midnight(startOfWeek(anchor)), false);
+    setView(v);
   };
 
   const weekStart = startOfWeek(anchor);
@@ -74,22 +189,9 @@ export function ScheduleClient({
       ? fmtDateLabel(fmtISO(anchor))
       : view === "month"
         ? `${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`
-        : `${fmtMonthDay(weekStart)} – ${fmtMonthDay(weekEnd)}`;
-
-  const buildGridDays = (start: Date, count: number): GridDay[] =>
-    Array.from({ length: count }, (_, i) => {
-      const d = addDays(start, i);
-      const iso = fmtISO(d);
-      return {
-        iso,
-        dayName: DAYS[d.getDay()],
-        dateNum: d.getDate(),
-        isToday: iso === today,
-        jobs: filteredJobs.filter((j) => j.job_date === iso).sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? "")),
-      };
-    });
-
-  const gridDays = view === "day" ? buildGridDays(anchor, 1) : buildGridDays(weekStart, 7);
+        : view === "week"
+          ? `${fmtMonthDay(stripFirstDay)} – ${fmtMonthDay(addDays(stripFirstDay, visibleCols - 1))}`
+          : `${fmtMonthDay(weekStart)} – ${fmtMonthDay(weekEnd)}`;
 
   const jobsByDate = useMemo(() => {
     const map = new Map<string, EnrichedJob[]>();
@@ -101,6 +203,23 @@ export function ScheduleClient({
     }
     return map;
   }, [filteredJobs]);
+
+  const buildGridDays = (start: Date, count: number): GridDay[] =>
+    Array.from({ length: count }, (_, i) => {
+      const d = addDays(start, i);
+      const iso = fmtISO(d);
+      return {
+        iso,
+        dayName: DAYS[d.getDay()],
+        dateNum: d.getDate(),
+        monthName: MONTHS[d.getMonth()],
+        isToday: iso === today,
+        jobs: [...(jobsByDate.get(iso) ?? [])].sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? "")),
+      };
+    });
+
+  const gridDays = view === "day" ? buildGridDays(anchor, 1) : buildGridDays(stripStart, stripDays);
+
 
   const weekJobs = filteredJobs.filter((j) => j.job_date && j.job_date >= fmtISO(weekStart) && j.job_date <= fmtISO(weekEnd));
   const jobsByCrew = useMemo(() => {
@@ -161,7 +280,7 @@ export function ScheduleClient({
               {(["day", "week", "month", "crew"] as const).map((v) => (
                 <button
                   key={v}
-                  onClick={() => setView(v)}
+                  onClick={() => changeView(v)}
                   className={`px-3 py-1.5 rounded-md text-sm font-semibold capitalize transition-colors ${
                     view === v ? "bg-card-bg text-ink-primary shadow-sm" : "text-ink-muted hover:text-ink-primary"
                   }`}
@@ -170,7 +289,7 @@ export function ScheduleClient({
                 </button>
               ))}
             </div>
-            <NewJobButton prefillDate={fmtISO(anchor)} />
+            <NewJobButton prefillDate={fmtISO(view === "week" ? stripFirstDay : anchor)} />
           </>
         }
       >
@@ -213,12 +332,14 @@ export function ScheduleClient({
           <div className="flex-1 min-w-0 w-full">
             {(view === "day" || view === "week") && (
               <TimeGrid
+                key={view}
                 days={gridDays}
                 crewById={crewById}
                 canEdit={isAdmin}
                 onSlotClick={(iso) => openNewJob(iso)}
                 onJobClick={openJob}
                 onDropOnDay={handleDropOnDay}
+                {...(view === "week" ? { colWidth, scrollRef: scroller, onScroll: onStripScroll } : {})}
               />
             )}
             {view === "month" && (

@@ -8,6 +8,7 @@ export interface GridDay {
   iso: string;
   dayName: string;
   dateNum: number;
+  monthName?: string;
   isToday: boolean;
   jobs: EnrichedJob[];
 }
@@ -20,34 +21,52 @@ interface TimeGridProps {
   onJobClick: (jobId: string) => void;
   /** startMinutes is the snapped time (minutes since midnight) at the top of where the block was dropped. */
   onDropOnDay: (iso: string, startMinutes: number, e: React.DragEvent) => void;
+  /** Fixed column width for the scrolling week strip; without it the days share the width (day view). */
+  colWidth?: number;
+  scrollRef?: React.Ref<HTMLDivElement>;
+  onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
-export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onDropOnDay }: TimeGridProps) {
+export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onDropOnDay, colWidth, scrollRef, onScroll }: TimeGridProps) {
   const nowPx = nowOffsetPx();
+  const strip = colWidth != null;
+  const colClass = strip ? "shrink-0" : "flex-1 min-w-[90px]";
+  const colStyle = strip ? { width: colWidth } : undefined;
+  // In the strip the hour labels stay pinned on the left while the days scroll past.
+  const pin = strip ? "sticky left-0 z-30 bg-card-bg" : "";
 
   return (
-    <div className="bg-card-bg border border-line rounded-lg overflow-x-auto">
+    <div
+      ref={scrollRef}
+      onScroll={onScroll}
+      className="bg-card-bg border border-line rounded-lg overflow-x-auto"
+      style={strip ? { scrollSnapType: "x proximity", scrollPaddingLeft: 56, overscrollBehaviorX: "contain", overflowAnchor: "none" } : undefined}
+    >
       {/* Day headers */}
-      <div className="flex border-b border-line sticky top-0 bg-card-bg z-10">
-        <div className="w-14 shrink-0" />
+      <div className={`flex border-b border-line sticky top-0 bg-card-bg z-10 ${strip ? "w-max" : ""}`}>
+        <div className={`w-14 shrink-0 ${pin}`} />
         {days.map((day) => (
           <div
             key={day.iso}
-            className={`flex-1 min-w-[90px] text-center py-2.5 border-l border-line-soft ${day.isToday ? "bg-ok-bg/40" : ""}`}
+            className={`${colClass} text-center py-2.5 border-l border-line-soft ${day.isToday ? "bg-ok-bg/40" : ""}`}
+            style={strip ? { ...colStyle, scrollSnapAlign: "start" } : undefined}
           >
             <div className={`text-[11px] font-bold uppercase tracking-wide ${day.isToday ? "text-brand" : "text-ink-muted"}`}>
               {day.dayName}
             </div>
-            <div className={`text-lg font-bold ${day.isToday ? "text-brand" : "text-ink-primary"}`}>{day.dateNum}</div>
+            <div className={`text-lg font-bold ${day.isToday ? "text-brand" : "text-ink-primary"}`}>
+              {day.dateNum}
+              {strip && day.dateNum === 1 && <span className="ml-1 text-[11px] font-bold uppercase text-ink-muted">{day.monthName}</span>}
+            </div>
             <div className="text-[11px] text-ink-muted">{day.jobs.length} job{day.jobs.length === 1 ? "" : "s"}</div>
           </div>
         ))}
       </div>
 
       {/* Grid body — scrolls horizontally together with the header via the outer container */}
-      <div className="flex">
+      <div className={`flex ${strip ? "w-max" : ""}`}>
         {/* Hour labels */}
-        <div className="w-14 shrink-0 relative" style={{ height: GRID_HEIGHT_PX }}>
+        <div className={`w-14 shrink-0 relative ${pin}`} style={{ height: GRID_HEIGHT_PX }}>
           {GRID_HOURS.map((h, i) => (
             <div
               key={h}
@@ -62,8 +81,8 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
         {days.map((day) => (
           <div
             key={day.iso}
-            className="flex-1 min-w-[90px] relative border-l border-line-soft"
-            style={{ height: GRID_HEIGHT_PX }}
+            className={`${colClass} relative border-l border-line-soft`}
+            style={{ ...colStyle, height: GRID_HEIGHT_PX }}
             onClick={(e) => {
               if (e.target === e.currentTarget) onSlotClick(day.iso);
             }}
