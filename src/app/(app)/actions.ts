@@ -648,9 +648,26 @@ export async function updateClient(id: string, input: ClientInput): Promise<Acti
   return { ok: true };
 }
 
+/**
+ * Deletes a client added by mistake. Owners and admins only, and only when the client has no quotes or invoices:
+ * those are financial records (deleting the client would delete them too), so such a client should be archived instead.
+ * Properties, contacts, notes, requests and recurring services go with the client; jobs stay, unlinked.
+ */
 export async function deleteClient(id: string): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Only owners and admins can delete a client." };
   const supabase = await createClient();
-  const { error } = await supabase.from("clients").delete().eq("id", id);
+  const { data: client } = await supabase.from("clients").select("id").eq("id", id).eq("org_id", viewer.orgId).maybeSingle();
+  if (!client) return { ok: false, error: "Client not found." };
+  const [{ count: quotes }, { count: invoices }] = await Promise.all([
+    supabase.from("quotes").select("id", { count: "exact", head: true }).eq("client_id", id),
+    supabase.from("invoices").select("id", { count: "exact", head: true }).eq("client_id", id),
+  ]);
+  if (quotes === null || invoices === null) return { ok: false, error: "Couldn't check this client's quotes and invoices. Nothing was deleted." };
+  if (quotes > 0 || invoices > 0) {
+    return { ok: false, error: "This client has quotes or invoices, which must be kept for your records. Archive the client instead." };
+  }
+  const { error } = await supabase.from("clients").delete().eq("id", id).eq("org_id", viewer.orgId);
   if (error) return { ok: false, error: dbError(error) };
 
   revalidatePath("/", "layout");

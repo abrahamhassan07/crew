@@ -9,13 +9,15 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: client }, { data: properties }, { data: notes }, { data: staffList }, { data: jobs }, { data: recurring }] = await Promise.all([
+  const [{ data: client }, { data: properties }, { data: notes }, { data: staffList }, { data: jobs }, { data: recurring }, { count: quoteCount }, { count: invoiceCount }] = await Promise.all([
     supabase.from("clients").select("*").eq("id", id).single(),
     supabase.from("properties").select("*").eq("client_id", id).order("created_at"),
     supabase.from("client_notes").select("*").eq("client_id", id).order("created_at", { ascending: false }),
     supabase.from("staff").select("*"),
     supabase.from("jobs").select("*").eq("client_id", id),
     supabase.from("recurring_services").select("*").eq("client_id", id).order("created_at"),
+    supabase.from("quotes").select("id", { count: "exact", head: true }).eq("client_id", id),
+    supabase.from("invoices").select("id", { count: "exact", head: true }).eq("client_id", id),
   ]);
 
   if (!client) notFound();
@@ -30,5 +32,5 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
   const enrichedJobs = (jobs ?? []).map((j) => enrichJob(j, staffById));
   const today = todayISO();
 
-  return <ClientProfileClient client={client} properties={properties ?? []} notes={notesWithStaffName} jobs={enrichedJobs} today={today} recurring={recurring ?? []} />;
+  return <ClientProfileClient client={client} properties={properties ?? []} notes={notesWithStaffName} jobs={enrichedJobs} today={today} recurring={recurring ?? []} documentCount={(quoteCount ?? 0) + (invoiceCount ?? 0)} />;
 }

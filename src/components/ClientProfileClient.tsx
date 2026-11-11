@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mail, Pencil, Phone, Plus } from "lucide-react";
-import { addClientNote } from "@/app/(app)/actions";
+import { Mail, Pencil, Phone, Plus, Trash2 } from "lucide-react";
+import { addClientNote, deleteClient } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -52,7 +52,7 @@ export function ClientProfileClient({
   notes,
   jobs,
   today,
-  recurring,
+  recurring, documentCount,
 }: {
   client: Client;
   properties: Property[];
@@ -60,6 +60,7 @@ export function ClientProfileClient({
   jobs: EnrichedJob[];
   today: string;
   recurring: RecurringService[];
+  documentCount: number;
 }) {
   const router = useRouter();
   const { openNewJob } = useJobModal();
@@ -74,6 +75,17 @@ export function ClientProfileClient({
   const [pending, startTransition] = useTransition();
 
   const primary = properties[0] ?? null;
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const confirmDelete = () => {
+    setDeleteError(null);
+    startTransition(async () => {
+      const result = await deleteClient(client.id);
+      if (!result.ok) return setDeleteError(result.error ?? "Couldn't delete this client.");
+      router.push("/clients");
+      router.refresh();
+    });
+  };
 
   const addNote = () => {
     const text = noteDraft.trim();
@@ -116,13 +128,44 @@ export function ClientProfileClient({
                 )}
               </div>
             </div>
-            <Link href={`/clients/${client.id}/edit`}>
-              <Button variant="secondary" size="md">
-                <Pencil className="w-4 h-4" />
-                Edit client
+            <div className="flex items-center gap-2">
+              <Link href={`/clients/${client.id}/edit`}>
+                <Button variant="secondary" size="md">
+                  <Pencil className="w-4 h-4" />
+                  Edit client
+                </Button>
+              </Link>
+              <Button variant="secondary" size="md" onClick={() => setConfirmingDelete((v) => !v)}>
+                <Trash2 className="w-4 h-4" />
+                Delete
               </Button>
-            </Link>
+            </div>
           </div>
+          {confirmingDelete && (
+            <div className="mt-4 p-4 rounded-lg border border-line bg-page-bg text-sm">
+              {documentCount > 0 ? (
+                <p className="text-ink-secondary">
+                  {client.name} has {documentCount} quote{documentCount === 1 ? "" : "s"} or invoice{documentCount === 1 ? "" : "s"}, which must be kept for your records, so they can&apos;t be deleted. Set their status to Archived instead (Edit client).
+                </p>
+              ) : (
+                <>
+                  <p className="font-semibold text-ink-primary mb-1">Delete {client.name}? This can&apos;t be undone.</p>
+                  <p className="text-ink-secondary mb-3">
+                    Their properties, contacts, notes, requests and recurring services will be deleted too. {jobs.length > 0 ? `Their ${jobs.length} job${jobs.length === 1 ? "" : "s"} will stay on the schedule but won't be linked to a client. ` : ""}This client has no quotes or invoices.
+                  </p>
+                  {deleteError && <p className="text-danger mb-2">{deleteError}</p>}
+                  <div className="flex gap-2">
+                    <Button variant="danger" size="sm" onClick={confirmDelete} disabled={pending}>
+                      {pending ? "Deleting…" : "Yes, delete client"}
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => setConfirmingDelete(false)} disabled={pending}>
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
