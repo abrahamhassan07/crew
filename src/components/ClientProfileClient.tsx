@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Mail, Pencil, Phone, Plus, Trash2 } from "lucide-react";
-import { addClientNote, deleteClient } from "@/app/(app)/actions";
+import { addClientNote, deleteClient, deleteJobs } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -28,10 +28,19 @@ function jobBadge(job: EnrichedJob): { key: BadgeKey; label: string } {
   return { key: "scheduled", label: "Scheduled" };
 }
 
-function JobRow({ job }: { job: EnrichedJob }) {
+function JobRow({ job, checked, onToggle }: { job: EnrichedJob; checked: boolean; onToggle: () => void }) {
   const badge = jobBadge(job);
   return (
-    <Link href={`/jobs/${job.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3 border-t border-line-soft first:border-t-0 hover:bg-page-bg -mx-2 px-2 rounded-md transition-colors">
+    <div className={`flex items-center gap-3 border-t border-line-soft first:border-t-0 -mx-2 px-2 rounded-md ${checked ? "bg-ok-bg/40" : ""}`}>
+      <input type="checkbox" checked={checked} onChange={onToggle} aria-label={`Select ${job.num}`} className="w-4 h-4 shrink-0 accent-[var(--color-brand)]" />
+      <JobRowLink job={job} badge={badge} />
+    </div>
+  );
+}
+
+function JobRowLink({ job, badge }: { job: EnrichedJob; badge: ReturnType<typeof jobBadge> }) {
+  return (
+    <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0 flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3 hover:bg-page-bg px-2 rounded-md transition-colors">
       <div className="w-20 shrink-0 text-sm font-semibold text-ink-primary">{job.num}</div>
       <div className="flex-1 min-w-[160px]">
         <div className="text-sm font-semibold text-ink-primary">{job.title || job.typeLabel}</div>
@@ -43,6 +52,16 @@ function JobRow({ job }: { job: EnrichedJob }) {
         <StatusBadge status={badge.key} label={badge.label} showDot />
       </div>
     </Link>
+  );
+}
+
+function GroupHeader({ label, group, selected, onToggle }: { label: string; group: EnrichedJob[]; selected: Set<string>; onToggle: () => void }) {
+  const all = group.length > 0 && group.every((j) => selected.has(j.id));
+  return (
+    <label className="flex items-center gap-3 mb-1 cursor-pointer">
+      <input type="checkbox" checked={all} onChange={onToggle} aria-label={`Select all ${label}`} className="w-4 h-4 accent-[var(--color-brand)]" />
+      <span className="text-xs font-bold uppercase tracking-wide text-ink-muted">{label}</span>
+    </label>
   );
 }
 
@@ -77,6 +96,38 @@ export function ClientProfileClient({
   const primary = properties[0] ?? null;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [confirmJobs, setConfirmJobs] = useState(false);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const toggleJob = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleGroup = (group: EnrichedJob[]) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const all = group.every((j) => next.has(j.id));
+      for (const j of group) {
+        if (all) next.delete(j.id);
+        else next.add(j.id);
+      }
+      return next;
+    });
+  const deleteSelected = () => {
+    setJobsError(null);
+    startTransition(async () => {
+      const result = await deleteJobs([...selected]);
+      if (!result.ok) return setJobsError(result.error ?? "Couldn't delete those jobs.");
+      setSelected(new Set());
+      setConfirmJobs(false);
+      router.refresh();
+    });
+  };
+  const selectedJobs = jobs.filter((j) => selected.has(j.id));
+  const selectedLinkedToSeries = selectedJobs.some((j) => j.series_id);
   const confirmDelete = () => {
     setDeleteError(null);
     startTransition(async () => {
@@ -102,7 +153,7 @@ export function ClientProfileClient({
   return (
     <div className="min-h-screen bg-page-bg">
       <div className="px-6 py-8 border-b border-line bg-card-bg">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-[1600px] mx-auto">
           <Link href="/clients" className="text-sm font-semibold text-brand mb-3 inline-block hover:text-brand-hover">
             ← Clients
           </Link>
@@ -170,7 +221,7 @@ export function ClientProfileClient({
       </div>
 
       <div className="px-6 py-8">
-        <div className="max-w-5xl mx-auto flex flex-col gap-6">
+        <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card className="p-4">
               <div className="text-xs font-semibold text-ink-muted mb-2">Contact</div>
@@ -251,19 +302,49 @@ export function ClientProfileClient({
                       </Button>
                     </div>
                     {!jobs.length && <p className="text-sm text-ink-muted pt-3">No jobs yet. Click New job to schedule the first one.</p>}
+                    {selected.size > 0 && (
+                      <div className="mt-4 p-3 rounded-lg border border-line bg-page-bg text-sm">
+                        {!confirmJobs ? (
+                          <div className="flex flex-wrap items-center gap-3">
+                            <span className="font-semibold text-ink-primary">{selected.size} selected</span>
+                            <Button variant="danger" size="sm" onClick={() => setConfirmJobs(true)}>
+                              <Trash2 className="w-4 h-4" /> Delete {selected.size} job{selected.size === 1 ? "" : "s"}
+                            </Button>
+                            <button className="text-ink-secondary font-semibold" onClick={() => setSelected(new Set())}>Clear</button>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="font-semibold text-ink-primary mb-1">Delete {selected.size} job{selected.size === 1 ? "" : "s"}? This can&apos;t be undone.</p>
+                            <p className="text-ink-secondary mb-3">
+                              {selectedJobs.map((j) => j.num).slice(0, 12).join(", ")}{selectedJobs.length > 12 ? ` and ${selectedJobs.length - 12} more` : ""}. Their photos are deleted too. Any invoice or quote for these jobs is kept.
+                              {selectedLinkedToSeries ? " If you no longer do this repeat service, also remove it under the Recurring tab so the Service Health audit doesn't expect it." : ""}
+                            </p>
+                            {jobsError && <p className="text-danger mb-2">{jobsError}</p>}
+                            <div className="flex gap-2">
+                              <Button variant="danger" size="sm" onClick={deleteSelected} disabled={pending}>
+                                {pending ? "Deleting…" : `Yes, delete ${selected.size}`}
+                              </Button>
+                              <Button variant="secondary" size="sm" onClick={() => setConfirmJobs(false)} disabled={pending}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                     {upcoming.length > 0 && (
                       <div className="mt-4">
-                        <div className="text-xs font-bold uppercase tracking-wide text-ink-muted mb-1">Upcoming &amp; unscheduled</div>
+                        <GroupHeader label="Upcoming & unscheduled" group={upcoming} selected={selected} onToggle={() => toggleGroup(upcoming)} />
                         {upcoming.map((j) => (
-                          <JobRow key={j.id} job={j} />
+                          <JobRow key={j.id} job={j} checked={selected.has(j.id)} onToggle={() => toggleJob(j.id)} />
                         ))}
                       </div>
                     )}
                     {history.length > 0 && (
                       <div className="mt-6">
-                        <div className="text-xs font-bold uppercase tracking-wide text-ink-muted mb-1">History</div>
+                        <GroupHeader label="History" group={history} selected={selected} onToggle={() => toggleGroup(history)} />
                         {history.map((j) => (
-                          <JobRow key={j.id} job={j} />
+                          <JobRow key={j.id} job={j} checked={selected.has(j.id)} onToggle={() => toggleJob(j.id)} />
                         ))}
                       </div>
                     )}

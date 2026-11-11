@@ -207,6 +207,29 @@ export async function deleteJob(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/**
+ * Deletes several jobs at once (for jobs created by mistake). Owners and admins only, limited to their own business.
+ * Stored photos are removed first. Invoices and quotes that point at a job are kept and simply lose the link.
+ * Staff aren't emailed once per job; recurring services on the client are left for the owner to adjust.
+ */
+export async function deleteJobs(ids: string[]): Promise<ActionResult & { deleted?: number }> {
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Only owners and admins can delete jobs." };
+  const unique = [...new Set(ids)].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (!unique.length) return { ok: false, error: "Choose at least one job." };
+  if (unique.length > 500) return { ok: false, error: "Delete up to 500 jobs at a time." };
+  const supabase = await createClient();
+  const { data: found, error: findErr } = await supabase.from("jobs").select("id").eq("org_id", viewer.orgId).in("id", unique);
+  if (findErr) return { ok: false, error: dbError(findErr) };
+  const mine = (found ?? []).map((j) => j.id);
+  if (!mine.length) return { ok: false, error: "Those jobs weren't found." };
+  for (const id of mine) await deleteJobPhotoFiles(viewer.orgId, id);
+  const { error } = await supabase.from("jobs").delete().eq("org_id", viewer.orgId).in("id", mine);
+  if (error) return { ok: false, error: dbError(error) };
+  revalidatePath("/", "layout");
+  return { ok: true, deleted: mine.length };
+}
+
 export async function updateJobStatus(id: string, status: JobStatus): Promise<ActionResult> {
   const supabase = await createClient();
   const viewer = await getViewer();
