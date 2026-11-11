@@ -23,6 +23,7 @@ import { addMonthsClamped } from "@/lib/audit/engine";
 import { calcTotals } from "@/lib/gst";
 import { deleteJobPhotoFiles } from "@/lib/photos";
 import { MAX_NUMBER_LENGTH, MAX_REFERENCE_LENGTH, PREFIX_PATTERN, nextInvoiceNumber, numberPart, type NumberingSettings } from "@/lib/invoiceNumbers";
+import { RECURRENCE_LABEL, RECURRENCE_STEP_DAYS } from "@/lib/recurrence";
 import type { FeedbackKind, FeedbackStatus, CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
 
 export interface ActionResult {
@@ -106,7 +107,7 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
   const firstNum = await nextJobNum(supabase);
   const rows = [{ ...base, job_date: input.date, num: firstNum }];
   if (input.repeat !== "none" && input.date) {
-    const stepDays = input.repeat === "weekly" ? 7 : 14;
+    const stepDays = RECURRENCE_STEP_DAYS[input.repeat] ?? 14;
     const startNum = parseInt(firstNum.replace(/\D/g, ""), 10);
     for (let i = 1; i <= 6; i++) {
       // Monthly repeats on the same day of each calendar month (clamped to the month's last day), not every 30 days.
@@ -124,7 +125,7 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
   if (seriesId && clientId && input.date && viewer.profile.role === "admin") {
     await supabase.from("recurring_services").insert({
       org_id: viewer.orgId, client_id: clientId, title: input.client.trim() ? `${input.type[0].toUpperCase()}${input.type.slice(1)} service` : "Regular service",
-      job_type: input.type, frequency: input.repeat as "weekly" | "fortnightly" | "monthly", anchor_date: input.date, series_id: seriesId,
+      job_type: input.type, frequency: input.repeat === "every3weeks" || input.repeat === "every4weeks" ? "custom" : (input.repeat as "weekly" | "fortnightly" | "monthly"), interval_days: input.repeat === "every3weeks" || input.repeat === "every4weeks" ? RECURRENCE_STEP_DAYS[input.repeat]! : null, anchor_date: input.date, series_id: seriesId,
     });
   }
   // One email for the first job; a repeating job is described rather than sending seven emails.
@@ -132,7 +133,7 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
   if (first) {
     const orgId = viewer.orgId;
     const staffId = viewer.staff?.id ?? null;
-    const note = input.repeat !== "none" ? `repeats ${input.repeat}` : undefined;
+    const note = input.repeat !== "none" ? `repeats ${RECURRENCE_LABEL[input.repeat].toLowerCase()}` : undefined;
     after(() => notifyJobChange(orgId, null, first, staffId, note));
   }
 

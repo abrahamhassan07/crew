@@ -1,7 +1,7 @@
 export type AppRole = "admin" | "staff";
 export type Skill = "cleaning" | "gardening" | "both";
 export type JobStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
-export type Recurrence = "none" | "weekly" | "fortnightly" | "monthly";
+export type Recurrence = "none" | "weekly" | "fortnightly" | "every3weeks" | "every4weeks" | "monthly";
 export type CareProvider = "AYS" | "GIHC" | "Aurora Home Care";
 
 export type Profile = {

@@ -254,6 +254,8 @@ export function JobModal({
               { value: "none", label: "Does not repeat" },
               { value: "weekly", label: "Weekly" },
               { value: "fortnightly", label: "Fortnightly" },
+              { value: "every3weeks", label: "Every 3 weeks" },
+              { value: "every4weeks", label: "Every 4 weeks" },
               { value: "monthly", label: "Monthly" },
             ]}
           />

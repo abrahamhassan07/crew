@@ -1,5 +1,6 @@
 "use client";
 
+import { RECURRENCE_LABEL } from "@/lib/recurrence";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -73,7 +74,7 @@ export function JobDetailClient({ job, invoiceId }: { job: EnrichedJob; invoiceI
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <StatusBadge status={badgeStatus(job.status)} label={STATUS_STEPS.find((s) => s.value === job.status)?.label ?? job.status} showDot />
-                {job.recurrence !== "none" && <span className="text-xs px-2.5 py-1 rounded-full bg-neutral-bg text-ink-secondary capitalize">{job.recurrence}</span>}
+                {job.recurrence !== "none" && <span className="text-xs px-2.5 py-1 rounded-full bg-neutral-bg text-ink-secondary">{RECURRENCE_LABEL[job.recurrence]}</span>}
               </div>
               <h1 className="text-2xl font-bold text-ink-primary mt-2">{job.title || `${job.job_type} job`}</h1>
               <div className="text-sm text-ink-secondary mt-1">{job.client_name}</div>
