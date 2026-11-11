@@ -197,11 +197,13 @@ export function ClientForm({
       <PageHeader
         title={mode === "edit" ? `Edit ${client?.name ?? "client"}` : "New client"}
         subtitle="Fields marked * are required."
-        maxWidth="5xl"
       />
 
       <div className="px-6 py-8">
-        <div className="max-w-5xl mx-auto flex flex-col gap-6">
+        <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
+          {/* Two columns on wide screens: who they are on the left, how you work with them on the right. */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+          <div className="flex flex-col gap-6 min-w-0">
           <Card className="p-6">
             <h2 className="text-lg font-bold text-ink-primary mb-4">Contact details</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -282,6 +284,58 @@ export function ClientForm({
             )}
           </Card>
 
+          {mode === "edit" && (
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-ink-primary">Additional contacts</h2>
+                {!addingContact && (
+                  <Button variant="ghost" size="sm" onClick={() => setAddingContact(blankContact())}>
+                    <Plus className="w-4 h-4" />
+                    Add contact
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-col gap-4">
+                {contacts.map((c) => (
+                  <div key={c.id} className="border border-line rounded-lg p-4 bg-page-bg/40 flex items-start justify-between gap-4">
+                    <div className="text-sm">
+                      <div className="font-semibold text-ink-primary">{c.name} <span className="font-normal text-ink-secondary">· {c.role}</span></div>
+                      <div className="text-ink-secondary">{[c.phone, c.email].filter(Boolean).join(" · ") || "—"}</div>
+                    </div>
+                    <button type="button" onClick={() => deleteExistingContact(c.id)} className="text-danger text-sm font-semibold flex items-center gap-1 shrink-0">
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                {addingContact && (
+                  <div className="border border-line rounded-lg p-4 bg-page-bg/40 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <TextField label="Name" required value={addingContact.name} onChange={(e) => setAddingContact({ ...addingContact, name: e.target.value })} />
+                    <TextField label="Phone" value={addingContact.phone} onChange={(e) => setAddingContact({ ...addingContact, phone: e.target.value })} />
+                    <TextField label="Email" type="email" value={addingContact.email} onChange={(e) => setAddingContact({ ...addingContact, email: e.target.value })} />
+                    <SelectField
+                      label="Relationship / role"
+                      value={addingContact.role}
+                      onChange={(e) => setAddingContact({ ...addingContact, role: e.target.value })}
+                      options={["Property manager", "Tenant", "Spouse / partner", "Accounts", "Site contact", "Other"].map((r) => ({ value: r, label: r }))}
+                    />
+                    <div className="sm:col-span-2 flex justify-end gap-2">
+                      <Button variant="secondary" size="sm" onClick={() => setAddingContact(null)}>
+                        Cancel
+                      </Button>
+                      <Button variant="primary" size="sm" onClick={saveNewContact} disabled={pending}>
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {!contacts.length && !addingContact && <p className="text-sm text-ink-muted">No additional contacts.</p>}
+              </div>
+            </Card>
+          )}
+          </div>
+
+          <div className="flex flex-col gap-6 min-w-0">
           <Card className="p-6">
             <h2 className="text-lg font-bold text-ink-primary mb-4">Lead & status</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -388,55 +442,8 @@ export function ClientForm({
             </div>
           </Card>
 
-          {mode === "edit" && (
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-ink-primary">Additional contacts</h2>
-                {!addingContact && (
-                  <Button variant="ghost" size="sm" onClick={() => setAddingContact(blankContact())}>
-                    <Plus className="w-4 h-4" />
-                    Add contact
-                  </Button>
-                )}
-              </div>
-              <div className="flex flex-col gap-4">
-                {contacts.map((c) => (
-                  <div key={c.id} className="border border-line rounded-lg p-4 bg-page-bg/40 flex items-start justify-between gap-4">
-                    <div className="text-sm">
-                      <div className="font-semibold text-ink-primary">{c.name} <span className="font-normal text-ink-secondary">· {c.role}</span></div>
-                      <div className="text-ink-secondary">{[c.phone, c.email].filter(Boolean).join(" · ") || "—"}</div>
-                    </div>
-                    <button type="button" onClick={() => deleteExistingContact(c.id)} className="text-danger text-sm font-semibold flex items-center gap-1 shrink-0">
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                {addingContact && (
-                  <div className="border border-line rounded-lg p-4 bg-page-bg/40 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <TextField label="Name" required value={addingContact.name} onChange={(e) => setAddingContact({ ...addingContact, name: e.target.value })} />
-                    <TextField label="Phone" value={addingContact.phone} onChange={(e) => setAddingContact({ ...addingContact, phone: e.target.value })} />
-                    <TextField label="Email" type="email" value={addingContact.email} onChange={(e) => setAddingContact({ ...addingContact, email: e.target.value })} />
-                    <SelectField
-                      label="Relationship / role"
-                      value={addingContact.role}
-                      onChange={(e) => setAddingContact({ ...addingContact, role: e.target.value })}
-                      options={["Property manager", "Tenant", "Spouse / partner", "Accounts", "Site contact", "Other"].map((r) => ({ value: r, label: r }))}
-                    />
-                    <div className="sm:col-span-2 flex justify-end gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => setAddingContact(null)}>
-                        Cancel
-                      </Button>
-                      <Button variant="primary" size="sm" onClick={saveNewContact} disabled={pending}>
-                        Add
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {!contacts.length && !addingContact && <p className="text-sm text-ink-muted">No additional contacts.</p>}
-              </div>
-            </Card>
-          )}
+          </div>
+          </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}
 
