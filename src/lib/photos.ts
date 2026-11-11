@@ -2,6 +2,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getViewer, type Viewer } from "@/lib/auth";
+import { photosAllowed } from "@/lib/billing";
 import type { Job, JobPhoto } from "@/lib/supabase/types";
 
 // Job photos. The storage bucket is private and has no policies, so nothing is reachable by URL. Everything goes
@@ -12,7 +13,7 @@ export const BUCKET = "job-photos";
 export const SIGNED_URL_SECONDS = 600; // dashboard and staff views
 export const GALLERY_URL_SECONDS = 3600; // customer gallery page (re-signed on every page load)
 
-export type PhotoContext = { ok: true; viewer: Viewer; isAdmin: boolean; job: Job } | { ok: false; error: string };
+export type PhotoContext = { ok: true; viewer: Viewer; isAdmin: boolean; job: Job; planAllowed: boolean } | { ok: false; error: string };
 
 /** Whether the signed-in person may work with this job's photos. */
 export async function photoContext(jobId: string): Promise<PhotoContext> {
@@ -22,8 +23,12 @@ export async function photoContext(jobId: string): Promise<PhotoContext> {
   const { data: job } = await createAdminClient().from("jobs").select("*").eq("id", jobId).eq("org_id", viewer.orgId).maybeSingle();
   if (!job) return { ok: false, error: "Job not found." };
   if (!isAdmin && job.assigned_staff_id !== viewer.staff!.id) return { ok: false, error: "That job isn't assigned to you." };
-  return { ok: true, viewer, isAdmin, job };
+  const { data: org } = await createAdminClient().from("organizations").select("*").eq("id", viewer.orgId).single();
+  return { ok: true, viewer, isAdmin, job, planAllowed: photosAllowed(org) };
 }
+
+/** Shown when a plan without photos tries to add or share one. */
+export const PHOTOS_PLAN_MESSAGE = "Job photos are included with the Team and Business plans. Upgrade under Subscription to add photos.";
 
 export type PhotoView = Pick<JobPhoto, "id" | "kind" | "expires_at" | "preserved" | "created_at" | "size_bytes"> & { url: string | null; mine: boolean };
 

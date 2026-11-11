@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { BUCKET, photoContext, removeFiles } from "@/lib/photos";
+import { BUCKET, PHOTOS_PLAN_MESSAGE, photoContext, removeFiles } from "@/lib/photos";
 import { PHOTO_DEFAULT_DAYS, PHOTO_MAX_BYTES, PHOTO_MAX_PER_JOB, PHOTO_UPLOADS_PER_HOUR, jpegSize, stripJpegMetadata } from "@/lib/photoFiles";
 
 // Upload one job photo (already compressed to JPEG in the browser). Everything is checked again here: who is asking,
@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
   const ctx = await photoContext(jobId);
   if (!ctx.ok) return NextResponse.json({ error: ctx.error }, { status: ctx.error === "Job not found." ? 404 : 403 });
   const { viewer } = ctx;
+  if (!ctx.planAllowed) return NextResponse.json({ error: PHOTOS_PLAN_MESSAGE }, { status: 402 });
 
   const clean = stripJpegMetadata(new Uint8Array(await file.arrayBuffer()));
   if (!clean) return NextResponse.json({ error: "Only JPEG photos are accepted." }, { status: 415 });

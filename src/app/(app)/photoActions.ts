@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dbError } from "@/lib/errors";
-import { newGalleryToken, photoContext, photosWithUrls, removeFiles, type PhotoView } from "@/lib/photos";
+import { PHOTOS_PLAN_MESSAGE, newGalleryToken, photoContext, photosWithUrls, removeFiles, type PhotoView } from "@/lib/photos";
 import { GALLERY_MAX_DAYS } from "@/lib/photoFiles";
 
-export type PhotoPanelData = { photos: PhotoView[]; links: GalleryLinkView[]; isAdmin: boolean };
+export type PhotoPanelData = { photos: PhotoView[]; links: GalleryLinkView[]; isAdmin: boolean; planAllowed: boolean };
 export type GalleryLinkView = { id: string; created_at: string; expires_at: string; revoked_at: string | null };
 
 /** Everything the photo panel on a job needs: photos with short-lived links and (for owners) the gallery links. */
@@ -19,7 +19,7 @@ export async function loadJobPhotos(jobId: string): Promise<{ ok: true; data: Ph
     const { data } = await createAdminClient().from("photo_gallery_links").select("id, created_at, expires_at, revoked_at").eq("org_id", ctx.viewer.orgId).eq("job_id", jobId).is("revoked_at", null).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false }).limit(10);
     links = data ?? [];
   }
-  return { ok: true, data: { photos, links, isAdmin: ctx.isAdmin } };
+  return { ok: true, data: { photos, links, isAdmin: ctx.isAdmin, planAllowed: ctx.planAllowed } };
 }
 
 async function ownPhoto(photoId: string) {
@@ -62,6 +62,7 @@ export async function createGalleryLink(jobId: string, days: number): Promise<{ 
   const ctx = await photoContext(jobId);
   if (!ctx.ok) return ctx;
   if (!ctx.isAdmin) return { ok: false, error: "Only owners and admins can share photos." };
+  if (!ctx.planAllowed) return { ok: false, error: PHOTOS_PLAN_MESSAGE };
   const d = Math.min(GALLERY_MAX_DAYS, Math.max(1, Math.floor(Number.isFinite(days) ? days : 7)));
   const admin = createAdminClient();
   const { count } = await admin.from("job_photos").select("id", { count: "exact", head: true }).eq("org_id", ctx.viewer.orgId).eq("job_id", jobId);

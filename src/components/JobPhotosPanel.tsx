@@ -113,6 +113,7 @@ export function JobPhotosPanel({ jobId }: { jobId: string }) {
 
   const photos = data?.photos ?? [];
   const isAdmin = data?.isAdmin ?? false;
+  const planAllowed = data?.planAllowed ?? true;
   const activeLinks = data?.links ?? []; // the server only returns links that are still active
 
   return (
@@ -127,7 +128,12 @@ export function JobPhotosPanel({ jobId }: { jobId: string }) {
       </div>
       <p className="text-xs text-ink-muted mb-3">Photos are deleted automatically 30 days after they&apos;re added{isAdmin ? ", unless you keep them" : ""}. They&apos;re compressed and location data is removed.</p>
 
-      <div className="flex flex-wrap items-center gap-2 mb-3">
+      {!planAllowed && (
+        <p className="text-sm text-ink-secondary mb-3 p-3 rounded-lg bg-page-bg border border-line">
+          Job photos are included with the Team and Business plans. <a href="/subscription" className="font-semibold text-brand">See plans</a>
+        </p>
+      )}
+      {planAllowed && <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="inline-flex rounded-lg border border-line overflow-hidden">
           {KINDS.map((k) => (
             <button key={k.kind} onClick={() => setKind(k.kind)} className={`px-3 h-9 text-sm font-semibold ${kind === k.kind ? "bg-brand text-white" : "bg-card-bg text-ink-secondary"}`}>
@@ -139,7 +145,7 @@ export function JobPhotosPanel({ jobId }: { jobId: string }) {
         <Button variant="primary" size="md" onClick={() => input.current?.click()} disabled={!!busy}>
           <Camera className="w-4 h-4" /> Add {kind} photo
         </Button>
-      </div>
+      </div>}
       {busy && <p className="text-sm text-ink-secondary mb-2">{busy}</p>}
       {error && <p className="text-sm text-danger mb-2">{error}</p>}
       {!data && !error && <p className="text-sm text-ink-muted">Loading photos…</p>}
@@ -188,7 +194,7 @@ export function JobPhotosPanel({ jobId }: { jobId: string }) {
         );
       })}
 
-      {isAdmin && photos.length > 0 && (
+      {isAdmin && planAllowed && photos.length > 0 && (
         <div className="border-t border-line pt-4 mt-2">
           <div className="text-sm font-bold text-ink-primary mb-1 flex items-center gap-1.5"><Link2 className="w-4 h-4" /> Share with the customer</div>
           <p className="text-xs text-ink-muted mb-2">Creates a private link that shows only this job&apos;s photos. You can turn it off any time. Nothing is sent automatically.</p>

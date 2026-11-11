@@ -69,6 +69,12 @@ export function aiAllowed(org: SeatOrg | null): boolean {
   return limitsFor(org)?.ai ?? true;
 }
 
+/** Whether the plan includes job photos and customer galleries (Team and Business, the trial, complimentary accounts). */
+export function photosAllowed(org: SeatOrg | null): boolean {
+  if (!org || org.billing_exempt !== false) return true;
+  return limitsFor(org)?.photos ?? true;
+}
+
 /** AI uses per month on this plan, or null for no ceiling. */
 export const aiMonthlyLimit = (org: SeatOrg | null): number | null => limitsFor(org)?.aiMonthly ?? null;
 
