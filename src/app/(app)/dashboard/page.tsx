@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/auth";
-import { addDays, BUSINESS_TZ, businessHour, buildStaffMap, enrichJob, fmtDateLabel, fmtISO, startOfWeek, todayISO } from "@/lib/design";
+import { addDays, BUSINESS_TZ, businessHour, buildStaffMap, enrichJob, fmtDateLabel, fmtISO, fmtTime12, startOfWeek, todayISO } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
 import { aiAllowed } from "@/lib/billing";
 import { StatCard, Card } from "@/components/ui/Card";
@@ -302,7 +302,7 @@ export default async function DashboardPage() {
                       >
                         <div>
                           <div className="text-sm font-bold text-ink-primary">
-                            {job.start_time}
+                            {job.start_time ? fmtTime12(job.start_time) : "Any time"}
                           </div>
                           <div className="text-xs text-ink-muted mt-1">
                             {job.duration_minutes}m

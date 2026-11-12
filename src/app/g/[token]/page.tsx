@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GALLERY_URL_SECONDS, hashToken, photosWithUrls } from "@/lib/photos";
+import { photosAllowed } from "@/lib/billing";
 
 // The customer's private photo page. Reached only with the secret link. It shows the photos for that one job and the
 // business name, nothing else (no client details, no other jobs, no other businesses). Revoked or expired links show
@@ -34,13 +35,16 @@ export default async function GalleryPage({ params }: { params: Promise<{ token:
   const { data: link } = await admin.from("photo_gallery_links").select("org_id, job_id, expires_at, revoked_at").eq("token_hash", hashToken(token)).maybeSingle();
   if (!link || !linkUsable(link)) return <Unavailable />;
 
-  const [{ data: org }, { data: job }, photos] = await Promise.all([
-    admin.from("organizations").select("name").eq("id", link.org_id).maybeSingle(),
+  // Galleries are part of the photos feature: if the business is no longer on a plan with photos, its links stop
+  // working (same page as an expired link). They work again if the business upgrades before the link expires.
+  const { data: org } = await admin.from("organizations").select("*").eq("id", link.org_id).maybeSingle();
+  if (!org || !photosAllowed(org)) return <Unavailable />;
+  const [{ data: job }, photos] = await Promise.all([
     admin.from("jobs").select("job_date, title, job_type").eq("id", link.job_id).eq("org_id", link.org_id).maybeSingle(),
     photosWithUrls(link.org_id, link.job_id, null, GALLERY_URL_SECONDS),
   ]);
   if (!job) return <Unavailable />;
-  const business = org?.name || "Your service provider";
+  const business = org.name || "Your service provider";
   const when = new Date(job.job_date + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
   const shown = photos.filter((p) => p.url);
 
