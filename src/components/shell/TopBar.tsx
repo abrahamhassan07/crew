@@ -77,6 +77,7 @@ export function TopBar({
       {/* Menu toggle (mobile only) */}
       <button
         onClick={onMenuClick}
+        data-app-hide
         className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg border border-line text-ink-primary hover:bg-page-bg transition-colors"
         aria-label="Open menu"
       >
@@ -172,6 +173,7 @@ export function TopBar({
               {PROFILE_ITEMS.map((item) => (
                 <button
                   key={item.key}
+                  data-app-hide={item.key === "subscription" ? true : undefined}
                   onClick={() => {
                     setShowProfile(false);
                     router.push(item.href);

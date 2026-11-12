@@ -48,6 +48,26 @@ export function AppShell({ role, children, userName, bizName, roleLabel, banner,
     }
   }, [pathname]);
 
+  // Inside the phone app: tell the app who is signed in (so it shows the right tabs) and let its tab bar move
+  // between pages without reloading the site.
+  useEffect(() => {
+    const host = (window as { ReactNativeWebView?: { postMessage: (m: string) => void } }).ReactNativeWebView;
+    if (!host) return;
+    const w = window as unknown as { __crew?: { navigate: (path: string) => void; openMenu: () => void } };
+    w.__crew = {
+      navigate: (path: string) => {
+        if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) return;
+        setMobileNavOpen(false);
+        router.push(path);
+      },
+      openMenu: () => setMobileNavOpen((open) => !open),
+    };
+    host.postMessage(JSON.stringify({ type: "session", role }));
+    return () => {
+      delete w.__crew;
+    };
+  }, [role, router]);
+
   const supabase = createClient();
 
   const handleSignOut = async () => {

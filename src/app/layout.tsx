@@ -27,8 +27,9 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  // suppressHydrationWarning: the phone app adds data-in-app to <html> before the page loads.
   return (
-    <html lang="en" className={`${figtree.variable} ${karla.variable} ${spectral.variable} h-full`}>
+    <html lang="en" suppressHydrationWarning className={`${figtree.variable} ${karla.variable} ${spectral.variable} h-full`}>
       <body className="min-h-full font-sans antialiased bg-page-bg text-ink-primary">{children}</body>
     </html>
   );

@@ -196,3 +196,16 @@
     box-sizing: border-box;
   }
 }
+
+/* Inside the Crew & Grounds phone app (the app marks <html data-in-app>): the app has its own tab bar and menu button,
+   and plans can't be bought inside the app (store rules), so those parts of the site are hidden there. */
+/* iPhone zooms the whole page when a text box under 16px is tapped; in the app that feels broken, so boxes are 16px there. */
+html[data-in-app] input,
+html[data-in-app] select,
+html[data-in-app] textarea {
+  font-size: 16px !important;
+}
+html[data-in-app] [data-app-hide],
+html[data-in-app] a[href^="/subscription"] {
+  display: none !important;
+}
