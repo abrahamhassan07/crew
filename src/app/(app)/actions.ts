@@ -17,6 +17,7 @@ import { renderDocumentPdf } from "@/lib/pdf";
 import { queueXeroPayment, queueXeroSync } from "@/lib/xero";
 import { after } from "next/server";
 import { JOB_SNAPSHOT_COLUMNS, notifyJobChange, type JobSnapshot } from "@/lib/staffNotify";
+import { cleanChecklist, setJobChecklist, setJobStatus } from "@/lib/jobOps";
 import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, renderTemplate, templateFor, type EmailDraft, type EmailKind } from "@/lib/emailTemplates";
 import { addDays, fmtISO, parseISO, STAFF_HUES, todayISO } from "@/lib/design";
 import { addMonthsClamped } from "@/lib/audit/engine";
@@ -233,24 +234,18 @@ export async function deleteJobs(ids: string[]): Promise<ActionResult & { delete
 export async function updateJobStatus(id: string, status: JobStatus): Promise<ActionResult> {
   const supabase = await createClient();
   const viewer = await getViewer();
-  const { data: before } = status === "cancelled" ? await supabase.from("jobs").select(JOB_SNAPSHOT_COLUMNS).eq("id", id).single() : { data: null };
-  const { error } = await supabase.from("jobs").update({ status }).eq("id", id);
-  if (error) return { ok: false, error: dbError(error) };
-  if (before) {
-    const orgId = viewer.orgId;
-    const staffId = viewer.staff?.id ?? null;
-    after(() => notifyJobChange(orgId, before as JobSnapshot, { ...(before as JobSnapshot), status }, staffId));
-  }
-
+  const result = await setJobStatus(supabase, { orgId: viewer.orgId, staffId: viewer.staff?.id ?? null }, id, status);
+  if (!result.ok) return result;
   revalidatePath("/", "layout");
   return { ok: true };
 }
 
 export async function updateJobChecklist(id: string, checklist: { t: string; done: boolean }[]): Promise<ActionResult> {
+  const clean = cleanChecklist(checklist);
+  if (!clean) return { ok: false, error: "That checklist couldn't be saved." };
   const supabase = await createClient();
-  const { error } = await supabase.from("jobs").update({ checklist }).eq("id", id);
-  if (error) return { ok: false, error: dbError(error) };
-
+  const result = await setJobChecklist(supabase, id, clean);
+  if (!result.ok) return result;
   revalidatePath("/", "layout");
   return { ok: true };
 }

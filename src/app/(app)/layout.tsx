@@ -57,7 +57,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <JobModalProvider role={viewer.profile.role}>
-      <AppShell role={viewer.profile.role} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner} isPlatformAdmin={isPlatformAdmin(viewer.email)} staffDrafts={staffDrafts} voice={voice} pending={{ quotes: pendingQuotes ?? 0, invoices: pendingInvoices ?? 0 }} tourAutoStart={!!organization && isWithinDays(organization.created_at, 14)}>
+      <AppShell role={viewer.profile.role} userId={viewer.userId} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner} isPlatformAdmin={isPlatformAdmin(viewer.email)} staffDrafts={staffDrafts} voice={voice} pending={{ quotes: pendingQuotes ?? 0, invoices: pendingInvoices ?? 0 }} tourAutoStart={!!organization && isWithinDays(organization.created_at, 14)}>
         {children}
       </AppShell>
     </JobModalProvider>

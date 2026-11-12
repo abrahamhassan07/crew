@@ -103,6 +103,18 @@ export type Job = {
   review_requested_at: string | null;
 };
 
+/** A phone app sign-in (see migration 0032). Server-only table. */
+export type AppSession = {
+  id: string;
+  user_id: string;
+  org_id: string;
+  session_id: string;
+  device: string;
+  created_at: string;
+  last_seen_at: string;
+  revoked_at: string | null;
+};
+
 export type ClientStatus = "Lead" | "Active" | "Inactive" | "Archived";
 
 export type Client = {
@@ -491,6 +503,12 @@ export type Database = {
         Row: Job;
         Insert: Partial<Job> & Pick<Job, "client_name" | "address" | "job_date" | "start_time" | "org_id">;
         Update: Partial<Job>;
+        Relationships: [];
+      };
+      app_sessions: {
+        Row: AppSession;
+        Insert: Partial<AppSession> & Pick<AppSession, "user_id" | "org_id" | "session_id">;
+        Update: Partial<AppSession>;
         Relationships: [];
       };
       clients: {

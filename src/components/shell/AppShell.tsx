@@ -10,6 +10,8 @@ import { VoiceFab, voiceFabVisibleOn } from "@/components/VoiceFab";
 
 interface AppShellProps {
   role: "admin" | "staff";
+  /** Signed-in user (the phone app uses it to notice a different person signing in). */
+  userId: string;
   children: React.ReactNode;
   banner?: React.ReactNode;
   userName: string;
@@ -31,7 +33,7 @@ function initialsOf(name: string): string {
   return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 }
 
-export function AppShell({ role, children, userName, bizName, roleLabel, banner, isPlatformAdmin, staffDrafts, voice, pending, tourAutoStart }: AppShellProps) {
+export function AppShell({ role, userId, children, userName, bizName, roleLabel, banner, isPlatformAdmin, staffDrafts, voice, pending, tourAutoStart }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,7 +55,7 @@ export function AppShell({ role, children, userName, bizName, roleLabel, banner,
   useEffect(() => {
     const host = (window as { ReactNativeWebView?: { postMessage: (m: string) => void } }).ReactNativeWebView;
     if (!host) return;
-    const w = window as unknown as { __crew?: { navigate: (path: string) => void; openMenu: () => void } };
+    const w = window as unknown as { __crew?: { navigate: (path: string) => void; openMenu: () => void; mintAppSession: () => Promise<void> } };
     w.__crew = {
       navigate: (path: string) => {
         if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) return;
@@ -61,16 +63,28 @@ export function AppShell({ role, children, userName, bizName, roleLabel, banner,
         router.push(path);
       },
       openMenu: () => setMobileNavOpen((open) => !open),
+      // The app's native screens need their own sign-in; the site makes one for whoever is signed in here.
+      mintAppSession: async () => {
+        try {
+          const res = await fetch("/api/app/session", { method: "POST", headers: { "x-crew-app": "1" }, credentials: "same-origin", cache: "no-store" });
+          const data = await res.json().catch(() => ({}));
+          host.postMessage(JSON.stringify(res.ok ? { type: "appSession", ...data } : { type: "appSessionError", error: data.error ?? "failed" }));
+        } catch {
+          host.postMessage(JSON.stringify({ type: "appSessionError", error: "offline" }));
+        }
+      },
     };
-    host.postMessage(JSON.stringify({ type: "session", role }));
+    host.postMessage(JSON.stringify({ type: "session", role, userId }));
     return () => {
       delete w.__crew;
     };
-  }, [role, router]);
+  }, [role, userId, router]);
 
   const supabase = createClient();
 
   const handleSignOut = async () => {
+    // Inside the phone app, signing out of the site signs the app's native screens out too.
+    (window as { ReactNativeWebView?: { postMessage: (m: string) => void } }).ReactNativeWebView?.postMessage(JSON.stringify({ type: "signedOut" }));
     await supabase.auth.signOut();
     router.push("/login");
   };
