@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ApprovalBanner, type ApprovalInfo } from "@/components/ApprovalBanner";
 import { deleteStaffDraft, saveStaffInvoice } from "@/app/(app)/staffDraftActions";
 import { VoiceDraftPanel } from "@/components/VoiceDraftPanel";
+import { takeVoiceDraft } from "@/lib/useVoiceRecorder";
 import type { VoiceDraft } from "@/lib/ai/voiceDraft";
 import { Ban, ChevronLeft, Download, Info, Pencil, Plus, Send, Sprout, Trash2, Wallet } from "lucide-react";
 import { checkCanSendDocuments, emailInvoice, getEmailDraft, recordPayment, saveInvoice, updateInvoiceStatus, type InvoiceInput, type InvoiceLineInput, type PaymentInput } from "@/app/(app)/actions";
@@ -136,6 +137,20 @@ export function InvoiceEditor({
       setShowNotes(true);
     }
   };
+
+  // A draft made with the floating mic button arrives here once, right after the page opens.
+  const [handedDraft, setHandedDraft] = useState<VoiceDraft | null>(null);
+  const handoffChecked = useRef(false);
+  useEffect(() => {
+    if (handoffChecked.current || !voiceEnabled || invoice) return;
+    handoffChecked.current = true;
+    const d = takeVoiceDraft("invoice");
+    if (!d) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-off hand-off read from sessionStorage after mount
+    setHandedDraft(d);
+    applyVoiceDraft(d);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on open
+  }, []);
 
   const client = clients.find((c) => c.id === (invoice?.client_id ?? clientId));
   const clientProperties = properties.filter((p) => p.client_id === clientId);
@@ -618,7 +633,7 @@ export function InvoiceEditor({
         {staffMode && <div className="max-w-[1400px] mx-auto mb-5 px-4 py-3 rounded-lg text-sm border bg-info-bg text-info-fg border-info-fg/25">This is a draft. Your owner reviews and approves it before it can be sent to the client.</div>}
         <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-5 items-start">
           <div className="flex-[3] w-full min-w-0 flex flex-col gap-5">
-            {voiceEnabled && !invoice && <VoiceDraftPanel kind="invoice" onDraft={applyVoiceDraft} />}
+            {voiceEnabled && !invoice && <VoiceDraftPanel kind="invoice" onDraft={applyVoiceDraft} initialDraft={handedDraft} />}
             <Card className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-x-4 gap-y-3.5 [&>*]:lg:col-span-2">
               <ClientPicker
                 required

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Plus, Send, Trash2 } from "lucide-react";
 import { checkCanSendDocuments, convertQuoteToJob, emailQuote, getEmailDraft, saveQuote, updateQuoteStatus, type QuoteInput, type QuoteLineInput } from "@/app/(app)/actions";
@@ -14,6 +14,7 @@ import { ClientPicker, NEW_CLIENT, TextField, SelectField, TextAreaField } from 
 import { ApprovalBanner, type ApprovalInfo } from "@/components/ApprovalBanner";
 import { deleteStaffDraft, saveStaffQuote } from "@/app/(app)/staffDraftActions";
 import { VoiceDraftPanel } from "@/components/VoiceDraftPanel";
+import { takeVoiceDraft } from "@/lib/useVoiceRecorder";
 import type { VoiceDraft } from "@/lib/ai/voiceDraft";
 import { daysFromToday, todayISO } from "@/lib/design";
 import { calcTotals } from "@/lib/gst";
@@ -92,6 +93,20 @@ export function QuoteEditor({
       setShowNotes(true);
     }
   };
+
+  // A draft made with the floating mic button arrives here once, right after the page opens.
+  const [handedDraft, setHandedDraft] = useState<VoiceDraft | null>(null);
+  const handoffChecked = useRef(false);
+  useEffect(() => {
+    if (handoffChecked.current || !voiceEnabled || quote) return;
+    handoffChecked.current = true;
+    const d = takeVoiceDraft("quote");
+    if (!d) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-off hand-off read from sessionStorage after mount
+    setHandedDraft(d);
+    applyVoiceDraft(d);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on open
+  }, []);
 
   const locked = quote ? !["Draft", "Sent"].includes(quote.status) || (staffMode && quote.status !== "Draft") : false;
   const clientProperties = properties.filter((p) => p.client_id === clientId);
@@ -297,7 +312,7 @@ export function QuoteEditor({
         {staffMode && <div className="max-w-[1400px] mx-auto mb-5 px-4 py-3 rounded-lg text-sm border bg-info-bg text-info-fg border-info-fg/25">This is a draft. Your owner reviews and approves it before it can be sent to the client.</div>}
         <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-5 items-start">
           <div className="flex-[3] w-full min-w-0 flex flex-col gap-5">
-            {voiceEnabled && !quote && <VoiceDraftPanel kind="quote" onDraft={applyVoiceDraft} />}
+            {voiceEnabled && !quote && <VoiceDraftPanel kind="quote" onDraft={applyVoiceDraft} initialDraft={handedDraft} />}
             <Card className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3.5">
               <ClientPicker
                 required

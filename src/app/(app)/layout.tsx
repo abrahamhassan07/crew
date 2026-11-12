@@ -45,6 +45,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const isAdmin = viewer.profile.role === "admin";
   const staffDrafts = !isAdmin && !!organization?.staff_drafts_enabled && aiAllowed(organization);
+  // Floating mic (phones): owners need AI on their plan; staff need staff drafts on. The server checks again on every recording.
+  const voiceOk = isAdmin ? aiAllowed(organization) : staffDrafts;
+  const voice = { quote: voiceOk && !!organization?.ai_voice_quote_enabled, invoice: voiceOk && !!organization?.ai_voice_invoice_enabled };
   const [{ count: pendingQuotes }, { count: pendingInvoices }] = isAdmin
     ? await Promise.all([
         supabase.from("quotes").select("id", { count: "exact", head: true }).eq("approval_status", "pending"),
@@ -54,7 +57,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <JobModalProvider role={viewer.profile.role}>
-      <AppShell role={viewer.profile.role} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner} isPlatformAdmin={isPlatformAdmin(viewer.email)} staffDrafts={staffDrafts} pending={{ quotes: pendingQuotes ?? 0, invoices: pendingInvoices ?? 0 }} tourAutoStart={!!organization && isWithinDays(organization.created_at, 14)}>
+      <AppShell role={viewer.profile.role} userName={userName} bizName={bizName} roleLabel={roleLabel} banner={banner} isPlatformAdmin={isPlatformAdmin(viewer.email)} staffDrafts={staffDrafts} voice={voice} pending={{ quotes: pendingQuotes ?? 0, invoices: pendingInvoices ?? 0 }} tourAutoStart={!!organization && isWithinDays(organization.created_at, 14)}>
         {children}
       </AppShell>
     </JobModalProvider>

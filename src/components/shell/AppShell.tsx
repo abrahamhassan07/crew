@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { ProductTour } from "@/components/ProductTour";
+import { VoiceFab, voiceFabVisibleOn } from "@/components/VoiceFab";
 
 interface AppShellProps {
   role: "admin" | "staff";
@@ -16,6 +17,8 @@ interface AppShellProps {
   roleLabel: string;
   isPlatformAdmin?: boolean;
   staffDrafts?: boolean;
+  /** Which voice drafts this person may start from the floating mic. */
+  voice?: { quote: boolean; invoice: boolean };
   pending?: { quotes: number; invoices: number };
   /** Show the guided tour automatically (brand-new businesses). */
   tourAutoStart?: boolean;
@@ -28,7 +31,7 @@ function initialsOf(name: string): string {
   return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 }
 
-export function AppShell({ role, children, userName, bizName, roleLabel, banner, isPlatformAdmin, staffDrafts, pending, tourAutoStart }: AppShellProps) {
+export function AppShell({ role, children, userName, bizName, roleLabel, banner, isPlatformAdmin, staffDrafts, voice, pending, tourAutoStart }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,6 +56,8 @@ export function AppShell({ role, children, userName, bizName, roleLabel, banner,
   };
 
   const initials = initialsOf(userName);
+  // Leave room under the last item on phones so the floating mic never hides it.
+  const fabShown = !!(voice?.quote || voice?.invoice) && voiceFabVisibleOn(pathname);
 
   return (
     <div className="flex h-screen bg-page-bg overflow-hidden">
@@ -97,9 +102,10 @@ export function AppShell({ role, children, userName, bizName, roleLabel, banner,
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">
           {banner}
-          <div className="w-full">{children}</div>
+          <div className={`w-full ${fabShown ? "pb-24 md:pb-0" : ""}`}>{children}</div>
         </main>
       </div>
+      {voice && !mobileNavOpen && <VoiceFab quote={voice.quote} invoice={voice.invoice} />}
       {role === "admin" && <ProductTour autoStart={!!tourAutoStart} openMobileNav={setMobileNavOpen} />}
     </div>
   );
