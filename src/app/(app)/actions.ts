@@ -23,6 +23,7 @@ import { addDays, fmtISO, parseISO, STAFF_HUES, todayISO } from "@/lib/design";
 import { addMonthsClamped } from "@/lib/audit/engine";
 import { calcTotals } from "@/lib/gst";
 import { deleteJobPhotoFiles } from "@/lib/photos";
+import { notifyInvoicePaid, notifyQuoteApproved } from "@/lib/moneyNotify";
 import { MAX_NUMBER_LENGTH, MAX_REFERENCE_LENGTH, PREFIX_PATTERN, nextInvoiceNumber, numberPart, type NumberingSettings } from "@/lib/invoiceNumbers";
 import { RECURRENCE_LABEL, RECURRENCE_STEP_DAYS } from "@/lib/recurrence";
 import type { FeedbackKind, FeedbackStatus, CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
@@ -1117,7 +1118,10 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
     input = { ...input, clientId: created.id, propertyId: null };
   }
 
+  let wasApproved = false;
   if (quoteId) {
+    const { data: was } = await supabase.from("quotes").select("status").eq("id", quoteId).maybeSingle();
+    wasApproved = was?.status === "Approved";
     const { error } = await supabase
       .from("quotes")
       .update({
@@ -1180,6 +1184,12 @@ export async function saveQuote(id: string | null, rawInput: QuoteInput, status:
   if (input.requestId && status === "Sent") {
     await supabase.from("requests").update({ status: "Quoted" }).eq("id", input.requestId);
   }
+  if (status === "Approved" && !wasApproved) {
+    const orgId = viewer.orgId;
+    const userId = viewer.userId;
+    const approvedId = quoteId!;
+    after(() => notifyQuoteApproved(orgId, approvedId, userId));
+  }
 
   revalidatePath("/", "layout");
   return { ok: true, id: quoteId };
@@ -1217,14 +1227,21 @@ export async function approveDocument(kind: "quote" | "invoice", id: string): Pr
 }
 
 export async function updateQuoteStatus(id: string, status: QuoteStatus): Promise<ActionResult> {
-  if ((await getViewer()).profile.role !== "admin") return { ok: false, error: "Only owners and admins can do that." };
+  const viewer = await getViewer();
+  if (viewer.profile.role !== "admin") return { ok: false, error: "Only owners and admins can do that." };
   if (status === "Sent") {
     const blocked = await approvalBlock("quotes", id);
     if (blocked) return { ok: false, error: blocked };
   }
   const supabase = await createClient();
+  const { data: was } = await supabase.from("quotes").select("status").eq("id", id).maybeSingle();
   const { error } = await supabase.from("quotes").update({ status }).eq("id", id);
   if (error) return { ok: false, error: dbError(error) };
+  if (status === "Approved" && was && was.status !== "Approved") {
+    const orgId = viewer.orgId;
+    const userId = viewer.userId;
+    after(() => notifyQuoteApproved(orgId, id, userId));
+  }
 
   if (status === "Sent") {
     const { data: quote } = await supabase.from("quotes").select("request_id").eq("id", id).single();
@@ -1601,7 +1618,7 @@ export async function recordPayment(invoiceId: string, input: PaymentInput): Pro
   if (error) return { ok: false, error: dbError(error) };
 
   const [{ data: invoice }, { data: items }, { data: payments }] = await Promise.all([
-    supabase.from("invoices").select("mode").eq("id", invoiceId).single(),
+    supabase.from("invoices").select("mode, status").eq("id", invoiceId).single(),
     supabase.from("invoice_items").select("qty, unit_price").eq("invoice_id", invoiceId),
     supabase.from("payments").select("amount").eq("invoice_id", invoiceId),
   ]);
@@ -1611,6 +1628,11 @@ export async function recordPayment(invoiceId: string, input: PaymentInput): Pro
     const paid = (payments ?? []).reduce((s, p) => s + p.amount, 0);
     const status: InvoiceStatus = paid >= total - 0.01 ? "Paid" : "Partially Paid";
     await supabase.from("invoices").update({ status }).eq("id", invoiceId);
+    if (status === "Paid" && invoice.status !== "Paid") {
+      const orgId = viewer.orgId;
+      const userId = viewer.userId;
+      after(() => notifyInvoicePaid(orgId, invoiceId, userId));
+    }
   }
 
   // Record it in Xero too, when the business has chosen a bank account for payments.

@@ -13,11 +13,18 @@ export const BUCKET = "job-photos";
 export const SIGNED_URL_SECONDS = 600; // dashboard and staff views
 export const GALLERY_URL_SECONDS = 3600; // customer gallery page (re-signed on every page load)
 
-export type PhotoContext = { ok: true; viewer: Viewer; isAdmin: boolean; job: Job; planAllowed: boolean } | { ok: false; error: string };
+/** Who is asking: a site sign-in (Viewer) or an app sign-in, which carry the same fields used here. */
+export type PhotoViewer = Pick<Viewer, "userId" | "orgId" | "profile" | "staff">;
+
+export type PhotoContext<V extends PhotoViewer = Viewer> = { ok: true; viewer: V; isAdmin: boolean; job: Job; planAllowed: boolean } | { ok: false; error: string };
 
 /** Whether the signed-in person may work with this job's photos. */
 export async function photoContext(jobId: string): Promise<PhotoContext> {
-  const viewer = await getViewer();
+  return photoContextFor(await getViewer(), jobId);
+}
+
+/** The same check for a viewer that is already known (the phone app's sign-in). */
+export async function photoContextFor<V extends PhotoViewer>(viewer: V, jobId: string): Promise<PhotoContext<V>> {
   const isAdmin = viewer.profile.role === "admin";
   if (!isAdmin && !(viewer.profile.role === "staff" && viewer.staff)) return { ok: false, error: "Not allowed." };
   const { data: job } = await createAdminClient().from("jobs").select("*").eq("id", jobId).eq("org_id", viewer.orgId).maybeSingle();

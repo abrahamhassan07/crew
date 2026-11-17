@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { NOTIFICATION_KINDS, reminderLimit } from "@/lib/billing";
 import { fmtTime12, parseISO, todayISO } from "@/lib/design";
+import { pushToUsers, userIdsForStaff } from "@/lib/push";
+import type { PushNote, PushTarget } from "@/lib/pushCore";
 import type { Organization } from "@/lib/supabase/types";
 
 export interface JobSnapshot {
@@ -22,6 +24,7 @@ export const JOB_SNAPSHOT_COLUMNS = "id, num, client_name, address, job_date, st
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.crewandgrounds.com";
 
+const shortDate = (iso: string) => parseISO(iso).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
 export const dateLabel = (iso: string) => parseISO(iso).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
 const timeLabel = (t: string | null) => (t ? fmtTime12(t.slice(0, 5)) : "time to be confirmed");
 const active = (j: JobSnapshot | null): j is JobSnapshot =>
@@ -67,27 +70,40 @@ async function sendToStaff(org: Organization, staff: { name: string; email: stri
 }
 
 /**
- * Tells the affected staff when a job is assigned to them, moved, cancelled or taken off them.
- * `before` is null for a new job, `after` is null for a deleted one. Never throws: a failed
- * notification must not undo or fail the change that triggered it.
+ * Tells the affected staff when a job is assigned to them, moved, cancelled or taken off them: by email when the
+ * business has staff emails turned on, and by phone push to anyone signed in to the app with notifications allowed.
+ * `before` is null for a new job, `after` is null for a deleted one. Never throws: a failed notification must not
+ * undo or fail the change that triggered it.
  */
 export async function notifyJobChange(orgId: string, before: JobSnapshot | null, after: JobSnapshot | null, actorStaffId: string | null, note?: string): Promise<void> {
   try {
-    const admin = createAdminClient();
-    const { data: org } = await admin.from("organizations").select("*").eq("id", orgId).single();
-    if (!org?.staff_notifications_enabled) return;
-
     const staffIds = [before?.assigned_staff_id, after?.assigned_staff_id].filter((x): x is string => !!x);
     if (!staffIds.length) return;
-    const { data: staff } = await admin.from("staff").select("id, name, email, active").in("id", staffIds);
+    const admin = createAdminClient();
+    const { data: org } = await admin.from("organizations").select("*").eq("id", orgId).single();
+    if (!org) return;
+    const { data: staff } = await admin.from("staff").select("id, name, email, active").eq("org_id", orgId).in("id", staffIds);
     const byId = new Map((staff ?? []).map((s) => [s.id, s]));
+    const users = await userIdsForStaff(orgId, staffIds);
     const link = (j: JobSnapshot) => `\nOpen it: ${SITE}/jobs/${j.id}`;
+    const when = (j: JobSnapshot) => `${shortDate(j.job_date!)}, ${timeLabel(j.start_time)}`;
+
+    const tell = async (person: { id: string; name: string; email: string }, subject: string, text: string, push: PushNote) => {
+      if (org.staff_notifications_enabled) await sendToStaff(org, person, subject, text);
+      const userId = users.get(person.id);
+      if (userId) await pushToUsers(orgId, [userId], push);
+    };
 
     // Newly assigned to this person (new job, or reassigned to them).
     if (active(after) && after.assigned_staff_id && after.assigned_staff_id !== before?.assigned_staff_id) {
       const person = byId.get(after.assigned_staff_id);
       if (person?.active && person.id !== actorStaffId) {
-        await sendToStaff(org, person, `New job assigned: ${dateLabel(after.job_date!)}, ${timeLabel(after.start_time)}`, `You've been assigned a job${note ? ` (${note})` : ""}.\n\n${jobLines(after)}\n${link(after)}`);
+        await tell(
+          person,
+          `New job assigned: ${dateLabel(after.job_date!)}, ${timeLabel(after.start_time)}`,
+          `You've been assigned a job${note ? ` (${note})` : ""}.\n\n${jobLines(after)}\n${link(after)}`,
+          { title: "New job", body: `${when(after)}: ${after.client_name}${note ? ` (${note})` : ""}`, target: { kind: "job", jobId: after.id } }
+        );
       }
     }
 
@@ -96,12 +112,26 @@ export async function notifyJobChange(orgId: string, before: JobSnapshot | null,
     if (active(before) && prev?.active && prev.id !== actorStaffId) {
       const reassigned = !!after && after.assigned_staff_id !== before.assigned_staff_id;
       const cancelled = !!after && after.assigned_staff_id === before.assigned_staff_id && after.status === "cancelled";
+      const day: PushTarget = { kind: "today", date: before.job_date! };
       if (!after || reassigned) {
-        await sendToStaff(org, prev, `Job removed: ${dateLabel(before.job_date!)}`, `You're no longer assigned to this job.\n\n${jobLines(before)}`);
+        await tell(prev, `Job removed: ${dateLabel(before.job_date!)}`, `You're no longer assigned to this job.\n\n${jobLines(before)}`, {
+          title: "Job removed",
+          body: `${when(before)}: ${before.client_name} is no longer yours`,
+          target: day,
+        });
       } else if (cancelled) {
-        await sendToStaff(org, prev, `Job cancelled: ${dateLabel(before.job_date!)}`, `This job has been cancelled.\n\n${jobLines(before)}`);
+        await tell(prev, `Job cancelled: ${dateLabel(before.job_date!)}`, `This job has been cancelled.\n\n${jobLines(before)}`, {
+          title: "Job cancelled",
+          body: `${when(before)}: ${before.client_name}`,
+          target: day,
+        });
       } else if (active(after) && (after.job_date !== before.job_date || after.start_time !== before.start_time)) {
-        await sendToStaff(org, prev, `Job rescheduled: now ${dateLabel(after.job_date!)}, ${timeLabel(after.start_time)}`, `A job you're assigned to has moved.\n\nWas: ${dateLabel(before.job_date!)}, ${timeLabel(before.start_time)}\n\n${jobLines(after)}\n${link(after)}`);
+        await tell(
+          prev,
+          `Job rescheduled: now ${dateLabel(after.job_date!)}, ${timeLabel(after.start_time)}`,
+          `A job you're assigned to has moved.\n\nWas: ${dateLabel(before.job_date!)}, ${timeLabel(before.start_time)}\n\n${jobLines(after)}\n${link(after)}`,
+          { title: "Job moved", body: `${after.client_name}: now ${when(after)} (was ${when(before)})`, target: { kind: "job", jobId: after.id } }
+        );
       }
     }
   } catch (e) {

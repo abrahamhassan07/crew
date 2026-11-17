@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { xeroAllowed } from "@/lib/billing";
 import { calcTotals } from "@/lib/gst";
 import { splitInvoiceNumber } from "@/lib/invoiceNumbers";
+import { notifyInvoicePaid } from "@/lib/moneyNotify";
 import type { GstMode, XeroConnection } from "@/lib/supabase/types";
 
 // Xero accounting integration. Each business connects its own Xero organisation (OAuth 2.0 web app flow);
@@ -402,7 +403,7 @@ function xeroDate(v: unknown): string {
 async function refreshInvoiceStatus(invoiceId: string) {
   const admin = createAdminClient();
   const [{ data: invoice }, { data: items }, { data: payments }] = await Promise.all([
-    admin.from("invoices").select("status, mode").eq("id", invoiceId).single(),
+    admin.from("invoices").select("status, mode, org_id").eq("id", invoiceId).single(),
     admin.from("invoice_items").select("qty, unit_price").eq("invoice_id", invoiceId),
     admin.from("payments").select("amount").eq("invoice_id", invoiceId),
   ]);
@@ -411,7 +412,11 @@ async function refreshInvoiceStatus(invoiceId: string) {
   const paid = (payments ?? []).reduce((s, p) => s + Number(p.amount), 0);
   // Same rule as recording a payment here; with nothing paid (a Xero payment was deleted) it goes back to Sent.
   const status = paid >= total - 0.01 ? "Paid" : paid > 0 ? "Partially Paid" : invoice.status === "Overdue" ? "Overdue" : "Sent";
-  if (status !== invoice.status) await admin.from("invoices").update({ status }).eq("id", invoiceId);
+  if (status !== invoice.status) {
+    await admin.from("invoices").update({ status }).eq("id", invoiceId);
+    // Paid in Xero: tell the owners' phones (nobody here recorded it, so everyone is told).
+    if (status === "Paid" && invoice.org_id) await notifyInvoicePaid(invoice.org_id, invoiceId, null);
+  }
 }
 
 interface RemotePayment {

@@ -115,6 +115,17 @@ export type AppSession = {
   revoked_at: string | null;
 };
 
+export type PushToken = {
+  id: string;
+  user_id: string;
+  org_id: string;
+  app_session_id: string;
+  token: string;
+  platform: "ios" | "android";
+  created_at: string;
+  updated_at: string;
+};
+
 export type ClientStatus = "Lead" | "Active" | "Inactive" | "Archived";
 
 export type Client = {
@@ -509,6 +520,12 @@ export type Database = {
         Row: AppSession;
         Insert: Partial<AppSession> & Pick<AppSession, "user_id" | "org_id" | "session_id">;
         Update: Partial<AppSession>;
+        Relationships: [];
+      };
+      push_tokens: {
+        Row: PushToken;
+        Insert: Partial<PushToken> & Pick<PushToken, "user_id" | "org_id" | "app_session_id" | "token" | "platform">;
+        Update: Partial<PushToken>;
         Relationships: [];
       };
       clients: {

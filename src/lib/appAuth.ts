@@ -18,7 +18,7 @@ import type { Database, Profile, Staff } from "@/lib/supabase/types";
 type Db = SupabaseClient<Database>;
 
 /** Sessions not used for this long stop working, the same as the site's idle sign-out. */
-const IDLE_MS = (Number(process.env.SESSION_IDLE_HOURS) || 168) * 60 * 60 * 1000;
+export const APP_IDLE_MS = (Number(process.env.SESSION_IDLE_HOURS) || 168) * 60 * 60 * 1000;
 
 export interface AppViewer {
   userId: string;
@@ -79,7 +79,7 @@ async function checkAppSession(sessionId: string, userId: string): Promise<{ org
   const { data } = await admin.from("app_sessions").select("id, org_id, user_id, last_seen_at, revoked_at").eq("session_id", sessionId).maybeSingle();
   if (!data || data.revoked_at || data.user_id !== userId) return null;
   const seen = new Date(data.last_seen_at).getTime();
-  if (Date.now() - seen > IDLE_MS) {
+  if (Date.now() - seen > APP_IDLE_MS) {
     await admin.from("app_sessions").update({ revoked_at: new Date().toISOString() }).eq("id", data.id);
     return null;
   }
@@ -122,6 +122,8 @@ export async function refreshAppSession(refreshToken: string): Promise<AppTokens
 /** End an app sign-in (signing out in the app, or signing out of the site inside the app). */
 export async function revokeAppSession(viewer: AppViewer, accessToken: string): Promise<void> {
   const admin = createAdminClient();
-  await admin.from("app_sessions").update({ revoked_at: new Date().toISOString() }).eq("session_id", viewer.sessionId);
+  const { data: row } = await admin.from("app_sessions").update({ revoked_at: new Date().toISOString() }).eq("session_id", viewer.sessionId).select("id").maybeSingle();
+  // A signed-out phone gets no more pushes.
+  if (row) await admin.from("push_tokens").delete().eq("app_session_id", row.id);
   await admin.auth.admin.signOut(accessToken, "local").catch(() => {});
 }
