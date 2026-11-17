@@ -16,7 +16,7 @@ const OAUTH_ERRORS: Record<string, string> = {
   "no-account-apple": "No account uses the email on that Apple ID. If you chose Hide My Email, sign in with your email and password instead. Otherwise ask your admin to invite you, or create a new business.",
 };
 
-export function LoginForm({ next, oauthError, idle }: { next: string; oauthError?: string; idle?: boolean }) {
+export function LoginForm({ next, oauthError, idle, deleted }: { next: string; oauthError?: string; idle?: boolean; deleted?: boolean }) {
   const [state, formAction, pending] = useActionState(signIn, undefined);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@crewandgrounds.com";
@@ -37,6 +37,7 @@ export function LoginForm({ next, oauthError, idle }: { next: string; oauthError
         <p className="text-sm text-ink-muted">{subheading}</p>
       </div>
 
+      {deleted && !needsCode && <p className="mb-4 rounded-lg bg-ok-bg text-ok-fg text-sm px-3 py-2.5 text-center">Your account has been deleted.</p>}
       {idle && !needsCode && <p className="mb-4 rounded-lg bg-info-bg text-info-fg text-sm px-3 py-2.5 text-center">You were signed out after a while away. Please sign in again.</p>}
 
       {needsCode ? (

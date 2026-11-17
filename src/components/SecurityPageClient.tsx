@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ToastBanner, useToast } from "@/components/Toast";
+import { DeleteAccountCard } from "@/components/DeleteAccountCard";
 
 interface Enrolment {
   factorId: string;
@@ -201,6 +202,8 @@ export function SecurityPageClient({ email }: { email: string }) {
               </Button>
             </div>
           </Card>
+
+          <DeleteAccountCard />
 
           <p className="text-xs text-ink-muted leading-relaxed">
             Keep your phone safe: if you lose access to your authenticator app you&rsquo;ll need to contact support to get back in.
