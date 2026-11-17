@@ -35,7 +35,7 @@ export function CrewView({ crews, jobsByCrew, unassignedJobs, onJobClick }: Crew
       {crews.map((crew) => {
         const jobs = jobsByCrew.get(crew.id) ?? [];
         return (
-          <div key={crew.id} className="bg-card-bg border border-line rounded-lg overflow-hidden">
+          <div key={crew.id} className="bg-card-bg border border-line rounded-none border-x-0 sm:rounded-lg sm:border-x overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-line" style={{ background: crew.tint_hex }}>
               <span className="w-2.5 h-2.5 rounded-full" style={{ background: crew.color_hex }} />
               <span className="font-bold text-sm text-ink-primary">{crew.name}</span>
@@ -51,7 +51,7 @@ export function CrewView({ crews, jobsByCrew, unassignedJobs, onJobClick }: Crew
       })}
 
       {unassignedJobs.length > 0 && (
-        <div className="bg-card-bg border border-line rounded-lg overflow-hidden">
+        <div className="bg-card-bg border border-line rounded-none border-x-0 sm:rounded-lg sm:border-x overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-line bg-warn-bg">
             <span className="w-2.5 h-2.5 rounded-full bg-warn-fg" />
             <span className="font-bold text-sm text-ink-primary">No crew assigned</span>

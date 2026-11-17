@@ -39,7 +39,7 @@ export function TimeGrid({ days, crewById, canEdit, onSlotClick, onJobClick, onD
     <div
       ref={scrollRef}
       onScroll={onScroll}
-      className="bg-card-bg border border-line rounded-lg overflow-x-auto"
+      className="bg-card-bg border border-line rounded-none border-x-0 sm:rounded-lg sm:border-x overflow-x-auto"
       style={strip ? { scrollSnapType: "x proximity", scrollPaddingLeft: 56, overscrollBehaviorX: "contain", overflowAnchor: "none" } : undefined}
     >
       {/* Day headers */}

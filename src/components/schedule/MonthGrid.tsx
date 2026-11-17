@@ -35,7 +35,7 @@ export function MonthGrid({ monthAnchor, jobsByDate, crewById, todayIso, onDayCl
   }
 
   return (
-    <div className="bg-card-bg border border-line rounded-lg overflow-hidden">
+    <div className="bg-card-bg border border-line rounded-none border-x-0 sm:rounded-lg sm:border-x overflow-hidden">
       <div className="grid grid-cols-7 border-b border-line">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div key={d} className="text-center text-[11px] font-bold uppercase tracking-wide text-ink-muted py-2.5 border-l border-line-soft first:border-l-0">

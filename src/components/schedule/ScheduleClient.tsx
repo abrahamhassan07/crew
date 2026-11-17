@@ -81,9 +81,11 @@ export function ScheduleClient({
     const el = scroller.current;
     if (view !== "week" || !el) return;
     const measure = () => {
-      const w = Math.max(90, Math.floor((el.clientWidth - HOUR_LABEL_PX) / 7));
-      setColWidth(w);
-      setVisibleCols(Math.max(1, Math.min(7, Math.floor((el.clientWidth - HOUR_LABEL_PX) / w))));
+      // As many whole days as fit at a readable 90px or more, sized to fill the width exactly (no cut-off day).
+      const avail = el.clientWidth - HOUR_LABEL_PX;
+      const fit = Math.max(1, Math.min(7, Math.floor(avail / 90)));
+      setColWidth(Math.max(90, Math.floor(avail / fit)));
+      setVisibleCols(fit);
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -327,7 +329,8 @@ export function ScheduleClient({
         </div>
       </PageHeader>
 
-      <div className="px-6 py-8">
+      {/* Phones: the calendar runs edge to edge (every pixel of width is a day column); computers keep the padded card. */}
+      <div className="py-4 sm:px-6 sm:py-8">
         <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-4 items-start">
           <div className="flex-1 min-w-0 w-full">
             {(view === "day" || view === "week") && (

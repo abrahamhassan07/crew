@@ -15,7 +15,7 @@ export function UnscheduledPanel({ requests, services, crewById, canEdit, onQuic
   const serviceById = new Map(services.map((s) => [s.id, s]));
 
   return (
-    <div className="w-full lg:w-72 shrink-0 bg-card-bg border border-line rounded-lg overflow-hidden h-fit">
+    <div className="w-full lg:w-72 shrink-0 bg-card-bg border border-line rounded-none border-x-0 sm:rounded-lg sm:border-x overflow-hidden h-fit">
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <span className="font-bold text-sm text-ink-primary">Unscheduled</span>
         <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-warn-bg text-warn-fg">{requests.length}</span>
