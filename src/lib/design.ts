@@ -64,13 +64,15 @@ export function durationLabel(m: number) {
   const r = m % 60;
   return r ? h + "h " + r + "m" : h + "h";
 }
-export function fmtDateLabel(iso: string | null | undefined) {
+/** Australian order: "Fri 11 Jun" this year, "Fri 11 Jun 2027" in any other year. */
+export function fmtDateLabel(iso: string | null | undefined, thisYear = Number(todayISO().slice(0, 4))) {
   if (!iso) return "Not scheduled";
   const d = parseISO(iso);
-  return DAYS[d.getDay()] + ", " + MONTHS[d.getMonth()] + " " + d.getDate();
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}${d.getFullYear() !== thisYear ? ` ${d.getFullYear()}` : ""}`;
 }
+/** "16 Nov". */
 export function fmtMonthDay(d: Date) {
-  return MONTHS[d.getMonth()] + " " + d.getDate();
+  return d.getDate() + " " + MONTHS[d.getMonth()];
 }
 export function initialsOf(name: string) {
   return name

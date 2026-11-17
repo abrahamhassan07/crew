@@ -52,8 +52,9 @@ export function JobsPageClient({
   const { openNewJob } = useJobModal();
   const [tab, setTab] = useState<JobStatusFilter>("All");
   const [crewFilter, setCrewFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("job_date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  // Default: upcoming jobs first (soonest at the top), then past jobs (most recent first), then unscheduled.
+  const [sortBy, setSortBy] = useState<string>("upcoming");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [query, setQuery] = useState("");
   const [focus, setFocus] = useState<JobFocus | null>(initialFocus);
 
@@ -108,6 +109,15 @@ export function JobsPageClient({
           return dir * ((a.price ?? 0) - (b.price ?? 0));
         case "status":
           return dir * jobDisplayStatus(a).localeCompare(jobDisplayStatus(b));
+        case "upcoming": {
+          const today = todayISO();
+          const rank = (j: EnrichedJob) => (!j.job_date ? 2 : j.job_date >= today ? 0 : 1);
+          const ra = rank(a);
+          const rb = rank(b);
+          if (ra !== rb) return ra - rb;
+          const when = (j: EnrichedJob) => `${j.job_date ?? ""} ${j.start_time ?? ""}`;
+          return ra === 0 ? when(a).localeCompare(when(b)) : when(b).localeCompare(when(a));
+        }
         case "job_date":
         default:
           return (
