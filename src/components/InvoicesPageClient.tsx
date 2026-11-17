@@ -17,6 +17,35 @@ const TABS: (InvoiceStatus | "All" | "Outstanding")[] = ["All", "Outstanding", "
 
 type InvoiceRow = Invoice & { clientName: string; total: number; balance: number };
 
+/** "5 Nov" this year, "5 Nov 2025" otherwise (dates are stored as YYYY-MM-DD). */
+function shortDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const label = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-AU", { day: "numeric", month: "short", timeZone: "UTC", ...(y !== new Date().getFullYear() ? { year: "numeric" } : {}) });
+  return label;
+}
+
+function InvoiceCard({ row }: { row: InvoiceRow }) {
+  const open = ["Sent", "Partially Paid", "Overdue"].includes(row.status);
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="font-semibold text-ink-primary truncate">{row.clientName}</div>
+        <div className="text-xs text-ink-muted mt-0.5">
+          {row.num} · {open ? `Due ${shortDate(row.due_date)}` : `Issued ${shortDate(row.issue_date)}`}
+        </div>
+        {row.approval_status === "pending" && <span className="inline-block mt-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-warn-bg text-warn-fg">Needs approval</span>}
+      </div>
+      <div className="text-right shrink-0">
+        <div className="font-semibold text-ink-primary">${(open ? row.balance : row.total).toFixed(2)}</div>
+        <div className="mt-1">
+          <StatusBadge status={badgeStatus(row.status)} label={row.status} showDot />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function badgeStatus(s: InvoiceStatus) {
   return s.toLowerCase().replace(" ", "-") as "draft" | "sent" | "partially-paid" | "paid" | "overdue" | "voided";
 }
@@ -127,25 +156,25 @@ export function InvoicesPageClient({
         }
       />
 
-      <div className="px-6 py-8">
+      <div className="px-4 py-5 sm:px-6 sm:py-8">
         <div className="max-w-[1600px] mx-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-6">
             <Stat label="Outstanding" value={`$${open.reduce((s, r) => s + r.balance, 0).toFixed(2)}`} sub={`${open.length} open invoices`} />
             <Stat label="Overdue" value={`$${overdue.reduce((s, r) => s + r.balance, 0).toFixed(2)}`} sub={`${overdue.length} past due`} danger />
             <Stat label="Paid, past 30 days" value={`$${paidPast30.toFixed(2)}`} sub="Manually recorded payments" />
             <Stat label="Drafts" value={String(rows.filter((r) => r.status === "Draft").length)} sub="Not yet sent" />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 mb-6">
+          <div className="flex flex-wrap items-center gap-2 mb-4 sm:mb-6">
             <FilterTabs
               options={TABS.map((t) => ({ value: t, label: t, count: t === "All" ? rows.length : t === "Outstanding" ? rows.filter((r) => ["Sent", "Partially Paid", "Overdue"].includes(r.status)).length : rows.filter((r) => r.status === t).length }))}
               value={tab}
               onChange={setTab}
             />
             <div className="flex-1" />
-            <SearchInput value={query} onChange={setQuery} placeholder="Search invoices…" className="max-w-xs" />
+            <SearchInput value={query} onChange={setQuery} placeholder="Search invoices…" className="w-full sm:w-auto sm:max-w-xs" />
           </div>
-          <DataTable columns={columns} data={filtered} onRowClick={(inv) => router.push(`/invoices/${inv.id}`)} />
+          <DataTable columns={columns} data={sorted} sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} onRowClick={(inv) => router.push(`/invoices/${inv.id}`)} mobileCard={(row) => <InvoiceCard row={row} />} />
           {!filtered.length && <div className="text-center py-8 text-ink-muted">No invoices match.</div>}
         </div>
       </div>
@@ -155,10 +184,10 @@ export function InvoicesPageClient({
 
 function Stat({ label, value, sub, danger }: { label: string; value: string; sub: string; danger?: boolean }) {
   return (
-    <div className="bg-card-bg border border-line rounded-lg p-4">
+    <div className="bg-card-bg border border-line rounded-lg p-3 sm:p-4">
       <div className="text-xs font-semibold text-ink-muted">{label}</div>
-      <div className="text-2xl font-bold mt-1" style={danger ? { color: "var(--bad-fg)" } : undefined}>{value}</div>
-      <div className="text-xs text-ink-muted mt-1">{sub}</div>
+      <div className="text-xl sm:text-2xl font-bold mt-1" style={danger ? { color: "var(--bad-fg)" } : undefined}>{value}</div>
+      <div className="text-xs text-ink-muted mt-1 hidden sm:block">{sub}</div>
     </div>
   );
 }

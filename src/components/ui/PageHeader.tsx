@@ -32,7 +32,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div
-      className={`px-6 py-8 border-b border-line bg-card-bg ${sticky ? "sticky top-0 z-10" : ""} ${className}`}
+      className={`px-4 py-5 sm:px-6 sm:py-8 border-b border-line bg-card-bg ${sticky ? "sticky top-0 z-10" : ""} ${className}`}
     >
       <div className={`${maxWidth === "5xl" ? "max-w-5xl" : "max-w-[1600px]"} mx-auto`}>
         {back && (
@@ -40,10 +40,10 @@ export function PageHeader({
             ← {back.label}
           </Link>
         )}
-        <div className={`flex flex-wrap items-end justify-between gap-4 ${children ? "mb-6" : ""}`}>
+        <div className={`flex flex-wrap items-end justify-between gap-3 sm:gap-4 ${children ? "mb-4 sm:mb-6" : ""}`}>
           <div>
             {eyebrow && <p className="text-xs font-semibold text-ink-muted mb-2">{eyebrow}</p>}
-            <h1 className="text-3xl font-bold text-ink-primary">{title}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-ink-primary">{title}</h1>
             {subtitle && <p className="text-sm text-ink-secondary mt-1">{subtitle}</p>}
           </div>
           {actions && <div className="flex gap-2">{actions}</div>}

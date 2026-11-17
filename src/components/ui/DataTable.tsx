@@ -22,6 +22,8 @@ interface DataTableProps<T extends { id: string }> {
   onSelectAll?: (selected: boolean) => void;
   onSelectRow?: (id: string, selected: boolean) => void;
   selectable?: boolean;
+  /** Phones: show each row as this card instead of a squeezed table (tapping it does onRowClick). */
+  mobileCard?: (row: T) => React.ReactNode;
 }
 
 export function DataTable<T extends { id: string }>({
@@ -35,6 +37,7 @@ export function DataTable<T extends { id: string }>({
   onSelectAll,
   onSelectRow,
   selectable = false,
+  mobileCard,
 }: DataTableProps<T>) {
   const checkboxRef = useRef<HTMLInputElement>(null);
   const isAllSelected = data.length > 0 && selectedIds.size === data.length;
@@ -46,8 +49,8 @@ export function DataTable<T extends { id: string }>({
     }
   }, [isSomeSelected]);
 
-  return (
-    <div className="bg-card-bg border border-line rounded-lg overflow-hidden">
+  const table = (
+    <div className={`bg-card-bg border border-line rounded-lg overflow-hidden ${mobileCard ? "hidden sm:block" : ""}`}>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
@@ -144,5 +147,25 @@ export function DataTable<T extends { id: string }>({
         </table>
       </div>
     </div>
+  );
+
+  if (!mobileCard) return table;
+  return (
+    <>
+      <div className={`sm:hidden bg-card-bg border border-line rounded-lg overflow-hidden divide-y divide-line-soft ${data.length ? "" : "hidden"}`}>
+        {data.map((row) =>
+          onRowClick ? (
+            <button key={row.id} type="button" onClick={() => onRowClick(row)} className="block w-full text-left px-4 py-3 active:bg-page-bg">
+              {mobileCard(row)}
+            </button>
+          ) : (
+            <div key={row.id} className="px-4 py-3">
+              {mobileCard(row)}
+            </div>
+          )
+        )}
+      </div>
+      {table}
+    </>
   );
 }

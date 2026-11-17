@@ -17,7 +17,8 @@ interface FilterTabsProps<T extends string> {
  */
 export function FilterTabs<T extends string>({ options, value, onChange, className = "" }: FilterTabsProps<T>) {
   return (
-    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+    // Phones: one row that scrolls sideways (no scrollbar) instead of wrapping onto several rows.
+    <div className={`flex items-center gap-2 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible ${className}`}>
       {options.map((opt) => {
         const active = opt.value === value;
         return (
@@ -25,7 +26,7 @@ export function FilterTabs<T extends string>({ options, value, onChange, classNa
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`h-9 px-3.5 rounded-full text-sm font-semibold border flex items-center gap-1.5 transition-colors ${
+            className={`shrink-0 h-9 px-3.5 rounded-full text-sm font-semibold border flex items-center gap-1.5 transition-colors ${
               active
                 ? "bg-forest text-white border-forest"
                 : "bg-card-bg text-ink-primary border-field-border hover:bg-page-bg"

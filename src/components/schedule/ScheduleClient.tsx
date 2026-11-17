@@ -291,11 +291,14 @@ export function ScheduleClient({
                 </button>
               ))}
             </div>
-            <NewJobButton prefillDate={fmtISO(view === "week" ? stripFirstDay : anchor)} />
+            {/* Phones already have "+ Create" in the top bar; a second button here wrapped onto two lines. */}
+            <div className="hidden sm:block">
+              <NewJobButton prefillDate={fmtISO(view === "week" ? stripFirstDay : anchor)} />
+            </div>
           </>
         }
       >
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button onClick={goToday} className="px-3.5 py-2 rounded-md border border-field-border bg-card-bg text-sm font-semibold hover:bg-page-bg transition-colors">
             Today
           </button>

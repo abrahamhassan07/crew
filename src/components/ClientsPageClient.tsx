@@ -259,9 +259,10 @@ export function ClientsPageClient({
         }
       />
 
-      <div className="px-6 py-8">
+      <div className="px-4 py-5 sm:px-6 sm:py-8">
         <div className="max-w-[1600px] mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          {/* On phones the list comes first; the stats are on bigger screens (and the dashboard). */}
+          <div className="hidden sm:grid sm:grid-cols-3 gap-4 mb-6">
             <StatCard
               label="New leads"
               value={kpis.newLeads30}
@@ -318,12 +319,12 @@ export function ClientsPageClient({
             )}
           </div>
 
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
               placeholder="Search by name, company, email, phone, or address…"
-              className="max-w-md"
+              className="w-full sm:max-w-md"
             />
           </div>
 
@@ -406,6 +407,17 @@ export function ClientsPageClient({
             onRowClick={(client) => {
               router.push(`/clients/${client.id}`);
             }}
+            mobileCard={(c) => (
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-ink-primary truncate">{c.name}</div>
+                  <div className="text-xs text-ink-muted mt-0.5 truncate">{[c.company, c.address].filter(Boolean).join(" · ") || c.phone || c.email || "No contact details"}</div>
+                </div>
+                <div className="shrink-0">
+                  <StatusBadge status={c.status.toLowerCase() as "lead" | "active" | "inactive" | "archived"} label={c.status} showDot />
+                </div>
+              </div>
+            )}
           />
 
           {sortedClients.length === 0 && (
