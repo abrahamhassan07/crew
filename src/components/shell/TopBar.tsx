@@ -18,7 +18,7 @@ import {
   Users,
   LogOut,
 } from "lucide-react";
-import { SearchInput } from "@/components/ui/SearchInput";
+import { GlobalSearch } from "@/components/shell/GlobalSearch";
 import { useJobModal } from "@/components/JobModalContext";
 import type { AppRole } from "@/lib/supabase/types";
 
@@ -28,8 +28,6 @@ interface TopBarProps {
   bizName: string;
   userInitials: string;
   onMenuClick: () => void;
-  onSearch: (query: string) => void;
-  searchValue: string;
   onSignOut: () => void;
 }
 
@@ -53,11 +51,8 @@ export function TopBar({
   bizName,
   userInitials,
   onMenuClick,
-  onSearch,
-  searchValue,
   onSignOut,
 }: TopBarProps) {
-  const [showSearch, setShowSearch] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const router = useRouter();
@@ -84,19 +79,8 @@ export function TopBar({
         <Menu className="w-5 h-5" />
       </button>
 
-      {/* Global search. Hidden on phones: it has no results yet (see results={[]}), and on a phone it was only a
-          squashed box taking the space of the buttons that do work. */}
-      <div className="hidden md:block flex-1 max-w-96 min-w-0">
-        <SearchInput
-          value={searchValue}
-          onChange={onSearch}
-          onFocus={() => setShowSearch(true)}
-          onBlur={() => setShowSearch(false)}
-          placeholder="Search clients, jobs, quotes, invoices"
-          showResults={showSearch}
-          results={[]}
-        />
-      </div>
+      {/* Search clients, jobs, quotes and invoices (a box on computers, an icon that opens a full-screen search on phones). */}
+      <GlobalSearch />
 
       <div className="flex-1" />
 

@@ -36,7 +36,6 @@ function initialsOf(name: string): string {
 export function AppShell({ role, userId, children, userName, bizName, roleLabel, banner, isPlatformAdmin, staffDrafts, voice, pending, tourAutoStart }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
   const pathname = usePathname();
 
@@ -133,8 +132,6 @@ export function AppShell({ role, userId, children, userName, bizName, roleLabel,
           bizName={bizName}
           userInitials={initials}
           onMenuClick={() => setMobileNavOpen(true)}
-          onSearch={setSearchQuery}
-          searchValue={searchQuery}
           onSignOut={handleSignOut}
         />
 
