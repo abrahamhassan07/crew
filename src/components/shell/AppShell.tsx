@@ -80,6 +80,11 @@ export function AppShell({ role, userId, children, userName, bizName, roleLabel,
     };
   }, [role, userId, router]);
 
+  // Inside the phone app: tell its tab bar whether the menu is open (so "Menu" is highlighted while it is).
+  useEffect(() => {
+    (window as { ReactNativeWebView?: { postMessage: (m: string) => void } }).ReactNativeWebView?.postMessage(JSON.stringify({ type: "menu", open: mobileNavOpen }));
+  }, [mobileNavOpen]);
+
   const supabase = createClient();
 
   const handleSignOut = async () => {

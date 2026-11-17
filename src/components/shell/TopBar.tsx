@@ -84,8 +84,9 @@ export function TopBar({
         <Menu className="w-5 h-5" />
       </button>
 
-      {/* Global search */}
-      <div className="flex-1 max-w-96 min-w-0">
+      {/* Global search. Hidden on phones: it has no results yet (see results={[]}), and on a phone it was only a
+          squashed box taking the space of the buttons that do work. */}
+      <div className="hidden md:block flex-1 max-w-96 min-w-0">
         <SearchInput
           value={searchValue}
           onChange={onSearch}
