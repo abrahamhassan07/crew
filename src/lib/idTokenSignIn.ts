@@ -3,6 +3,17 @@
 import { createClient } from "@/lib/supabase/client";
 import { provisionAfterIdTokenSignIn } from "@/app/auth/actions";
 
+/** Development only: report a failure reason to the phone app's log (the web view's console isn't visible there). */
+function devLog(text: string) {
+  if (process.env.NODE_ENV === "production") return;
+  console.warn(text);
+  try {
+    (window as Window & { ReactNativeWebView?: { postMessage: (m: string) => void } }).ReactNativeWebView?.postMessage(JSON.stringify({ type: "debugLog", text }));
+  } catch {
+    // not inside the app
+  }
+}
+
 export type IdTokenSignInResult = { ok: true; needsCode: boolean } | { ok: false; error: string };
 
 /**
@@ -19,7 +30,10 @@ export async function finishIdTokenSignIn(opts: {
 }): Promise<IdTokenSignInResult> {
   const supabase = createClient();
   const { error: signInError } = await supabase.auth.signInWithIdToken({ provider: opts.provider, token: opts.token, nonce: opts.rawNonce });
-  if (signInError) return { ok: false, error: "oauth-failed" };
+  if (signInError) {
+    devLog(`${opts.provider} signInWithIdToken failed: ${signInError.message}`);
+    return { ok: false, error: "oauth-failed" };
+  }
 
   const result = await provisionAfterIdTokenSignIn(opts.businessName?.trim(), opts.displayName);
   if (!result.ok) {
@@ -30,6 +44,7 @@ export async function finishIdTokenSignIn(opts: {
     } catch {
       // ignore: the session is rejected server-side on the next request anyway
     }
+    devLog(`${opts.provider} provisioning failed: ${result.error}`);
     return { ok: false, error: result.error ?? "oauth-failed" };
   }
 
