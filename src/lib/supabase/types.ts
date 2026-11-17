@@ -113,6 +113,7 @@ export type AppSession = {
   created_at: string;
   last_seen_at: string;
   revoked_at: string | null;
+  mfa_verified: boolean;
 };
 
 export type PushToken = {

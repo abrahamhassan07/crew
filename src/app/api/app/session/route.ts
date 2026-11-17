@@ -22,7 +22,8 @@ export async function POST(req: Request) {
   const { data: profile } = await supabase.from("profiles").select("org_id").eq("user_id", user.id).single();
   if (!profile) return appError("Please sign in again.", 401);
   const device = (req.headers.get("user-agent") ?? "").replace(/[^\x20-\x7e]/g, "");
-  const tokens = await mintAppSession({ id: user.id, email: user.email }, profile.org_id, device);
+  // The app sign-in's own token is never aal2, so record that this site session passed two-factor (0034).
+  const tokens = await mintAppSession({ id: user.id, email: user.email }, profile.org_id, device, aal?.currentLevel === "aal2");
   if (!tokens) return appError("Couldn't start the app sign-in. Please try again.", 500);
   return appJson({ ...tokens, user_id: user.id });
 }

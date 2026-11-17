@@ -54,7 +54,7 @@ function claims(token: string): { session_id?: string; sub?: string } {
 const isUuid = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 /** Make a fresh app sign-in for someone already signed in on the site. */
-export async function mintAppSession(user: { id: string; email: string }, orgId: string, device: string): Promise<AppTokens | null> {
+export async function mintAppSession(user: { id: string; email: string }, orgId: string, device: string, mfaVerified: boolean): Promise<AppTokens | null> {
   const admin = createAdminClient();
   // A one-time sign-in link made on the server and used straight away; nothing is emailed.
   const { data: link, error: linkError } = await admin.auth.admin.generateLink({ type: "magiclink", email: user.email });
@@ -65,7 +65,7 @@ export async function mintAppSession(user: { id: string; email: string }, orgId:
   if (error || !session || session.user.id !== user.id) return null;
   const sessionId = claims(session.access_token).session_id;
   if (!isUuid(sessionId)) return null;
-  const { error: insertError } = await admin.from("app_sessions").insert({ user_id: user.id, org_id: orgId, session_id: sessionId, device: device.slice(0, 120) });
+  const { error: insertError } = await admin.from("app_sessions").insert({ user_id: user.id, org_id: orgId, session_id: sessionId, device: device.slice(0, 120), mfa_verified: mfaVerified });
   if (insertError) {
     await admin.auth.admin.signOut(session.access_token, "local").catch(() => {});
     return null;
