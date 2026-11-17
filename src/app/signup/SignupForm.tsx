@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { signUp } from "./actions";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
-import { AppleSignInButton } from "@/components/AppleSignInButton";
+import { NativeSignInButton } from "@/components/NativeSignInButton";
 import { OrDivider } from "@/components/OrDivider";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
 
@@ -11,6 +11,7 @@ const OAUTH_ERRORS: Record<string, string> = {
   "oauth-failed": "Google sign-in failed. Please try again.",
   "could-not-create-business": "Could not create your business. Please try again.",
   "apple-failed": "Apple sign-in didn't finish. Please try again.",
+  "google-failed": "Google sign-in didn't finish. Please try again.",
 };
 
 export function SignupForm({ oauthError }: { oauthError?: string }) {
@@ -48,11 +49,12 @@ export function SignupForm({ oauthError }: { oauthError?: string }) {
         />
       </div>
 
-      {/* Google blocks its sign-in inside apps, so the phone app hides it (data-app-hide) and shows Apple instead. */}
+      {/* Google blocks its web sign-in inside apps, so the phone app hides it (data-app-hide) and shows its own native Google and Apple buttons. */}
       <div data-app-hide>
         <GoogleSignInButton next="/dashboard" businessName={businessName} onError={setGoogleError} />
       </div>
-      <AppleSignInButton next="/dashboard" businessName={businessName} onError={setGoogleError} />
+      <NativeSignInButton provider="google" next="/dashboard" businessName={businessName} onError={setGoogleError} />
+      <NativeSignInButton provider="apple" next="/dashboard" businessName={businessName} onError={setGoogleError} />
 
       {(googleError || oauthError) && (
         <p className="text-sm text-danger-red">{OAUTH_ERRORS[googleError ?? oauthError ?? ""] ?? "Something went wrong. Please try again."}</p>

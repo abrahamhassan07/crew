@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { Sprout } from "lucide-react";
 import { signIn } from "./actions";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
-import { AppleSignInButton } from "@/components/AppleSignInButton";
+import { NativeSignInButton } from "@/components/NativeSignInButton";
 import { OrDivider } from "@/components/OrDivider";
 import { MfaChallengeForm } from "./mfa/MfaChallengeForm";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
@@ -13,6 +13,8 @@ const OAUTH_ERRORS: Record<string, string> = {
   "oauth-failed": "Google sign-in failed. Please try again.",
   "no-account": "No account found for that Google email. Ask your admin to invite you, or create a new business.",
   "apple-failed": "Apple sign-in didn't finish. Please try again.",
+  "google-failed": "Google sign-in didn't finish. Please try again.",
+  "no-account-google": "No account found for that Google email. Ask your admin to invite you, or create a new business.",
   "no-account-apple": "No account uses the email on that Apple ID. If you chose Hide My Email, sign in with your email and password instead. Otherwise ask your admin to invite you, or create a new business.",
 };
 
@@ -44,11 +46,12 @@ export function LoginForm({ next, oauthError, idle, deleted }: { next: string; o
         <MfaChallengeForm next={next.startsWith("/") ? next : "/"} supportEmail={supportEmail} onSignOut={() => window.location.reload()} />
       ) : (
     <div className="flex flex-col gap-4">
-      {/* Google blocks its sign-in inside apps, so the phone app hides it (data-app-hide) and shows Apple instead. */}
+      {/* Google blocks its web sign-in inside apps, so the phone app hides it (data-app-hide) and shows its own native Google and Apple buttons. */}
       <div data-app-hide>
         <GoogleSignInButton next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
       </div>
-      <AppleSignInButton next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
+      <NativeSignInButton provider="google" next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
+      <NativeSignInButton provider="apple" next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
 
       {(googleError || oauthError) && (
         <p className="text-sm text-danger-red">{OAUTH_ERRORS[googleError ?? oauthError ?? ""] ?? "Something went wrong. Please try again."}</p>

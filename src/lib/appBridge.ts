@@ -7,7 +7,8 @@ import { useSyncExternalStore } from "react";
  * (window.__crewApp, set by its injected script); older app builds announce nothing, so features stay hidden there.
  */
 
-type CrewAppInfo = { platform?: "ios" | "android"; apple?: boolean };
+type CrewAppInfo = { platform?: "ios" | "android"; apple?: boolean; google?: boolean };
+export type NativeProvider = "apple" | "google";
 type NativeWindow = Window & { __crewApp?: CrewAppInfo; ReactNativeWebView?: { postMessage: (m: string) => void } };
 
 const appInfo = (): CrewAppInfo | null => {
@@ -16,23 +17,23 @@ const appInfo = (): CrewAppInfo | null => {
   return w.ReactNativeWebView && w.__crewApp ? w.__crewApp : null;
 };
 
-/** True inside an app build that can do Sign in with Apple (iPhone only). */
-export const appCanSignInWithApple = () => appInfo()?.apple === true;
+/** True inside an app build that can show this provider's native sign-in (Apple: iPhone; Google: newer iPhone builds). */
+export const appCanSignInWith = (provider: NativeProvider) => appInfo()?.[provider] === true;
 
-export type AppleCredential =
+export type NativeCredential =
   | { ok: true; identityToken: string; fullName: string }
   | { ok: false; cancelled: boolean };
 
 /**
- * Asks the app to show Apple's sign-in sheet. `hashedNonce` is the SHA-256 of a one-time value the page keeps;
- * Apple puts it in the token so Supabase can check the token was made for this sign-in.
+ * Asks the app to show Apple's or Google's sign-in sheet. `hashedNonce` is the SHA-256 of a one-time value the page
+ * keeps; the provider puts it in the token so Supabase can check the token was made for this sign-in.
  */
-export function requestAppleCredential(hashedNonce: string): Promise<AppleCredential> {
+export function requestNativeCredential(provider: NativeProvider, hashedNonce: string): Promise<NativeCredential> {
   const w = window as NativeWindow;
   return new Promise((resolve) => {
     const id = crypto.randomUUID();
-    const done = (value: AppleCredential) => {
-      window.removeEventListener("crew:apple", onResult);
+    const done = (value: NativeCredential) => {
+      window.removeEventListener(`crew:${provider}`, onResult);
       clearTimeout(timer);
       resolve(value);
     };
@@ -43,9 +44,9 @@ export function requestAppleCredential(hashedNonce: string): Promise<AppleCreden
       else done({ ok: false, cancelled: d.cancelled === true });
     };
     const timer = setTimeout(() => done({ ok: false, cancelled: false }), 180_000);
-    window.addEventListener("crew:apple", onResult);
+    window.addEventListener(`crew:${provider}`, onResult);
     try {
-      w.ReactNativeWebView!.postMessage(JSON.stringify({ type: "appleSignIn", id, nonce: hashedNonce }));
+      w.ReactNativeWebView!.postMessage(JSON.stringify({ type: `${provider}SignIn`, id, nonce: hashedNonce }));
     } catch {
       done({ ok: false, cancelled: false });
     }
@@ -54,9 +55,9 @@ export function requestAppleCredential(hashedNonce: string): Promise<AppleCreden
 
 const noSubscribe = () => () => {};
 
-/** Whether this page can offer Apple sign-in: false on the server and first paint, then the real answer. */
-export const useAppleSignInAvailable = () => useSyncExternalStore(noSubscribe, appCanSignInWithApple, () => false);
+/** Whether this page can offer the provider's native sign-in: false on the server and first paint, then the real answer. */
+export const useNativeSignInAvailable = (provider: NativeProvider) => useSyncExternalStore(noSubscribe, () => appCanSignInWith(provider), () => false);
 
 /** Inside the app but without any one-tap sign-in to show (Android, or an older iPhone build). */
 export const useInAppWithoutOneTap = () =>
-  useSyncExternalStore(noSubscribe, () => document.documentElement.hasAttribute("data-in-app") && !appCanSignInWithApple(), () => false);
+  useSyncExternalStore(noSubscribe, () => document.documentElement.hasAttribute("data-in-app") && !appCanSignInWith("apple") && !appCanSignInWith("google"), () => false);
