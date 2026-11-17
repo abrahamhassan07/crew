@@ -46,18 +46,7 @@ export function LoginForm({ next, oauthError, idle, deleted }: { next: string; o
         <MfaChallengeForm next={next.startsWith("/") ? next : "/"} supportEmail={supportEmail} onSignOut={() => window.location.reload()} />
       ) : (
     <div className="flex flex-col gap-4">
-      {/* Google blocks its web sign-in inside apps, so the phone app hides it (data-app-hide) and shows its own native Google and Apple buttons. */}
-      <div data-app-hide>
-        <GoogleSignInButton next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
-      </div>
-      <NativeSignInButton provider="google" next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
-      <NativeSignInButton provider="apple" next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
 
-      {(googleError || oauthError) && (
-        <p className="text-sm text-danger-red">{OAUTH_ERRORS[googleError ?? oauthError ?? ""] ?? "Something went wrong. Please try again."}</p>
-      )}
-
-      <OrDivider />
 
       <form action={formAction} className="flex flex-col gap-4">
         <input type="hidden" name="next" value={next} />
@@ -99,6 +88,19 @@ export function LoginForm({ next, oauthError, idle, deleted }: { next: string; o
           {pending ? "Signing in…" : "Log in"}
         </button>
       </form>
+
+      <OrDivider />
+
+      {/* Google blocks its web sign-in inside apps, so the phone app hides it (data-app-hide) and shows its own native Google and Apple buttons. */}
+      <div data-app-hide>
+        <GoogleSignInButton next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
+      </div>
+      <NativeSignInButton provider="google" next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
+      <NativeSignInButton provider="apple" next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
+
+      {(googleError || oauthError) && (
+        <p className="text-sm text-danger-red">{OAUTH_ERRORS[googleError ?? oauthError ?? ""] ?? "Something went wrong. Please try again."}</p>
+      )}
     </div>
       )}
 

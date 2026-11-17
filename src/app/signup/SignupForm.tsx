@@ -49,18 +49,7 @@ export function SignupForm({ oauthError }: { oauthError?: string }) {
         />
       </div>
 
-      {/* Google blocks its web sign-in inside apps, so the phone app hides it (data-app-hide) and shows its own native Google and Apple buttons. */}
-      <div data-app-hide>
-        <GoogleSignInButton next="/dashboard" businessName={businessName} onError={setGoogleError} />
-      </div>
-      <NativeSignInButton provider="google" next="/dashboard" businessName={businessName} onError={setGoogleError} />
-      <NativeSignInButton provider="apple" next="/dashboard" businessName={businessName} onError={setGoogleError} />
 
-      {(googleError || oauthError) && (
-        <p className="text-sm text-danger-red">{OAUTH_ERRORS[googleError ?? oauthError ?? ""] ?? "Something went wrong. Please try again."}</p>
-      )}
-
-      <OrDivider />
 
       <div>
         <label className="block text-sm font-semibold text-ink-primary mb-1.5" htmlFor="name">
@@ -111,6 +100,19 @@ export function SignupForm({ oauthError }: { oauthError?: string }) {
       >
         {pending ? "Creating your business…" : "Create business"}
       </button>
+
+      <OrDivider />
+
+      {/* Google blocks its web sign-in inside apps, so the phone app hides it (data-app-hide) and shows its own native Google and Apple buttons. */}
+      <div data-app-hide>
+        <GoogleSignInButton next="/dashboard" businessName={businessName} onError={setGoogleError} />
+      </div>
+      <NativeSignInButton provider="google" next="/dashboard" businessName={businessName} onError={setGoogleError} />
+      <NativeSignInButton provider="apple" next="/dashboard" businessName={businessName} onError={setGoogleError} />
+
+      {(googleError || oauthError) && (
+        <p className="text-sm text-danger-red">{OAUTH_ERRORS[googleError ?? oauthError ?? ""] ?? "Something went wrong. Please try again."}</p>
+      )}
     </form>
   );
 }
