@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { loadGoogleIdentity, sha256Hex } from "@/lib/googleIdentity";
-import { provisionAfterGoogleSignIn } from "@/app/auth/actions";
+import { finishIdTokenSignIn } from "@/lib/idTokenSignIn";
 
 /**
  * Renders Google's own "Sign In With Google" button via Google Identity
@@ -59,44 +58,18 @@ export function GoogleSignInButton({
         callback: async (response) => {
           setPending(true);
           try {
-            const supabase = createClient();
-            const { error: signInError } = await supabase.auth.signInWithIdToken({
-              provider: "google",
-              token: response.credential,
-              nonce: rawNonce,
-            });
-            if (signInError) {
-              setPending(false);
-              onError("oauth-failed");
-              return;
-            }
-
-            const result = await provisionAfterGoogleSignIn(businessNameRef.current?.trim());
+            const result = await finishIdTokenSignIn({ provider: "google", token: response.credential, rawNonce, businessName: businessNameRef.current });
             if (!result.ok) {
-              // The account this session points to was just deleted server-side
-              // (no matching profile, e.g. unrecognized email or failed
-              // provisioning) — clear the now-orphaned local session so the
-              // browser doesn't keep presenting a stale cookie for a user that
-              // no longer exists. Best-effort: a failure here must never mask
-              // the actual reason, which is what the user needs to see.
-              try {
-                await supabase.auth.signOut();
-              } catch {
-                // ignore — session will still get rejected server-side next request
-              }
               setPending(false);
-              onError(result.error ?? "oauth-failed");
+              onError(result.error);
               return;
             }
             // Two-factor on: ask for the code in place instead of letting the
             // server bounce the dashboard request to the full-page /login/mfa.
-            if (onNeedsCodeRef.current) {
-              const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-              if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
-                setPending(false);
-                onNeedsCodeRef.current();
-                return;
-              }
+            if (result.needsCode && onNeedsCodeRef.current) {
+              setPending(false);
+              onNeedsCodeRef.current();
+              return;
             }
             window.location.assign(next);
           } catch {

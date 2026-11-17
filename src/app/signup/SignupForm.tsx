@@ -3,11 +3,14 @@
 import { useActionState, useState } from "react";
 import { signUp } from "./actions";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { AppleSignInButton } from "@/components/AppleSignInButton";
+import { OrDivider } from "@/components/OrDivider";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 const OAUTH_ERRORS: Record<string, string> = {
   "oauth-failed": "Google sign-in failed. Please try again.",
   "could-not-create-business": "Could not create your business. Please try again.",
+  "apple-failed": "Apple sign-in didn't finish. Please try again.",
 };
 
 export function SignupForm({ oauthError }: { oauthError?: string }) {
@@ -45,17 +48,17 @@ export function SignupForm({ oauthError }: { oauthError?: string }) {
         />
       </div>
 
-      <GoogleSignInButton next="/dashboard" businessName={businessName} onError={setGoogleError} />
+      {/* Google blocks its sign-in inside apps, so the phone app hides it (data-app-hide) and shows Apple instead. */}
+      <div data-app-hide>
+        <GoogleSignInButton next="/dashboard" businessName={businessName} onError={setGoogleError} />
+      </div>
+      <AppleSignInButton next="/dashboard" businessName={businessName} onError={setGoogleError} />
 
       {(googleError || oauthError) && (
         <p className="text-sm text-danger-red">{OAUTH_ERRORS[googleError ?? oauthError ?? ""] ?? "Something went wrong. Please try again."}</p>
       )}
 
-      <div className="flex items-center gap-3 text-xs text-ink-muted">
-        <div className="flex-1 h-px bg-line" />
-        or
-        <div className="flex-1 h-px bg-line" />
-      </div>
+      <OrDivider />
 
       <div>
         <label className="block text-sm font-semibold text-ink-primary mb-1.5" htmlFor="name">

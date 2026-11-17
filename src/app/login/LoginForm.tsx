@@ -4,12 +4,16 @@ import { useActionState, useState } from "react";
 import { Sprout } from "lucide-react";
 import { signIn } from "./actions";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { AppleSignInButton } from "@/components/AppleSignInButton";
+import { OrDivider } from "@/components/OrDivider";
 import { MfaChallengeForm } from "./mfa/MfaChallengeForm";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 const OAUTH_ERRORS: Record<string, string> = {
   "oauth-failed": "Google sign-in failed. Please try again.",
   "no-account": "No account found for that Google email. Ask your admin to invite you, or create a new business.",
+  "apple-failed": "Apple sign-in didn't finish. Please try again.",
+  "no-account-apple": "No account uses the email on that Apple ID. If you chose Hide My Email, sign in with your email and password instead. Otherwise ask your admin to invite you, or create a new business.",
 };
 
 export function LoginForm({ next, oauthError, idle }: { next: string; oauthError?: string; idle?: boolean }) {
@@ -39,17 +43,17 @@ export function LoginForm({ next, oauthError, idle }: { next: string; oauthError
         <MfaChallengeForm next={next.startsWith("/") ? next : "/"} supportEmail={supportEmail} onSignOut={() => window.location.reload()} />
       ) : (
     <div className="flex flex-col gap-4">
-      <GoogleSignInButton next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
+      {/* Google blocks its sign-in inside apps, so the phone app hides it (data-app-hide) and shows Apple instead. */}
+      <div data-app-hide>
+        <GoogleSignInButton next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
+      </div>
+      <AppleSignInButton next={next} onError={setGoogleError} onNeedsCode={() => setGoogleNeedsCode(true)} />
 
       {(googleError || oauthError) && (
         <p className="text-sm text-danger-red">{OAUTH_ERRORS[googleError ?? oauthError ?? ""] ?? "Something went wrong. Please try again."}</p>
       )}
 
-      <div className="flex items-center gap-3 text-xs text-ink-muted">
-        <div className="flex-1 h-px bg-line" />
-        or
-        <div className="flex-1 h-px bg-line" />
-      </div>
+      <OrDivider />
 
       <form action={formAction} className="flex flex-col gap-4">
         <input type="hidden" name="next" value={next} />
