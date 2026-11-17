@@ -214,7 +214,7 @@ export function JobsPageClient({
         }
       />
 
-      <div className="px-6 py-8">
+      <div className="px-4 py-5 sm:px-6 sm:py-8">
         <div className="max-w-[1600px] mx-auto">
           {focus && (
             <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-bad-bg text-bad-fg text-sm font-semibold pl-3 pr-1.5 py-1">
@@ -246,7 +246,7 @@ export function JobsPageClient({
           </div>
 
           <div className="mb-6">
-            <SearchInput value={query} onChange={setQuery} placeholder="Search jobs…" className="max-w-md" />
+            <SearchInput value={query} onChange={setQuery} placeholder="Search jobs…" className="w-full sm:max-w-md" />
           </div>
 
           <div className="mb-4 text-sm text-ink-muted">
@@ -260,6 +260,32 @@ export function JobsPageClient({
             sortOrder={sortOrder}
             onSort={handleSort}
             onRowClick={(job) => router.push(`/jobs/${job.id}`)}
+            mobileCard={(job) => {
+              const display = jobDisplayStatus(job);
+              const statusKey =
+                display === "Unscheduled" ? "unscheduled" : display === "In Progress" ? "in-progress" : (display.toLowerCase() as "scheduled" | "completed" | "cancelled");
+              const crew = job.crew_id ? crewById.get(job.crew_id) : undefined;
+              const who = crew?.name ?? (job.assigned_staff_id ? job.staffName : "Unassigned");
+              return (
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-ink-primary truncate">{job.client_name}</div>
+                    <div className="text-xs text-ink-muted mt-0.5 truncate">
+                      {job.job_date ? `${job.dateLabel}${job.timeLabel ? `, ${job.timeLabel}` : ""}` : "Not scheduled"} · {who}
+                    </div>
+                    <div className="text-xs text-ink-muted mt-0.5 truncate flex items-center gap-1">
+                      {job.num}
+                      {job.recurrence !== "none" && <Repeat2 className="w-3 h-3" aria-label="Repeats" />}
+                      {job.address ? ` · ${job.address}` : ""}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <StatusBadge status={statusKey} label={display} showDot />
+                    {job.price != null && <div className="text-sm font-semibold text-ink-primary mt-1">${job.price.toFixed(2)}</div>}
+                  </div>
+                </div>
+              );
+            }}
           />
 
           {sorted.length === 0 && (
