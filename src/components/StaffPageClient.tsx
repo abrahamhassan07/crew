@@ -224,7 +224,7 @@ export function StaffPageClient({
         }
       />
 
-      <div className="px-6 py-8">
+      <div className="px-4 py-5 sm:px-6 sm:py-8">
         <div className="max-w-[1600px] mx-auto">
           {crews.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -289,7 +289,7 @@ export function StaffPageClient({
                   </option>
                 ))}
               </select>
-              <SearchInput value={query} onChange={setQuery} placeholder="Search staff…" className="w-48" />
+              <SearchInput value={query} onChange={setQuery} placeholder="Search staff…" className="w-full sm:w-48" />
             </div>
           </div>
 
@@ -300,6 +300,21 @@ export function StaffPageClient({
             sortOrder={sortOrder}
             onSort={handleSort}
             onRowClick={(s) => router.push(`/staff/${s.id}`)}
+            mobileCard={(row) => (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm shrink-0" style={{ background: staffColorHex(row.color_hue) }}>
+                  {initialsOf(row.name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-ink-primary truncate">{row.name}</div>
+                  <div className="text-xs text-ink-muted mt-0.5 truncate">
+                    {row.job_role} · {crewName(row.crew_id)}
+                    {row.upcomingCount > 0 ? ` · ${row.upcomingCount} job${row.upcomingCount === 1 ? "" : "s"} this week` : ""}
+                  </div>
+                  <div className="text-xs text-ink-muted truncate">{row.phone || row.email}</div>
+                </div>
+              </div>
+            )}
           />
 
           {filteredStaff.length === 0 && (

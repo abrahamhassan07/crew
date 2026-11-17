@@ -68,7 +68,7 @@ export function SettingsPageClient({ organization, xero, ai, xeroResult }: { org
         title="Settings"
         subtitle="Manage your organisation settings and preferences."
         actions={
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3">
             {error && <span className="text-sm text-danger max-w-xs text-right">{error}</span>}
             {saved && !error && <span className="text-sm text-ok-fg">Saved.</span>}
             <Button variant="primary" onClick={save} disabled={pending}>
@@ -78,7 +78,7 @@ export function SettingsPageClient({ organization, xero, ai, xeroResult }: { org
         }
       />
 
-      <div className="px-6 py-6">
+      <div className="px-4 py-5 sm:px-6 sm:py-6">
         <div className="max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
           <CollapsibleCard
             title="Business information"
@@ -260,6 +260,15 @@ export function SettingsPageClient({ organization, xero, ai, xeroResult }: { org
             </div>
           </CollapsibleCard>
         </div>
+      </div>
+      {/* Phones: Save stays on screen while scrolling a long page (the top button is for bigger screens). */}
+      <div className="md:hidden sticky bottom-0 z-20 border-t border-line bg-card-bg/95 backdrop-blur px-4 py-3 flex items-center gap-3">
+        <div className="flex-1 min-w-0 text-sm">
+          {error ? <span className="text-danger">{error}</span> : saved ? <span className="text-ok-fg">Saved.</span> : <span className="text-ink-muted">Changes save when you tap Save.</span>}
+        </div>
+        <Button variant="primary" onClick={save} disabled={pending}>
+          {pending ? "Saving…" : "Save changes"}
+        </Button>
       </div>
     </div>
   );

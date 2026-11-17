@@ -59,6 +59,11 @@ export function EquipmentPageClient({ equipment, crews }: { equipment: Equipment
     });
   };
 
+  // Phone cards reuse the table's own pieces (status badge, Edit/Delete buttons).
+  const cell = (key: string, row: Equipment) => {
+    const c = columns.find((col) => col.key === key);
+    return c?.render ? c.render((row as unknown as Record<string, unknown>)[key], row) : null;
+  };
   const columns: Column<Equipment>[] = [
     {
       key: "name",
@@ -141,7 +146,7 @@ export function EquipmentPageClient({ equipment, crews }: { equipment: Equipment
         }
       />
 
-      <div className="px-6 py-8">
+      <div className="px-4 py-5 sm:px-6 sm:py-8">
         <div className="max-w-[1600px] mx-auto">
           <div className="flex flex-wrap items-center gap-3 mb-6">
             <FilterTabs
@@ -154,10 +159,25 @@ export function EquipmentPageClient({ equipment, crews }: { equipment: Equipment
               onChange={setTab}
             />
             <div className="flex-1" />
-            <SearchInput value={query} onChange={setQuery} placeholder="Search equipment…" className="max-w-xs" />
+            <SearchInput value={query} onChange={setQuery} placeholder="Search equipment…" className="w-full sm:w-auto sm:max-w-xs" />
           </div>
 
-          <DataTable columns={columns} data={filtered} />
+          <DataTable
+            columns={columns}
+            data={filtered}
+            mobileCard={(row) => (
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-ink-primary">{row.name}</div>
+                  <div className="text-xs text-ink-muted mt-0.5">
+                    {[row.model, crewName(row.crew_id), row.next_service_date ? `Service ${fmtDateLabel(row.next_service_date)}` : ""].filter(Boolean).join(" · ")}
+                  </div>
+                  <div className="mt-1.5">{cell("status", row)}</div>
+                </div>
+                <div className="shrink-0">{cell("id", row)}</div>
+              </div>
+            )}
+          />
           {!filtered.length && <div className="text-center py-8 text-ink-muted">No equipment matches.</div>}
         </div>
       </div>

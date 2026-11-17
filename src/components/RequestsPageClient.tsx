@@ -39,6 +39,8 @@ export function RequestsPageClient({ requests, clients, services }: { requests: 
   const [tab, setTab] = useState<(typeof TABS)[number]>("All");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(requests[0]?.id ?? null);
+  // Phones show the list or one request (computers show both side by side).
+  const [phoneDetail, setPhoneDetail] = useState(false);
   const [newModal, setNewModal] = useState<RequestInput | null>(null);
   const [convertDate, setConvertDate] = useState<{ date: string; time: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export function RequestsPageClient({ requests, clients, services }: { requests: 
         }
       />
 
-      <div className="px-6 py-8">
+      <div className="px-4 py-5 sm:px-6 sm:py-8">
         <div className="max-w-[1600px] mx-auto">
           <div className="flex flex-wrap items-center gap-2 mb-6">
             <FilterTabs
@@ -109,15 +111,19 @@ export function RequestsPageClient({ requests, clients, services }: { requests: 
               onChange={setTab}
             />
             <div className="flex-1" />
-            <SearchInput value={query} onChange={setQuery} placeholder="Search requests…" className="max-w-xs" />
+            <SearchInput value={query} onChange={setQuery} placeholder="Search requests…" className="w-full sm:w-auto sm:max-w-xs" />
           </div>
 
           <div className="flex flex-col lg:flex-row gap-4 items-start">
-            <div className="w-full lg:w-[340px] shrink-0 bg-card-bg border border-line rounded-lg overflow-hidden">
+            <div className={`w-full lg:w-[340px] shrink-0 bg-card-bg border border-line rounded-lg overflow-hidden ${phoneDetail ? "hidden lg:block" : ""}`}>
               {filtered.map((r) => (
                 <button
                   key={r.id}
-                  onClick={() => setSelectedId(r.id)}
+                  onClick={() => {
+                    setSelectedId(r.id);
+                    setPhoneDetail(true);
+                    window.scrollTo({ top: 0 });
+                  }}
                   className={`block w-full text-left px-4 py-3.5 border-b border-line-soft ${selected?.id === r.id ? "bg-ok-bg" : ""}`}
                 >
                   <div className="flex justify-between items-center gap-2">
@@ -135,7 +141,10 @@ export function RequestsPageClient({ requests, clients, services }: { requests: 
             </div>
 
             {selected && (
-              <div className="flex-1 w-full bg-card-bg border border-line rounded-lg">
+              <div className={`flex-1 w-full bg-card-bg border border-line rounded-lg ${phoneDetail ? "" : "hidden lg:block"}`}>
+                <button type="button" onClick={() => setPhoneDetail(false)} className="lg:hidden flex items-center gap-1 px-4 pt-3 text-sm font-semibold text-brand">
+                  ← All requests
+                </button>
                 <div className="flex flex-wrap justify-between gap-3 px-5 py-4 border-b border-line">
                   <div>
                     <div className="text-xs font-semibold text-ink-muted">

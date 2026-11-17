@@ -270,6 +270,8 @@ export function ReportsPageClient({
     [jobs, startIso, endIso]
   );
 
+  const invoicedJobIds = new Set(invoices.filter((i) => i.job_id && i.status !== "Voided").map((i) => i.job_id as string));
+  const invoicedCompleted = jobsCompletedInRange.filter((j) => invoicedJobIds.has(j.id)).length;
   const revTotal = revBars.reduce((s, b) => s + b.value, 0);
   const kpis = [
     { label: "Revenue", value: fmtAud0(revenueInRange), sub: RANGES.find((r) => r.key === range)?.label ?? "" },
@@ -277,7 +279,8 @@ export function ReportsPageClient({
     {
       label: "Jobs completed",
       value: jobsCompletedInRange.length.toLocaleString("en-AU"),
-      sub: jobsCompletedInRange.length ? `${fmtAud0(revenueInRange / jobsCompletedInRange.length)} average per job` : "No jobs completed",
+      // How many of them have an invoice (not voided): an average over all jobs was misleading while most aren't invoiced.
+      sub: jobsCompletedInRange.length ? `${invoicedCompleted} of ${jobsCompletedInRange.length} invoiced` : "No jobs completed",
     },
     { label: "New clients", value: String(newClientsInRange.length), sub: RANGES.find((r) => r.key === range)?.label ?? "" },
     {
