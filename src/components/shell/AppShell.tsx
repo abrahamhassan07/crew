@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Sidebar } from "./Sidebar";
@@ -34,10 +34,16 @@ function initialsOf(name: string): string {
 }
 
 export function AppShell({ role, userId, children, userName, bizName, roleLabel, banner, isPlatformAdmin, staffDrafts, voice, pending, tourAutoStart }: AppShellProps) {
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  // The phone side menu remembers the page it was opened on, so choosing a page in it (or any page change) closes it.
+  const [navOpenOn, setNavOpenOn] = useState<string | null>(null);
+  const mobileNavOpen = navOpenOn === pathname;
+  const setMobileNavOpen = useCallback(
+    (open: boolean | ((open: boolean) => boolean)) => setNavOpenOn((on) => ((typeof open === "function" ? open(on === pathname) : open) ? pathname : null)),
+    [pathname]
+  );
 
   // Remember the last real page so the Feedback form can say where a problem happened.
   useEffect(() => {
@@ -77,7 +83,7 @@ export function AppShell({ role, userId, children, userName, bizName, roleLabel,
     return () => {
       delete w.__crew;
     };
-  }, [role, userId, router]);
+  }, [role, userId, router, setMobileNavOpen]);
 
   // Inside the phone app: tell its tab bar whether the menu is open (so "Menu" is highlighted while it is).
   useEffect(() => {

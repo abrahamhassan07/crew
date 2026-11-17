@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { JobModal, type ClientOption, type StaffOption } from "@/components/JobModal";
@@ -54,7 +54,15 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
   const router = useRouter();
   const pathname = usePathname();
   const { toast, showToast } = useToast();
-  const [state, setState] = useState<JobModalState | null>(null);
+  // The job form remembers the page it was opened on: moving to another page (tab bar, menu, links) closes it.
+  const [opened, setOpened] = useState<{ state: JobModalState; on: string } | null>(null);
+  const state = opened && opened.on === pathname ? opened.state : null;
+  const pathRef = useRef(pathname);
+  useEffect(() => {
+    pathRef.current = pathname;
+  }, [pathname]);
+  // Stable (callers keep their own deps); reads the current page when called.
+  const setState = useCallback((next: JobModalState | null) => setOpened(next ? { state: next, on: pathRef.current } : null), []);
   const [job, setJob] = useState<Job | null>(null);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [clientOptions, setClientOptions] = useState<ClientOption[]>([]);
@@ -63,7 +71,7 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
   const close = useCallback(() => {
     setState(null);
     setJob(null);
-  }, []);
+  }, [setState]);
 
   const openNewJob = useCallback(
     (prefillDate?: string, prefillClientId?: string) => {
@@ -82,7 +90,7 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
         });
       }
     },
-    [role],
+    [role, setState],
   );
 
   const openJob = useCallback(
@@ -104,7 +112,7 @@ export function JobModalProvider({ role, children }: { role: AppRole; children: 
         setLoading(false);
       });
     },
-    [role],
+    [role, setState],
   );
 
   const onSaved = useCallback(

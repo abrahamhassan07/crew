@@ -6,6 +6,8 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { DataTable } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { friendlyDate } from "@/lib/searchCore";
+import { todayISO } from "@/lib/design";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FilterTabs } from "@/components/ui/FilterTabs";
@@ -107,16 +109,16 @@ export function QuotesPageClient({
         }
       />
 
-      <div className="px-6 py-8">
+      <div className="px-4 py-5 sm:px-6 sm:py-8">
         <div className="max-w-[1600px] mx-auto">
-          <div className="flex flex-wrap items-center gap-2 mb-6">
+          <div className="flex flex-wrap items-center gap-2 mb-4 sm:mb-6">
             <FilterTabs
               options={TABS.map((t) => ({ value: t, label: t, count: t === "All" ? rows.length : rows.filter((r) => r.status === t).length }))}
               value={tab}
               onChange={setTab}
             />
             <div className="flex-1" />
-            <SearchInput value={query} onChange={setQuery} placeholder="Search quotes…" className="max-w-xs" />
+            <SearchInput value={query} onChange={setQuery} placeholder="Search quotes…" className="w-full sm:w-auto sm:max-w-xs" />
           </div>
           <DataTable
             columns={columns}
@@ -125,6 +127,23 @@ export function QuotesPageClient({
             sortOrder={sortOrder}
             onSort={handleSort}
             onRowClick={(q) => router.push(`/quotes/${q.id}`)}
+            mobileCard={(q) => (
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-ink-primary truncate">{q.clientName}</div>
+                  <div className="text-xs text-ink-muted mt-0.5">
+                    {q.num} · {q.status === "Sent" || q.status === "Draft" ? `${q.expiry_date < todayISO() ? "Expired" : "Expires"} ${friendlyDate(q.expiry_date)}` : friendlyDate(q.quote_date)}
+                  </div>
+                  {q.approval_status === "pending" && <span className="inline-block mt-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-warn-bg text-warn-fg">Needs approval</span>}
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-semibold text-ink-primary">${q.total.toFixed(2)}</div>
+                  <div className="mt-1">
+                    <StatusBadge status={badgeStatus(q.status)} label={q.status} showDot />
+                  </div>
+                </div>
+              </div>
+            )}
           />
           {!filtered.length && <div className="text-center py-8 text-ink-muted">No quotes match.</div>}
         </div>

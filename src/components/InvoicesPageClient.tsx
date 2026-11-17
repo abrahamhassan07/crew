@@ -10,20 +10,13 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 import { calcTotals } from "@/lib/gst";
+import { friendlyDate } from "@/lib/searchCore";
 import type { Column } from "@/components/ui/DataTable";
 import type { Client, GstMode, Invoice, InvoiceStatus } from "@/lib/supabase/types";
 
 const TABS: (InvoiceStatus | "All" | "Outstanding")[] = ["All", "Outstanding", "Draft", "Sent", "Partially Paid", "Paid", "Overdue", "Voided"];
 
 type InvoiceRow = Invoice & { clientName: string; total: number; balance: number };
-
-/** "5 Nov" this year, "5 Nov 2025" otherwise (dates are stored as YYYY-MM-DD). */
-function shortDate(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  if (!y || !m || !d) return iso;
-  const label = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-AU", { day: "numeric", month: "short", timeZone: "UTC", ...(y !== new Date().getFullYear() ? { year: "numeric" } : {}) });
-  return label;
-}
 
 function InvoiceCard({ row }: { row: InvoiceRow }) {
   const open = ["Sent", "Partially Paid", "Overdue"].includes(row.status);
@@ -32,7 +25,7 @@ function InvoiceCard({ row }: { row: InvoiceRow }) {
       <div className="min-w-0">
         <div className="font-semibold text-ink-primary truncate">{row.clientName}</div>
         <div className="text-xs text-ink-muted mt-0.5">
-          {row.num} · {open ? `Due ${shortDate(row.due_date)}` : `Issued ${shortDate(row.issue_date)}`}
+          {row.num} · {open ? `Due ${friendlyDate(row.due_date)}` : `Issued ${friendlyDate(row.issue_date)}`}
         </div>
         {row.approval_status === "pending" && <span className="inline-block mt-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-warn-bg text-warn-fg">Needs approval</span>}
       </div>
