@@ -53,7 +53,7 @@ export function AiFeaturesCard({ ai }: { ai: AiSettingsView }) {
     <CollapsibleCard
       className="xl:col-span-2"
       title="AI features"
-      summary={!ai.allowed ? "Included with the Team plan and above" : enabledCount ? `${enabledCount} of 4 switched on` : "All switched off"}
+      summary={!ai.allowed ? <><span data-app-hide>Included with the Team plan and above</span><span data-app-only>Not part of your current plan</span></> : enabledCount ? `${enabledCount} of 4 switched on` : "All switched off"}
     >
       <div className="pt-3 space-y-4">
         <p className="text-sm text-ink-muted">
@@ -62,7 +62,7 @@ export function AiFeaturesCard({ ai }: { ai: AiSettingsView }) {
 
         {!ai.allowed ? (
           <>
-            <p className="text-sm text-ink-secondary">Voice-to-Quote, Voice-to-Invoice and the Client Service Auditor are included with the Team and Business plans.</p>
+            <p className="text-sm text-ink-secondary"><span data-app-hide>Voice-to-Quote, Voice-to-Invoice and the Client Service Auditor are included with the Team and Business plans.</span><span data-app-only>AI features aren&apos;t part of your current plan.</span></p>
             <Link href="/subscription">
               <Button variant="primary" type="button">See plans</Button>
             </Link>
@@ -71,7 +71,7 @@ export function AiFeaturesCard({ ai }: { ai: AiSettingsView }) {
           <>
             {ai.onTrial && ai.monthlyLimit !== null && (
               <p className="text-sm rounded-lg bg-info-bg text-info-fg px-3 py-2.5">
-                On your free trial you get {ai.monthlyLimit} AI uses a month ({ai.usedThisMonth} used so far). <Link href="/subscription" className="font-semibold underline">Upgrade to Team</Link> for much more.
+                On your free trial you get {ai.monthlyLimit} AI uses a month ({ai.usedThisMonth} used so far).<span data-app-hide> <Link href="/subscription" className="font-semibold underline">Upgrade to Team</Link> for much more.</span>
               </p>
             )}
             <div className="space-y-3">

@@ -1,5 +1,6 @@
 import { photoContextFor, photosWithUrls } from "@/lib/photos";
 import { readPhotoForm, savePhoto } from "@/lib/photoUpload";
+import { stripUpsell } from "@/lib/upsell";
 import { appError, appJson, isUuid, withAppViewer } from "@/lib/appApi";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,8 @@ export async function POST(req: Request, { params }: Params) {
     const input = readPhotoForm(form);
     if ("error" in input) return appError(input.error, input.status);
     const result = await savePhoto(viewer, id, input.kind, input.file);
-    if (!result.ok) return appError(result.error, result.status);
+    // The app's own requests don't carry the site's in-app marker, so plan prompts are dropped here.
+    if (!result.ok) return appError(stripUpsell(result.error), result.status);
     return appJson({ ok: true, id: result.id });
   });
 }

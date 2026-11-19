@@ -78,7 +78,7 @@ export function XeroCard({ xero, result }: { xero: XeroSettingsView; result?: st
     <CollapsibleCard
       className="xl:col-span-2"
       title="Xero"
-      summary={!xero.allowed ? "Included with the Team plan and above" : xero.connected ? `Connected to ${xero.tenantName}` : "Not connected"}
+      summary={!xero.allowed ? <><span data-app-hide>Included with the Team plan and above</span><span data-app-only>Not part of your current plan</span></> : xero.connected ? `Connected to ${xero.tenantName}` : "Not connected"}
       defaultOpen={!!result}
     >
       <div className="pt-3 space-y-4">
@@ -87,7 +87,7 @@ export function XeroCard({ xero, result }: { xero: XeroSettingsView; result?: st
         {!xero.allowed ? (
           <>
             <p className="text-sm text-ink-muted">
-              Connect Xero and every invoice you send is also created in Xero, with the client, line items and GST filled in. Xero is included with the Team plan (2–5 users) and above.
+              Connect Xero and every invoice you send is also created in Xero, with the client, line items and GST filled in.<span data-app-hide> Xero is included with the Team plan (2–5 users) and above.</span><span data-app-only> Xero isn&apos;t part of your current plan.</span>
               {xero.connected && " Your connection is paused until your plan includes it again."}
             </p>
             <Link href="/subscription">

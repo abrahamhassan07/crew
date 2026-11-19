@@ -5,6 +5,7 @@ import { getViewer } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { disconnectXero, getConnection, listBankAccounts, orgMayUseXero, pushInvoice, suggestNumberingFromXero, XERO_PLAN_MESSAGE } from "@/lib/xero";
 import type { ActionResult } from "./actions";
+import { appSafe } from "@/lib/inApp";
 
 async function adminViewer() {
   const viewer = await getViewer();
@@ -15,7 +16,7 @@ export async function syncInvoiceToXero(invoiceId: string): Promise<ActionResult
   const viewer = await adminViewer();
   if (!viewer) return { ok: false, error: "Only admins can do that." };
   if (!(await getConnection(viewer.orgId))) return { ok: false, error: "Xero isn't connected. Connect it in Settings." };
-  if (!(await orgMayUseXero(viewer.orgId))) return { ok: false, error: XERO_PLAN_MESSAGE };
+  if (!(await orgMayUseXero(viewer.orgId))) return { ok: false, error: await appSafe(XERO_PLAN_MESSAGE) };
   const result = await pushInvoice(viewer.orgId, invoiceId);
   revalidatePath("/", "layout");
   return result.ok ? { ok: true } : { ok: false, error: result.error ?? "Couldn't send the invoice to Xero." };
@@ -66,7 +67,7 @@ export async function disconnectXeroAction(): Promise<ActionResult> {
 export async function readXeroNumbering(): Promise<ActionResult & { prefix?: string; next?: number; digits?: number; sample?: string }> {
   const viewer = await adminViewer();
   if (!viewer) return { ok: false, error: "Only admins can do that." };
-  if (!(await orgMayUseXero(viewer.orgId))) return { ok: false, error: XERO_PLAN_MESSAGE };
+  if (!(await orgMayUseXero(viewer.orgId))) return { ok: false, error: await appSafe(XERO_PLAN_MESSAGE) };
   if (!(await getConnection(viewer.orgId))) return { ok: false, error: "Xero isn't connected. Connect it in Settings." };
   try {
     const found = await suggestNumberingFromXero(viewer.orgId);

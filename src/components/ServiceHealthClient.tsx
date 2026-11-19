@@ -52,7 +52,7 @@ export function ServiceHealthClient({ audits, selected, items, planAllowed, enab
           <Play className="w-4 h-4" /> {pending ? "Running…" : "Run Audit Now"}
         </Button>
       </div>
-      {!planAllowed && <p className="text-sm text-ink-muted mb-3">The Client Service Auditor is included with the Team and Business plans. <Link href="/subscription" className="underline">See plans</Link>.</p>}
+      {!planAllowed && <p className="text-sm text-ink-muted mb-3"><span data-app-hide>The Client Service Auditor is included with the Team and Business plans. <Link href="/subscription" className="underline">See plans</Link>.</span><span data-app-only>The Client Service Auditor isn&apos;t part of your current plan.</span></p>}
       {planAllowed && !enabled && <p className="text-sm text-ink-muted mb-3">The auditor is switched off. Turn it on under <Link href="/settings" className="underline">Settings, AI Features</Link>.</p>}
       {error && <p className="text-sm text-danger mb-3">{error}</p>}
 

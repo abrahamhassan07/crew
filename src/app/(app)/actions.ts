@@ -27,6 +27,7 @@ import { notifyInvoicePaid, notifyQuoteApproved } from "@/lib/moneyNotify";
 import { MAX_NUMBER_LENGTH, MAX_REFERENCE_LENGTH, PREFIX_PATTERN, nextInvoiceNumber, numberPart, type NumberingSettings } from "@/lib/invoiceNumbers";
 import { RECURRENCE_LABEL, RECURRENCE_STEP_DAYS } from "@/lib/recurrence";
 import type { FeedbackKind, FeedbackStatus, CareProvider, ClientStatus, EquipmentStatus, GstMode, InvoiceStatus, JobRole, JobStatus, PricingType, QuoteStatus, Recurrence, RequestStatus, ServiceCategory, Skill } from "@/lib/supabase/types";
+import { appSafe } from "@/lib/inApp";
 
 export interface ActionResult {
   ok: boolean;
@@ -303,7 +304,7 @@ async function seatError(supabase: Db, orgId: string, excludeStaffId?: string): 
   let q = supabase.from("staff").select("id", { count: "exact", head: true }).eq("active", true);
   if (excludeStaffId) q = q.neq("id", excludeStaffId);
   const { count } = await q;
-  if ((count ?? 0) >= limit) return `Your plan covers ${limit} user${limit === 1 ? "" : "s"}. Upgrade under Subscription to add more.`;
+  if ((count ?? 0) >= limit) return appSafe(`Your plan covers ${limit} user${limit === 1 ? "" : "s"}. Upgrade under Subscription to add more.`);
   return null;
 }
 
@@ -1731,7 +1732,7 @@ async function emailDocument(loaded: LoadedDoc | null, kind: EmailKind, override
     if (!countError && (count ?? 0) >= cap) {
       return {
         ok: false,
-        error: `You've emailed ${cap} quotes and invoices this month (resends count), which is the limit on ${planName(org)}. Upgrade under Subscription to send more.`,
+        error: await appSafe(`You've emailed ${cap} quotes and invoices this month (resends count), which is the limit on ${planName(org)}. Upgrade under Subscription to send more.`),
       };
     }
   }

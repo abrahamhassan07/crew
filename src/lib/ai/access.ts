@@ -4,6 +4,7 @@ import { aiAllowed, aiMonthlyLimit, getBillingState } from "@/lib/billing";
 import { monthStartISO } from "@/lib/usage";
 import { estimateCostUsd } from "@/lib/ai/providers";
 import type { AiFeature, Organization } from "@/lib/supabase/types";
+import { appSafe } from "@/lib/inApp";
 
 // One place that decides whether an AI request may run: the plan, the business's own switch, the monthly ceiling and a
 // rate limit. Every AI route and scheduled job calls this on the server; the interface hiding a button is not security.
@@ -43,7 +44,7 @@ export async function checkAiAccess(orgId: string, userId: string | null, featur
   if (!org) return { ok: false, code: "plan", message: "Business not found.", upgrade: false };
 
   if (!aiAllowed(org)) {
-    return { ok: false, code: "plan", message: "AI features are included with the Team and Business plans. Upgrade under Subscription to use them.", upgrade: true };
+    return { ok: false, code: "plan", message: await appSafe("AI features are included with the Team and Business plans. Upgrade under Subscription to use them."), upgrade: true };
   }
   if (!org[FLAG[feature]]) {
     return { ok: false, code: "disabled", message: `${FEATURE_LABEL[feature]} is switched off. An owner can turn it on under Settings > AI Features.`, upgrade: false };
@@ -56,9 +57,9 @@ export async function checkAiAccess(orgId: string, userId: string | null, featur
       return {
         ok: false,
         code: "limit",
-        message: onTrial
+        message: await appSafe(onTrial
           ? `You've used your ${ceiling} free AI uses this month. Upgrade to the Team plan to keep using AI features.`
-          : `You've reached this month's AI limit (${ceiling}). Contact support if you need more.`,
+          : `You've reached this month's AI limit (${ceiling}). Contact support if you need more.`),
         upgrade: onTrial,
       };
     }

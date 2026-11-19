@@ -8,6 +8,7 @@ import { aiAllowed } from "@/lib/billing";
 import { checkAiAccess } from "@/lib/ai/access";
 import { runAuditForOrg } from "@/lib/audit/run";
 import type { ActionResult } from "./actions";
+import { appSafe } from "@/lib/inApp";
 
 /** Owner/admin switches for the AI features. Allowed only when the plan includes them (checked again on every AI request). */
 export async function saveAiSettings(input: { auditor: boolean; voiceQuote: boolean; voiceInvoice: boolean; staffDrafts: boolean }): Promise<ActionResult> {
@@ -15,7 +16,7 @@ export async function saveAiSettings(input: { auditor: boolean; voiceQuote: bool
   if (viewer.profile.role !== "admin") return { ok: false, error: "Only owners and admins can change AI settings." };
   const supabase = await createClient();
   const { data: org } = await supabase.from("organizations").select("*").eq("id", viewer.orgId).single();
-  if (!aiAllowed(org)) return { ok: false, error: "AI features are included with the Team and Business plans. Upgrade under Subscription to use them." };
+  if (!aiAllowed(org)) return { ok: false, error: await appSafe("AI features are included with the Team and Business plans. Upgrade under Subscription to use them.") };
   const { error } = await supabase
     .from("organizations")
     .update({ ai_auditor_enabled: input.auditor, ai_voice_quote_enabled: input.voiceQuote, ai_voice_invoice_enabled: input.voiceInvoice, staff_drafts_enabled: input.staffDrafts })

@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { invoiceLimit, planName } from "@/lib/billing";
 import type { Organization } from "@/lib/supabase/types";
+import { appSafe } from "@/lib/inApp";
 
 /** Start of the current calendar month (UTC), as an ISO string. Monthly plan limits reset on the 1st. */
 export function monthStartISO(): string {
@@ -22,5 +23,5 @@ export async function invoiceCapError(orgId: string): Promise<string | null> {
   if (limit === null) return null;
   const used = await invoicesSentThisMonth(orgId);
   if (used < limit) return null;
-  return `You've sent ${used} of ${limit} invoices this month, which is the limit on ${planName(org as Organization)}. Upgrade under Subscription to send more. The count starts again on the 1st.`;
+  return appSafe(`You've sent ${used} of ${limit} invoices this month, which is the limit on ${planName(org as Organization)}. Upgrade under Subscription to send more. The count starts again on the 1st.`);
 }

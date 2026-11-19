@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BUCKET, PHOTOS_PLAN_MESSAGE, photoContextFor, removeFiles, type PhotoViewer } from "@/lib/photos";
 import { PHOTO_DEFAULT_DAYS, PHOTO_MAX_BYTES, PHOTO_MAX_PER_JOB, PHOTO_UPLOADS_PER_HOUR, jpegSize, stripJpegMetadata } from "@/lib/photoFiles";
+import { appSafe } from "@/lib/inApp";
 
 export type PhotoKind = "before" | "after" | "general";
 export type UploadResult = { ok: true; id: string } | { ok: false; error: string; status: number };
@@ -28,7 +29,7 @@ export async function savePhoto(who: PhotoViewer, jobId: string, kind: PhotoKind
   const ctx = await photoContextFor(who, jobId);
   if (!ctx.ok) return { ok: false, error: ctx.error, status: ctx.error === "Job not found." ? 404 : 403 };
   const { viewer } = ctx;
-  if (!ctx.planAllowed) return { ok: false, error: PHOTOS_PLAN_MESSAGE, status: 402 };
+  if (!ctx.planAllowed) return { ok: false, error: await appSafe(PHOTOS_PLAN_MESSAGE), status: 402 };
 
   const clean = stripJpegMetadata(new Uint8Array(await file.arrayBuffer()));
   if (!clean) return { ok: false, error: "Only JPEG photos are accepted.", status: 415 };

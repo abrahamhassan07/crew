@@ -28,7 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       banner = (
         <div className={`px-6 py-2.5 text-sm font-semibold flex flex-wrap items-center justify-between gap-2 ${urgent ? "bg-warn-bg text-warn-fg" : "bg-info-bg text-info-fg"}`}>
           <span>
-            Your free trial ends in {billing.daysLeft} day{billing.daysLeft === 1 ? "" : "s"}. After that you&rsquo;ll move to the Free plan ({FREE_PLAN.users} user, {FREE_PLAN.invoices} invoices a month) unless you choose a plan.
+            Your free trial ends in {billing.daysLeft} day{billing.daysLeft === 1 ? "" : "s"}. After that you&rsquo;ll move to the Free plan ({FREE_PLAN.users} user, {FREE_PLAN.invoices} invoices a month)<span data-app-hide> unless you choose a plan</span>.
           </span>
           <Link href="/subscription" className="underline">See plans</Link>
         </div>

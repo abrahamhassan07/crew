@@ -209,3 +209,10 @@ html[data-in-app] [data-app-hide],
 html[data-in-app] a[href^="/subscription"] {
   display: none !important;
 }
+/* Wording shown only in the app, in place of a plan prompt it hides. */
+[data-app-only] {
+  display: none !important;
+}
+html[data-in-app] [data-app-only] {
+  display: inline !important;
+}

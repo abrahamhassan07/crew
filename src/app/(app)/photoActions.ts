@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { dbError } from "@/lib/errors";
 import { PHOTOS_PLAN_MESSAGE, newGalleryToken, photoContext, photosWithUrls, removeFiles, type PhotoView } from "@/lib/photos";
 import { GALLERY_MAX_DAYS } from "@/lib/photoFiles";
+import { appSafe } from "@/lib/inApp";
 
 export type PhotoPanelData = { photos: PhotoView[]; links: GalleryLinkView[]; isAdmin: boolean; planAllowed: boolean };
 export type GalleryLinkView = { id: string; created_at: string; expires_at: string; revoked_at: string | null };
@@ -62,7 +63,7 @@ export async function createGalleryLink(jobId: string, days: number): Promise<{ 
   const ctx = await photoContext(jobId);
   if (!ctx.ok) return ctx;
   if (!ctx.isAdmin) return { ok: false, error: "Only owners and admins can share photos." };
-  if (!ctx.planAllowed) return { ok: false, error: PHOTOS_PLAN_MESSAGE };
+  if (!ctx.planAllowed) return { ok: false, error: await appSafe(PHOTOS_PLAN_MESSAGE) };
   const d = Math.min(GALLERY_MAX_DAYS, Math.max(1, Math.floor(Number.isFinite(days) ? days : 7)));
   const admin = createAdminClient();
   const { count } = await admin.from("job_photos").select("id", { count: "exact", head: true }).eq("org_id", ctx.viewer.orgId).eq("job_id", jobId);

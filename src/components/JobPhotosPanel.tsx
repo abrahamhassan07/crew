@@ -130,7 +130,7 @@ export function JobPhotosPanel({ jobId }: { jobId: string }) {
 
       {!planAllowed && (
         <p className="text-sm text-ink-secondary mb-3 p-3 rounded-lg bg-page-bg border border-line">
-          Job photos are included with the Team and Business plans. <a href="/subscription" className="font-semibold text-brand">See plans</a>
+          <span data-app-hide>Job photos are included with the Team and Business plans. <a href="/subscription" className="font-semibold text-brand">See plans</a></span><span data-app-only>Job photos aren&apos;t part of your current plan.</span>
         </p>
       )}
       {planAllowed && <div className="flex flex-wrap items-center gap-2 mb-3">

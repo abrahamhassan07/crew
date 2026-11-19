@@ -54,7 +54,7 @@ export function RecurringServicesPanel({ clientId, services }: { clientId: strin
         )}
       </div>
       <p className="text-sm text-ink-muted mb-4">
-        What this client should receive, and how often. The Client Service Auditor (Team and Business plans) checks these each week. Repeating jobs you create are added here automatically.
+        What this client should receive, and how often. The Client Service Auditor<span data-app-hide> (Team and Business plans)</span> checks these each week. Repeating jobs you create are added here automatically.
       </p>
 
       {adding && (
