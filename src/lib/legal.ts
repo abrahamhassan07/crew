@@ -6,5 +6,5 @@ export const LEGAL = {
   contactEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@crewandgrounds.com",
   website: "https://crewandgrounds.com",
   governingState: "Victoria",
-  updated: "14 October 2026",
+  updated: "20 November 2026",
 };
