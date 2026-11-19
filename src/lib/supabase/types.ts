@@ -523,6 +523,12 @@ export type Database = {
         Update: Partial<AppSession>;
         Relationships: [];
       };
+      auth_attempts: {
+        Row: { id: number; kind: "signin_failed" | "signup"; key: string; created_at: string };
+        Insert: { kind: "signin_failed" | "signup"; key: string; created_at?: string };
+        Update: Partial<{ kind: "signin_failed" | "signup"; key: string; created_at: string }>;
+        Relationships: [];
+      };
       push_tokens: {
         Row: PushToken;
         Insert: Partial<PushToken> & Pick<PushToken, "user_id" | "org_id" | "app_session_id" | "token" | "platform">;

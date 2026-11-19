@@ -37,7 +37,8 @@ export function TurnstileWidget({ resetKey }: { resetKey?: unknown }) {
   const widgetId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (!siteKey || !holder.current) return;
+    // Inside the phone app the check can't pass and the server doesn't ask for it (it limits attempts instead).
+    if (!siteKey || !holder.current || document.documentElement.hasAttribute("data-in-app")) return;
     let cancelled = false;
     loadScript()
       .then(() => {
