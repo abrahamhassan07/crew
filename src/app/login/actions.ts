@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { verifyTurnstile } from "@/lib/turnstile";
-import { isAppRequest } from "@/lib/inApp";
+import { isAppForm } from "@/lib/inApp";
 import { LIMITS, emailKey, ipKey, overLimit, recordAttempt } from "@/lib/authThrottle";
 
 export interface SignInState {
@@ -25,7 +25,7 @@ export async function signIn(_prevState: SignInState | undefined, formData: Form
   // Bot check before the password is tried, so scripted guessing is stopped here. Cloudflare's check can't pass inside
   // the phone app, so there failed attempts are counted and limited instead.
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim();
-  const inApp = await isAppRequest();
+  const inApp = await isAppForm(formData);
   const keys = [emailKey(email), ipKey(ip)];
   if (inApp) {
     const l = LIMITS.signin_failed;

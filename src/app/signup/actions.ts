@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import { createOwnerStaff } from "@/lib/provision";
 import { verifyTurnstile } from "@/lib/turnstile";
-import { isAppRequest } from "@/lib/inApp";
+import { isAppForm } from "@/lib/inApp";
 import { LIMITS, ipKey, overLimit, recordAttempt } from "@/lib/authThrottle";
 import { authError, dbError } from "@/lib/errors";
 
@@ -28,7 +28,7 @@ export async function signUp(_prevState: SignUpState | undefined, formData: Form
   // Bot check first, before anything is created or any email is sent.
   // Cloudflare's check can't pass inside the phone app, so there sign-ups are counted and limited instead.
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim();
-  if (await isAppRequest()) {
+  if (await isAppForm(formData)) {
     if (await overLimit("signup", [{ key: ipKey(ip), limit: LIMITS.signup.perIp }])) {
       return { error: "Too many new accounts from this network. Please try again in an hour." };
     }

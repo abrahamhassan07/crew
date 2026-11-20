@@ -35,10 +35,15 @@ export function TurnstileWidget({ resetKey }: { resetKey?: unknown }) {
   const holder = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const widgetId = useRef<string | undefined>(undefined);
+  const appFlag = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Inside the phone app the check can't pass and the server doesn't ask for it (it limits attempts instead).
-    if (!siteKey || !holder.current || document.documentElement.hasAttribute("data-in-app")) return;
+    if (document.documentElement.hasAttribute("data-in-app")) {
+      if (appFlag.current) appFlag.current.value = "1";
+      return;
+    }
+    if (!siteKey || !holder.current) return;
     let cancelled = false;
     loadScript()
       .then(() => {
@@ -70,6 +75,7 @@ export function TurnstileWidget({ resetKey }: { resetKey?: unknown }) {
   if (!siteKey) return null;
   return (
     <>
+      <input ref={appFlag} type="hidden" name="in_app" />
       <input ref={input} type="hidden" name="cf-turnstile-response" />
       <div ref={holder} />
     </>
