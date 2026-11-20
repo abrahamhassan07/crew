@@ -1,13 +1,18 @@
 import "server-only";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { APP_COOKIE } from "@/lib/appFlag";
 import { stripUpsell } from "@/lib/upsell";
 
 /** The phone app adds this to its user agent (see crew-mobile). */
 export const APP_UA_TOKEN = "CrewAndGroundsApp";
 
-/** True when the page is being loaded inside the Crew & Grounds phone app. */
+/**
+ * True when the request comes from inside the Crew & Grounds phone app: its user agent, or the cookie the site sets
+ * there (the user agent doesn't reach form posts and server actions).
+ */
 export async function isAppRequest(): Promise<boolean> {
-  return ((await headers()).get("user-agent") ?? "").includes(APP_UA_TOKEN);
+  if (((await headers()).get("user-agent") ?? "").includes(APP_UA_TOKEN)) return true;
+  return (await cookies()).get(APP_COOKIE)?.value === "1";
 }
 
 /**

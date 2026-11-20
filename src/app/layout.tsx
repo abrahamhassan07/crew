@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Figtree, Karla, Spectral } from "next/font/google";
 import "./globals.css";
+import { AppFlagCookie } from "@/components/AppFlagCookie";
 
 const figtree = Figtree({
   variable: "--font-figtree",
@@ -30,7 +31,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   // suppressHydrationWarning: the phone app adds data-in-app to <html> before the page loads.
   return (
     <html lang="en" suppressHydrationWarning className={`${figtree.variable} ${karla.variable} ${spectral.variable} h-full`}>
-      <body className="min-h-full font-sans antialiased bg-page-bg text-ink-primary">{children}</body>
+      <body className="min-h-full font-sans antialiased bg-page-bg text-ink-primary">
+        <AppFlagCookie />
+        {children}
+      </body>
     </html>
   );
 }
