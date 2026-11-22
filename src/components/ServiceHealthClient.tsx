@@ -7,6 +7,7 @@ import { Download, Play } from "lucide-react";
 import { runAuditNow } from "@/app/(app)/aiActions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { FREQUENCY_LABEL, STATUS_LABEL } from "@/lib/audit/summary";
 import type { ServiceAudit, ServiceAuditItem } from "@/lib/supabase/types";
 
@@ -42,16 +43,19 @@ export function ServiceHealthClient({ audits, selected, items, planAllowed, enab
   };
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-ink-primary">Client Service Health</h1>
-          <p className="text-sm text-ink-muted">Checks each client&apos;s regular service against completed visits and the schedule. Created every Sunday morning.</p>
-        </div>
-        <Button variant="primary" onClick={run} disabled={pending || !planAllowed || !enabled}>
-          <Play className="w-4 h-4" /> {pending ? "Running…" : "Run Audit Now"}
-        </Button>
-      </div>
+    <div className="min-h-screen bg-page-bg">
+      <PageHeader
+        title="Client Service Health"
+        subtitle="Checks each client's regular service against completed visits and the schedule. Created every Sunday morning."
+        back={{ href: "/reports", label: "Reports" }}
+        actions={
+          <Button variant="primary" onClick={run} disabled={pending || !planAllowed || !enabled}>
+            <Play className="w-4 h-4" /> {pending ? "Running…" : "Run Audit Now"}
+          </Button>
+        }
+      />
+      <div className="px-4 py-6 sm:px-6 sm:py-8">
+      <div className="max-w-[1600px] mx-auto">
       {!planAllowed && <p className="text-sm text-ink-muted mb-3"><span data-app-hide>The Client Service Auditor is included with the Team and Business plans. <Link href="/subscription" className="underline">See plans</Link>.</span><span data-app-only>The Client Service Auditor isn&apos;t part of your current plan.</span></p>}
       {planAllowed && !enabled && <p className="text-sm text-ink-muted mb-3">The auditor is switched off. Turn it on under <Link href="/settings" className="underline">Settings, AI Features</Link>.</p>}
       {error && <p className="text-sm text-danger mb-3">{error}</p>}
@@ -61,14 +65,20 @@ export function ServiceHealthClient({ audits, selected, items, planAllowed, enab
       ) : (
         <>
           <Card className="p-5 mb-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <div className="text-sm text-ink-muted">As of {fmt(selected.as_of)} · {selected.trigger === "scheduled" ? "weekly report" : "run manually"}</div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {audits.length > 1 && (
+                  <select value={selected.id} onChange={(e) => router.push(`/reports/service-health?audit=${e.target.value}`)} className="border border-field-border rounded-md px-2 py-1.5 text-sm bg-card-bg" aria-label="Report">
+                    {audits.map((a) => <option key={a.id} value={a.id}>{fmt(a.as_of)}{a.trigger === "manual" ? " (manual)" : ""}</option>)}
+                  </select>
+                )}
                 <a href={`/api/reports/service-health?audit=${selected.id}&format=csv`}><Button variant="secondary" size="sm"><Download className="w-3.5 h-3.5" /> CSV</Button></a>
                 <a href={`/api/reports/service-health?audit=${selected.id}&format=pdf`}><Button variant="secondary" size="sm"><Download className="w-3.5 h-3.5" /> PDF</Button></a>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
+            <div className={selected.summary ? "grid gap-4 2xl:gap-5 2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] 2xl:items-start" : ""}>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {ORDER.map((k) => (
                 <button key={k} onClick={() => setStatus(status === k ? "all" : k)} className={`text-left rounded-lg border p-3 ${status === k ? "border-brand" : "border-line"}`}>
                   <div className={`text-2xl font-bold ${TONE[k]}`}>{t[k === "not_scheduled" ? "notScheduled" : k === "needs_review" ? "needsReview" : k === "on_track" ? "onTrack" : k] ?? 0}</div>
@@ -76,8 +86,13 @@ export function ServiceHealthClient({ audits, selected, items, planAllowed, enab
                 </button>
               ))}
             </div>
-            {selected.summary && <p className="text-sm text-ink-primary">{selected.summary}</p>}
-            {selected.summary_source === "ai" && <p className="text-xs text-ink-muted mt-1">Summary written by AI from the verified figures above. The list below is calculated, not generated.</p>}
+            {selected.summary && (
+              <div className="rounded-lg bg-page-bg p-4">
+                <p className="text-sm text-ink-primary leading-relaxed">{selected.summary}</p>
+                {selected.summary_source === "ai" && <p className="text-xs text-ink-muted mt-2">Summary written by AI from the verified figures. The list below is calculated, not generated.</p>}
+              </div>
+            )}
+            </div>
           </Card>
 
           <Card className="p-5 mb-4">
@@ -94,17 +109,17 @@ export function ServiceHealthClient({ audits, selected, items, planAllowed, enab
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-ink-muted"><th className="py-2 pr-3">Client</th><th className="pr-3">Service</th><th className="pr-3">Frequency</th><th className="pr-3">Last done</th><th className="pr-3">Next expected</th><th className="pr-3">Booked</th><th>Status</th></tr></thead>
+                <thead><tr className="text-left text-xs text-ink-muted"><th className="py-2 pr-4">Client</th><th className="pr-4">Service</th><th className="pr-4">Frequency</th><th className="pr-4 whitespace-nowrap">Last done</th><th className="pr-4 whitespace-nowrap">Next expected</th><th className="pr-4">Booked</th><th className="xl:min-w-[16rem]">Status</th></tr></thead>
                 <tbody>
                   {rows.map((i) => (
                     <tr key={i.id} className="border-t border-line-soft align-top">
-                      <td className="py-2 pr-3 font-semibold">{i.client_id ? <Link href={`/clients/${i.client_id}`} className="hover:underline">{i.client_name}</Link> : i.client_name}</td>
-                      <td className="pr-3">{i.service_title}</td>
-                      <td className="pr-3">{FREQUENCY_LABEL(i.frequency, i.interval_days)}</td>
-                      <td className="pr-3">{fmt(i.last_completed)}</td>
-                      <td className="pr-3">{fmt(i.next_expected)}</td>
-                      <td className="pr-3">{fmt(i.next_scheduled)}</td>
-                      <td><span className={`font-semibold ${TONE[i.status]}`}>{STATUS_LABEL[i.status]}{i.status === "overdue" ? ` · ${i.days_overdue}d` : ""}</span><div className="text-xs text-ink-muted">{i.reason}</div></td>
+                      <td className="py-2.5 pr-4 font-semibold xl:whitespace-nowrap">{i.client_id ? <Link href={`/clients/${i.client_id}`} className="hover:underline">{i.client_name}</Link> : i.client_name}</td>
+                      <td className="py-2.5 pr-4 xl:whitespace-nowrap">{i.service_title}</td>
+                      <td className="py-2.5 pr-4 xl:whitespace-nowrap">{FREQUENCY_LABEL(i.frequency, i.interval_days)}</td>
+                      <td className="py-2.5 pr-4 whitespace-nowrap">{fmt(i.last_completed)}</td>
+                      <td className="py-2.5 pr-4 whitespace-nowrap">{fmt(i.next_expected)}</td>
+                      <td className="py-2.5 pr-4 whitespace-nowrap">{fmt(i.next_scheduled)}</td>
+                      <td className="py-2.5"><span className={`font-semibold ${TONE[i.status]}`}>{STATUS_LABEL[i.status]}{i.status === "overdue" ? ` · ${i.days_overdue}d` : ""}</span><div className="text-xs text-ink-muted">{i.reason}</div></td>
                     </tr>
                   ))}
                 </tbody>
@@ -115,18 +130,8 @@ export function ServiceHealthClient({ audits, selected, items, planAllowed, enab
         </>
       )}
 
-      {audits.length > 1 && (
-        <Card className="p-5">
-          <h2 className="text-sm font-bold text-ink-primary mb-2">Report history</h2>
-          <div className="flex flex-wrap gap-2">
-            {audits.map((a) => (
-              <Link key={a.id} href={`/reports/service-health?audit=${a.id}`} className={`text-xs rounded-full border px-3 py-1 ${a.id === selected?.id ? "border-brand font-semibold" : "border-line"}`}>
-                {fmt(a.as_of)}{a.trigger === "manual" ? " (manual)" : ""}
-              </Link>
-            ))}
-          </div>
-        </Card>
-      )}
+      </div>
+      </div>
     </div>
   );
 }
