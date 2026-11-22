@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, MoreHorizontal, Plus, Tag as TagIcon, X } from "lucide-react";
+import { Check, ChevronDown, MoreHorizontal, Plus, Repeat, Tag as TagIcon, X } from "lucide-react";
 import { bulkUpdateClientStatus, bulkAddClientTag } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -46,14 +46,24 @@ function downloadCsv(rows: Client[]) {
   URL.revokeObjectURL(url);
 }
 
+type ScheduleFilter = "any" | "repeating" | "none";
+const SCHEDULE_OPTIONS: { value: ScheduleFilter; label: string; short: string }[] = [
+  { value: "any", label: "Any schedule", short: "Schedule" },
+  { value: "repeating", label: "Repeating jobs booked", short: "Repeating" },
+  { value: "none", label: "No repeating jobs", short: "No repeating jobs" },
+];
+
 export function ClientsPageClient({
   clients,
   lastActivityByClient,
   kpis,
   allTags,
   initialStatus = "All",
+  repeatingClientIds = [],
 }: {
   initialStatus?: ClientStatus | "All";
+  /** Clients with an upcoming visit from a repeating series. */
+  repeatingClientIds?: string[];
   clients: Client[];
   lastActivityByClient: Record<string, string>;
   kpis: {
@@ -73,6 +83,9 @@ export function ClientsPageClient({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [showTagMenu, setShowTagMenu] = useState(false);
+  const [schedule, setSchedule] = useState<ScheduleFilter>("any");
+  const [showScheduleMenu, setShowScheduleMenu] = useState(false);
+  const repeating = useMemo(() => new Set(repeatingClientIds), [repeatingClientIds]);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkTagMenu, setShowBulkTagMenu] = useState(false);
@@ -89,13 +102,14 @@ export function ClientsPageClient({
       (c) =>
         (status === "All" || c.status === status) &&
         (selectedTags.size === 0 || (c.tags ?? []).some((t) => selectedTags.has(t))) &&
+        (schedule === "any" || (schedule === "repeating") === repeating.has(c.id)) &&
         [c.name, c.company, c.email, c.phone, c.address]
           .filter(Boolean)
           .join(" ")
           .toLowerCase()
           .includes(searchQuery.toLowerCase())
     );
-  }, [rows, searchQuery, status, selectedTags]);
+  }, [rows, searchQuery, status, selectedTags, schedule, repeating]);
 
   const sortedClients = useMemo(() => {
     const sorted = [...filteredClients];
@@ -317,6 +331,46 @@ export function ClientsPageClient({
                 )}
               </div>
             )}
+
+            <div className="relative">
+              <button
+                onClick={() => setShowScheduleMenu((v) => !v)}
+                className={`h-9 px-3.5 rounded-full text-sm font-semibold border flex items-center gap-1.5 transition-colors ${
+                  schedule !== "any" ? "bg-forest text-white border-forest" : "bg-card-bg text-ink-primary border-field-border hover:bg-page-bg"
+                }`}
+                aria-haspopup="menu"
+                aria-expanded={showScheduleMenu}
+              >
+                <Repeat className="w-3.5 h-3.5" />
+                {SCHEDULE_OPTIONS.find((o) => o.value === schedule)!.short}
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+              {showScheduleMenu && (
+                <>
+                  <button type="button" aria-label="Close schedule menu" className="fixed inset-0 z-40 cursor-default" onClick={() => setShowScheduleMenu(false)} />
+                  <div role="menu" className="absolute left-0 top-11 z-50 w-64 bg-card-bg border border-line rounded-lg shadow-lg py-1.5">
+                    {SCHEDULE_OPTIONS.map((o) => {
+                      const count = o.value === "any" ? clients.length : clients.filter((c) => (o.value === "repeating") === repeating.has(c.id)).length;
+                      return (
+                        <button
+                          key={o.value}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={schedule === o.value}
+                          onClick={() => { setSchedule(o.value); setShowScheduleMenu(false); }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-left text-ink-primary hover:bg-page-bg"
+                        >
+                          <Check className={`w-4 h-4 text-brand ${schedule === o.value ? "" : "invisible"}`} />
+                          <span className="flex-1">{o.label}</span>
+                          <span className="text-xs text-ink-muted">{count}</span>
+                        </button>
+                      );
+                    })}
+                    <p className="px-3.5 pt-1.5 pb-1 text-xs text-ink-muted border-t border-line-soft mt-1">Repeating means an upcoming visit from a repeating job.</p>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="mb-4 sm:mb-6">

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { ClientsPageClient } from "@/components/ClientsPageClient";
+import { todayISO } from "@/lib/design";
 
 const STATUSES = ["Lead", "Active", "Inactive", "Archived"] as const;
 
@@ -10,13 +11,16 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
   await requireAdmin();
   const supabase = await createClient();
 
-  const [{ data: clients }, { data: jobs }, { data: quotes }, { data: invoices }, { data: notes }] = await Promise.all([
+  const [{ data: clients }, { data: jobs }, { data: quotes }, { data: invoices }, { data: notes }, { data: repeating }] = await Promise.all([
     supabase.from("clients").select("*").order("name"),
     supabase.from("jobs").select("client_id, updated_at").not("client_id", "is", null),
     supabase.from("quotes").select("client_id, updated_at"),
     supabase.from("invoices").select("client_id, updated_at"),
     supabase.from("client_notes").select("client_id, created_at"),
+    // Upcoming visits that belong to a repeating series: the client is on a recurring schedule.
+    supabase.from("jobs").select("client_id").not("series_id", "is", null).not("client_id", "is", null).in("status", ["scheduled", "in_progress"]).gte("job_date", todayISO()),
   ]);
+  const repeatingClientIds = [...new Set((repeating ?? []).map((j) => j.client_id as string))];
 
   const lastActivityByClient = new Map<string, string>();
   const bump = (clientId: string | null, iso: string) => {
@@ -65,6 +69,7 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
       kpis={kpis}
       allTags={allTags}
       initialStatus={initialStatus}
+      repeatingClientIds={repeatingClientIds}
     />
   );
 }
