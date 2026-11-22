@@ -216,3 +216,27 @@ test("CSV escapes quotes and blocks spreadsheet formulas", () => {
   assert.match(head, /^Client,Service,Frequency/);
   assert.match(row, /^"'=HYPERLINK\(""x""\)","Mow, ""edge""",Every 10 days,2026-10-01,2026-10-11,,3,Overdue,ok$/);
 });
+
+test("a job booked by hand counts for the client's only service of that kind (real case: early visit looked overdue)", () => {
+  // Every 28 days from 23 Oct: due 23 Oct and 20 Nov. Visited 24 Oct (booked by hand, no series) and 18 Nov.
+  const s = svc({ frequency: "custom", intervalDays: 28, anchorDate: "2026-10-23" });
+  const i = one(s, [job("2026-10-24", "completed", { seriesId: null }), job("2026-11-18"), job("2026-12-18", "scheduled")], "2026-11-22");
+  assert.notEqual(i.status, "overdue");
+  assert.equal(i.lastCompleted, "2026-11-18");
+  assert.equal(i.nextExpected, "2026-12-18");
+});
+
+test("a visit just before the next due date counts for it, not for an older missed one", () => {
+  // Due 23 Oct (missed) and 20 Nov (visited 18 Nov): the miss reported is 23 Oct.
+  const s = svc({ frequency: "custom", intervalDays: 28, anchorDate: "2026-10-23" });
+  const i = one(s, [job("2026-11-18")], "2026-11-22");
+  assert.equal(i.status, "overdue");
+  assert.equal(i.reason, "A visit was due on 2026-10-23 and no completed job is recorded for it.");
+});
+
+test("a job booked by hand isn't counted when the client has two services of that kind", () => {
+  const a = svc({ seriesId: "sa" });
+  const b = svc({ seriesId: "sb" });
+  const items = auditServices([a, b], [job("2026-10-05", "completed", { seriesId: null }), job("2026-10-12", "completed", { seriesId: null })], "2026-10-14").items;
+  assert.ok(items.every((i) => i.status === "overdue"));
+});

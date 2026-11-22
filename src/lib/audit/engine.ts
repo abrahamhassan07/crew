@@ -111,11 +111,20 @@ export function occurrence(anchor: string, frequency: string, intervalDays: numb
 // ---------------------------------------------------------------------------
 // Which jobs count towards which service
 // ---------------------------------------------------------------------------
-function jobBelongsTo(job: AuditJob, svc: AuditService): boolean {
+const sameKindOfWork = (job: AuditJob, svc: AuditService) => svc.jobType === "both" || job.jobType === svc.jobType || job.jobType === "both";
+
+/**
+ * `soleOfItsKind`: this is the client's only service for this kind of work, so a job booked by hand (not part of any
+ * repeating series) can only be a visit for it.
+ */
+function jobBelongsTo(job: AuditJob, svc: AuditService, soleOfItsKind: boolean): boolean {
   if (job.clientId !== svc.clientId) return false;
-  if (svc.seriesId) return job.seriesId === svc.seriesId;
+  if (svc.seriesId) {
+    if (job.seriesId === svc.seriesId) return true;
+    return soleOfItsKind && !job.seriesId && sameKindOfWork(job, svc);
+  }
   // A service added by hand has no series: match on the kind of work.
-  return svc.jobType === "both" || job.jobType === svc.jobType || job.jobType === "both";
+  return sameKindOfWork(job, svc);
 }
 
 const isValidFrequency = (svc: AuditService) =>
@@ -124,7 +133,7 @@ const isValidFrequency = (svc: AuditService) =>
 // ---------------------------------------------------------------------------
 // Auditing one service
 // ---------------------------------------------------------------------------
-function auditOne(svc: AuditService, jobs: AuditJob[], today: string, ambiguous: boolean): AuditItem {
+function auditOne(svc: AuditService, jobs: AuditJob[], today: string, ambiguous: boolean, soleOfItsKind: boolean): AuditItem {
   const base = {
     serviceId: svc.id,
     clientId: svc.clientId,
@@ -144,7 +153,7 @@ function auditOne(svc: AuditService, jobs: AuditJob[], today: string, ambiguous:
   if (!isIsoDate(svc.anchorDate)) return review("The service has no valid start date.");
   const anchor = svc.anchorDate;
 
-  const mine = jobs.filter((j) => jobBelongsTo(j, svc) && isIsoDate(j.jobDate));
+  const mine = jobs.filter((j) => jobBelongsTo(j, svc, soleOfItsKind) && isIsoDate(j.jobDate));
   const completed = mine.filter((j) => j.status === "completed");
   const completedPast = completed.filter((j) => (j.jobDate as string) <= today);
   const completedFuture = completed.filter((j) => (j.jobDate as string) > today);
@@ -165,20 +174,33 @@ function auditOne(svc: AuditService, jobs: AuditJob[], today: string, ambiguous:
   // Match completed visits to expected dates one-to-one, earliest date first. A visit can count for a due date if it
   // happened up to half a period early or just before the next due date, and the closest visit wins. So one late
   // visit followed by an on-time one satisfies both dates instead of looking like a miss.
+  // A visit closer to the NEXT due date isn't taken for this one when the next date has no other visit to count:
+  // two days early for 20 Nov shouldn't be used up on a missed 23 Oct and make 20 Nov look missed instead.
   const delivered = new Set<number>();
   const used = new Set<number>();
-  for (let k = 0; k < dates.length - 1; k++) {
+  const windowOf = (k: number) => {
     const d = dates[k];
     const gapPrev = k > 0 ? diffDays(d, dates[k - 1]) : diffDays(dates[1], d);
     const gapNext = diffDays(dates[k + 1], d);
-    const lo = addDaysIso(d, -Math.floor(gapPrev / 2));
-    const hi = addDaysIso(d, gapNext - 1);
+    return { lo: addDaysIso(d, -Math.floor(gapPrev / 2)), hi: addDaysIso(d, gapNext - 1) };
+  };
+  const neededByNext = (k: number, j: number) => {
+    if (k + 2 >= dates.length) return false;
+    const jd = completedPast[j].jobDate as string;
+    if (Math.abs(diffDays(jd, dates[k + 1])) >= Math.abs(diffDays(jd, dates[k]))) return false;
+    const next = windowOf(k + 1);
+    return !completedPast.some((o, i) => i !== j && !used.has(i) && (o.jobDate as string) >= next.lo && (o.jobDate as string) <= next.hi);
+  };
+  for (let k = 0; k < dates.length - 1; k++) {
+    const d = dates[k];
+    const { lo, hi } = windowOf(k);
     let best = -1;
     let bestGap = Infinity;
     for (let j = 0; j < completedPast.length; j++) {
       if (used.has(j)) continue;
       const jd = completedPast[j].jobDate as string;
       if (jd < lo || jd > hi) continue;
+      if (neededByNext(k, j)) continue;
       const gap = Math.abs(diffDays(jd, d));
       if (gap < bestGap || (gap === bestGap && jd < (completedPast[best].jobDate as string))) {
         bestGap = gap;
@@ -251,7 +273,8 @@ export function auditServices(services: AuditService[], jobs: AuditJob[], today:
       skipped++;
       continue;
     }
-    items.push(auditOne(svc, jobs, today, !svc.seriesId && (keyCount.get(keyOf(svc)) ?? 0) > 1));
+    const kindCount = services.filter((o) => o.clientId === svc.clientId && (o.jobType === svc.jobType || o.jobType === "both" || svc.jobType === "both")).length;
+    items.push(auditOne(svc, jobs, today, !svc.seriesId && (keyCount.get(keyOf(svc)) ?? 0) > 1, kindCount === 1));
   }
 
   // Worst first, then by how long overdue, then name: the order a person wants to read it in.
