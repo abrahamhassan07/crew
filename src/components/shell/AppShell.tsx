@@ -80,7 +80,13 @@ export function AppShell({ role, userId, children, userName, bizName, roleLabel,
       },
     };
     host.postMessage(JSON.stringify({ type: "session", role, userId }));
+    // Also say which page this is. After signing in, the redirect to the dashboard doesn't always reach the app's own
+    // page watcher, so the app would still think it's on the sign-in page and leave its tab bar hidden.
+    const reportPage = () => host.postMessage(JSON.stringify({ type: "url", href: window.location.href }));
+    reportPage();
+    const later = window.setTimeout(reportPage, 500);
     return () => {
+      window.clearTimeout(later);
       delete w.__crew;
     };
   }, [role, userId, router, setMobileNavOpen]);

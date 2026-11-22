@@ -34,7 +34,7 @@ const RESULT_MESSAGES: Record<string, { text: string; ok: boolean }> = {
   declined: { text: "Xero wasn't connected: access was declined.", ok: false },
   error: { text: "We couldn't connect to Xero. Please try again.", ok: false },
   unavailable: { text: "Xero isn't available right now.", ok: false },
-  plan: { text: "Xero is included with the Team plan and above.", ok: false },
+  plan: { text: "Xero isn't part of your current plan.", ok: false },
 };
 
 /** Settings card for the Xero integration: connect, pick the sales account, turn auto-sync on or off, disconnect. */
