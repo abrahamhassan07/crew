@@ -49,8 +49,8 @@ function downloadCsv(rows: Client[]) {
 type ScheduleFilter = "any" | "repeating" | "none";
 const SCHEDULE_OPTIONS: { value: ScheduleFilter; label: string; short: string }[] = [
   { value: "any", label: "Any schedule", short: "Schedule" },
-  { value: "repeating", label: "Repeating jobs booked", short: "Repeating" },
-  { value: "none", label: "No repeating jobs", short: "No repeating jobs" },
+  { value: "repeating", label: "Recurring", short: "Recurring" },
+  { value: "none", label: "No recurring schedule", short: "No recurring schedule" },
 ];
 
 export function ClientsPageClient({
@@ -62,7 +62,7 @@ export function ClientsPageClient({
   repeatingClientIds = [],
 }: {
   initialStatus?: ClientStatus | "All";
-  /** Clients with an upcoming visit from a repeating series. */
+  /** Clients on a recurring schedule: a recurring service on their profile, or an upcoming visit from a repeating series. */
   repeatingClientIds?: string[];
   clients: Client[];
   lastActivityByClient: Record<string, string>;
@@ -366,7 +366,7 @@ export function ClientsPageClient({
                         </button>
                       );
                     })}
-                    <p className="px-3.5 pt-1.5 pb-1 text-xs text-ink-muted border-t border-line-soft mt-1">Repeating means an upcoming visit from a repeating job.</p>
+                    <p className="px-3.5 pt-1.5 pb-1 text-xs text-ink-muted border-t border-line-soft mt-1">Recurring: a recurring service on the client&apos;s profile, or upcoming visits from a repeating job.</p>
                   </div>
                 </>
               )}
