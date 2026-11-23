@@ -1,8 +1,8 @@
 import "server-only";
 import { LineCapStyle, PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { calcTotals } from "@/lib/gst";
+import { calcTotals, lineAmount } from "@/lib/gst";
 import { logoUrl } from "@/lib/logo";
-import type { Client, GstMode, Organization } from "@/lib/supabase/types";
+import type { Client, GstMode, GstRounding, Organization } from "@/lib/supabase/types";
 
 export interface DocLine {
   name: string;
@@ -19,6 +19,8 @@ export interface DocData {
   serviceAddress: string;
   dates: { label: string; value: string }[];
   mode: GstMode;
+  /** How GST is rounded on this document (see calcTotals). */
+  gstRounding: GstRounding;
   lines: DocLine[];
   note: string;
   /** Optional notes shown under the line items. */
@@ -205,7 +207,7 @@ export async function renderDocumentPdf(doc: DocData): Promise<Uint8Array> {
     y = rowTop;
     textRight(String(line.qty), qtyX, 10);
     textRight(money(line.unitPrice), unitX, 10);
-    textRight(money(line.qty * line.unitPrice), amtX, 10);
+    textRight(money(lineAmount({ qty: line.qty, unit_price: line.unitPrice })), amtX, 10);
     y = bottom - 4;
     rule();
     y -= 12;
@@ -224,7 +226,7 @@ export async function renderDocumentPdf(doc: DocData): Promise<Uint8Array> {
   }
 
   // Totals.
-  const totals = calcTotals(doc.lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), doc.mode);
+  const totals = calcTotals(doc.lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), doc.mode, doc.gstRounding);
   ensureSpace(110);
   const labelX = PAGE_W - MARGIN - 190;
   const totalRow = (label: string, value: string, f = regular, size = 10, color = INK) => {

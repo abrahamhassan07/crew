@@ -180,7 +180,7 @@ export function PhAccountsCard({ ph, result }: { ph: PhAccountsSettingsView; res
                 />
                 <SelectField
                   label="Send payments recorded here to"
-                  help="The bank account in PH Accounts the money was paid into. Choose “Don’t send” to record payments in PH Accounts yourself."
+                  help="The bank account in PH Accounts the money was paid into. Choose “Don’t send” to record payments in PH Accounts yourself. Payments recorded in PH Accounts show up here either way."
                   value={bank}
                   disabled={pending}
                   onChange={(e) => {

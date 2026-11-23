@@ -21,7 +21,7 @@ import { syncInvoiceToXero } from "@/app/(app)/xeroActions";
 import { syncInvoiceToPhAccounts } from "@/app/(app)/phAccountsActions";
 import type { EmailDraft } from "@/lib/emailTemplates";
 import { ToastBanner, useToast } from "@/components/Toast";
-import { calcTotals } from "@/lib/gst";
+import { calcTotals, lineAmount } from "@/lib/gst";
 import { logoUrl } from "@/lib/logo";
 import { daysFromToday, fmtDateLabel, todayISO } from "@/lib/design";
 import type { Client, GstMode, Invoice, InvoiceItem, InvoiceStatus, Organization, Payment, Property, Service } from "@/lib/supabase/types";
@@ -161,7 +161,7 @@ export function InvoiceEditor({
   const clientJobs = jobs.filter((j) => j.client_id === clientId);
   const property = properties.find((p) => p.id === (invoice?.property_id ?? propertyId));
   const job = jobs.find((j) => j.id === (invoice?.job_id ?? jobId));
-  const totals = calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), mode);
+  const totals = calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), mode, invoice?.gst_rounding ?? "line");
   const paid = payments.reduce((s, p) => s + p.amount, 0);
   const balance = Math.max(0, totals.total - paid);
   const overdue = invoice?.status === "Overdue";
@@ -526,7 +526,7 @@ export function InvoiceEditor({
                           </td>
                           <td className="py-2.5 border-b border-line text-right align-top">{i.qty}</td>
                           <td className="py-2.5 border-b border-line text-right align-top">${i.unit_price.toFixed(2)}</td>
-                          <td className="py-2.5 border-b border-line text-right align-top">${(i.qty * i.unit_price).toFixed(2)}</td>
+                          <td className="py-2.5 border-b border-line text-right align-top">${lineAmount(i).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -774,7 +774,7 @@ export function InvoiceEditor({
                       <span className="sm:hidden text-[11px] font-semibold text-ink-muted">Price</span>
                       <DecimalInput label="Unit price" prefix="$" value={l.unitPrice} onValue={(unitPrice) => setLine(i, { ...l, unitPrice })} padOnBlur />
                     </div>
-                    <span className="h-9 flex items-center justify-end font-semibold text-sm">${(l.qty * l.unitPrice).toFixed(2)}</span>
+                    <span className="h-9 flex items-center justify-end font-semibold text-sm">${lineAmount({ qty: l.qty, unit_price: l.unitPrice }).toFixed(2)}</span>
                     <button onClick={() => setLines(lines.length > 1 ? lines.filter((_, k) => k !== i) : [blankLine()])} className="h-9 flex items-center justify-center text-ink-muted">
                       <Trash2 className="w-4 h-4" />
                     </button>

@@ -53,7 +53,7 @@ export function QuotesPageClient({
 
   const rows: QuoteRow[] = quotes.map((q) => {
     const items = itemTotals.get(q.id) ?? [];
-    return { ...q, clientName: clientName(q.client_id), total: calcTotals(items, q.mode).total };
+    return { ...q, clientName: clientName(q.client_id), total: calcTotals(items, q.mode, q.gst_rounding).total };
   });
 
   const filtered = rows.filter(

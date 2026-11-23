@@ -52,11 +52,12 @@ export async function loadQuoteDoc(id: string): Promise<LoadedDoc | null> {
         { label: "Valid until", value: fmtDocDate(quote.expiry_date) },
       ],
       mode: quote.mode,
+      gstRounding: quote.gst_rounding,
       lines,
       note: quote.message,
       serviceNotes: quote.service_notes,
     },
-    total: calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), quote.mode).total,
+    total: calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), quote.mode, quote.gst_rounding).total,
     filename: `${quote.num}.pdf`,
   };
 }
@@ -88,6 +89,7 @@ export async function loadInvoiceDoc(id: string): Promise<LoadedDoc | null> {
         { label: "Due", value: fmtDocDate(invoice.due_date) },
       ],
       mode: invoice.mode,
+      gstRounding: invoice.gst_rounding,
       lines,
       note: invoice.notes,
       serviceNotes: invoice.service_notes,
@@ -95,7 +97,7 @@ export async function loadInvoiceDoc(id: string): Promise<LoadedDoc | null> {
       jobNum: job.data?.num ?? null,
       reference: invoice.reference ?? null,
     },
-    total: calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), invoice.mode).total,
+    total: calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), invoice.mode, invoice.gst_rounding).total,
     filename: `${invoice.num}.pdf`,
   };
 }

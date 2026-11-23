@@ -79,7 +79,7 @@ export function InvoicesPageClient({
 
   const rows: InvoiceRow[] = invoices.map((inv) => {
     const items = itemsByInvoice.get(inv.id) ?? [];
-    const total = calcTotals(items, inv.mode).total;
+    const total = calcTotals(items, inv.mode, inv.gst_rounding).total;
     const paid = paidByInvoice.get(inv.id) ?? 0;
     return { ...inv, clientName: clientName(inv.client_id), total, balance: inv.status === "Voided" ? 0 : Math.max(0, total - paid) };
   });

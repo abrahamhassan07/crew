@@ -17,7 +17,7 @@ import { VoiceDraftPanel } from "@/components/VoiceDraftPanel";
 import { takeVoiceDraft } from "@/lib/useVoiceRecorder";
 import type { VoiceDraft } from "@/lib/ai/voiceDraft";
 import { daysFromToday, todayISO } from "@/lib/design";
-import { calcTotals } from "@/lib/gst";
+import { calcTotals, lineAmount } from "@/lib/gst";
 import type { Client, GstMode, Property, Quote, QuoteItem, Service } from "@/lib/supabase/types";
 
 function blankLine(): QuoteLineInput {
@@ -110,7 +110,7 @@ export function QuoteEditor({
 
   const locked = quote ? !["Draft", "Sent"].includes(quote.status) || (staffMode && quote.status !== "Draft") : false;
   const clientProperties = properties.filter((p) => p.client_id === clientId);
-  const totals = calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), mode);
+  const totals = calcTotals(lines.map((l) => ({ qty: l.qty, unit_price: l.unitPrice })), mode, quote?.gst_rounding ?? "line");
 
   const input: QuoteInput = { clientId, newClient: isNewClient ? newClient : null, propertyId: propertyId || null, quoteDate, expiryDate, mode, message, serviceNotes, requestId: quote?.request_id ?? initialRequestId ?? null, items: lines, aiGenerated: quote ? undefined : aiGenerated };
 
@@ -378,7 +378,7 @@ export function QuoteEditor({
                       <span className="sm:hidden text-[11px] font-semibold text-ink-muted">Price</span>
                       <DecimalInput label="Unit price" prefix="$" value={l.unitPrice} onValue={(unitPrice) => setLine(i, { ...l, unitPrice })} padOnBlur disabled={locked} />
                     </div>
-                    <span className="h-9 flex items-center justify-end font-semibold text-sm">${(l.qty * l.unitPrice).toFixed(2)}</span>
+                    <span className="h-9 flex items-center justify-end font-semibold text-sm">${lineAmount({ qty: l.qty, unit_price: l.unitPrice }).toFixed(2)}</span>
                     {!locked && (
                       <button onClick={() => setLines(lines.length > 1 ? lines.filter((_, k) => k !== i) : [blankLine()])} className="h-9 flex items-center justify-center text-ink-muted">
                         <Trash2 className="w-4 h-4" />

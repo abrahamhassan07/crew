@@ -12,14 +12,14 @@ const money = (n: number) => `$${n.toLocaleString("en-AU", { minimumFractionDigi
 
 async function docSummary(table: "quotes" | "invoices", id: string, orgId: string) {
   const admin = createAdminClient();
-  const { data: doc } = await admin.from(table).select("num, client_id, mode").eq("id", id).eq("org_id", orgId).maybeSingle();
+  const { data: doc } = await admin.from(table).select("num, client_id, mode, gst_rounding").eq("id", id).eq("org_id", orgId).maybeSingle();
   if (!doc) return null;
   const items$ = table === "quotes" ? admin.from("quote_items").select("qty, unit_price").eq("quote_id", id) : admin.from("invoice_items").select("qty, unit_price").eq("invoice_id", id);
   const [{ data: items }, { data: client }] = await Promise.all([
     items$,
     admin.from("clients").select("name").eq("id", doc.client_id).eq("org_id", orgId).maybeSingle(),
   ]);
-  return { num: doc.num, client: client?.name ?? "a client", total: calcTotals(items ?? [], doc.mode).total };
+  return { num: doc.num, client: client?.name ?? "a client", total: calcTotals(items ?? [], doc.mode, doc.gst_rounding).total };
 }
 
 export async function notifyQuoteApproved(orgId: string, quoteId: string, actorUserId: string | null): Promise<void> {

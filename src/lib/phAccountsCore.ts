@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
 
 // Pure helpers for the PH Accounts integration (no Supabase, no Next), so they can be unit tested.
 // PH Accounts API docs: https://phaccounts.com/developers
@@ -166,3 +166,57 @@ export const phInvoiceUrl = (baseUrl: string, phOrgId: string, phInvoiceId: stri
 
 /** A PH Accounts tax rate (a fraction as text, e.g. "0.1" or "0.1000") that is exactly 10%. */
 export const isTenPercent = (rate: string) => /^0?\.10*$/.test(rate.trim());
+
+// ---------------------------------------------------------------------------
+// Payments and webhooks (step 6c)
+// ---------------------------------------------------------------------------
+
+/** A decimal string or number as whole cents, exactly (for comparing money without floating point). */
+export function centsOf(value: string | number): bigint {
+  const text = typeof value === "number" ? value.toFixed(2) : value.trim();
+  const m = /^(-?)(\d+)(?:\.(\d{1,4}))?$/.exec(text);
+  if (!m) return BigInt(0);
+  const frac = (m[3] ?? "").padEnd(4, "0");
+  const units = BigInt(m[2] + frac); // 4 dp units
+  const cents = (units + BigInt(50)) / BigInt(100); // half up
+  return m[1] ? -cents : cents;
+}
+
+export const centsToString = (cents: bigint) => {
+  const negative = cents < BigInt(0);
+  const abs = negative ? -cents : cents;
+  return `${negative ? "-" : ""}${abs / BigInt(100)}.${String(abs % BigInt(100)).padStart(2, "0")}`;
+};
+
+/**
+ * Checks PH Accounts' webhook signature: header `t=<unix seconds>,v1=<hex HMAC-SHA256(secret, t + "." + raw
+ * body)>`, constant-time compare, and no older than 5 minutes (https://phaccounts.com/developers).
+ */
+export function verifyPhSignature(secret: string, header: string | null, rawBody: string, nowUnixSeconds: number): boolean {
+  if (!header) return false;
+  const parts = Object.fromEntries(header.split(",").map((p) => p.split("=", 2).map((s) => s.trim())));
+  const t = Number(parts.t);
+  const v1 = String(parts.v1 ?? "");
+  if (!Number.isInteger(t) || !/^[0-9a-f]{64}$/.test(v1) || Math.abs(nowUnixSeconds - t) > 300) return false;
+  const expected = createHmac("sha256", secret).update(`${t}.${rawBody}`).digest("hex");
+  return timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(v1, "hex"));
+}
+
+export interface PhWebhookEvent {
+  id: string;
+  type: "invoice.issued" | "invoice.paid" | "invoice.voided" | "payment.created" | "payment.voided";
+  occurredAt: string;
+  organisationId: string;
+  resourceId: string;
+}
+
+export function parsePhEvent(rawBody: string): PhWebhookEvent | null {
+  try {
+    const e = JSON.parse(rawBody) as Partial<PhWebhookEvent>;
+    const uuid = /^[0-9a-f-]{36}$/i;
+    if (!e.id || !e.type || !e.organisationId || !e.resourceId || !uuid.test(e.organisationId) || !uuid.test(e.resourceId)) return null;
+    return e as PhWebhookEvent;
+  } catch {
+    return null;
+  }
+}

@@ -400,15 +400,15 @@ function xeroDate(v: unknown): string {
 }
 
 /** Paid, Partially Paid or back to Sent/Overdue, from the payments recorded against an invoice. */
-async function refreshInvoiceStatus(invoiceId: string) {
+export async function refreshInvoiceStatus(invoiceId: string) {
   const admin = createAdminClient();
   const [{ data: invoice }, { data: items }, { data: payments }] = await Promise.all([
-    admin.from("invoices").select("status, mode, org_id").eq("id", invoiceId).single(),
+    admin.from("invoices").select("status, mode, gst_rounding, org_id").eq("id", invoiceId).single(),
     admin.from("invoice_items").select("qty, unit_price").eq("invoice_id", invoiceId),
     admin.from("payments").select("amount").eq("invoice_id", invoiceId),
   ]);
   if (!invoice || invoice.status === "Draft" || invoice.status === "Voided") return;
-  const total = calcTotals(items ?? [], invoice.mode).total;
+  const total = calcTotals(items ?? [], invoice.mode, invoice.gst_rounding).total;
   const paid = (payments ?? []).reduce((s, p) => s + Number(p.amount), 0);
   // Same rule as recording a payment here; with nothing paid (a Xero payment was deleted) it goes back to Sent.
   const status = paid >= total - 0.01 ? "Paid" : paid > 0 ? "Partially Paid" : invoice.status === "Overdue" ? "Overdue" : "Sent";

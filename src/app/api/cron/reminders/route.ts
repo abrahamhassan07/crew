@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sendDueReminders } from "@/lib/reminders";
 import { syncAllXeroPayments } from "@/lib/xero";
+import { syncAllPhPayments } from "@/lib/phAccounts";
 import { runScheduledAudits } from "@/lib/audit/run";
 import { runPhotoCleanup } from "@/lib/photoCleanup";
 
@@ -23,6 +24,15 @@ export async function GET(request: NextRequest) {
       xeroPayments = { error: e instanceof Error ? e.message : "failed" };
     }
   }
+  // ...and any PH Accounts payments its webhook missed.
+  let phAccountsPayments: unknown = "skipped (dry run)";
+  if (!dryRun) {
+    try {
+      phAccountsPayments = await syncAllPhPayments();
+    } catch (e) {
+      phAccountsPayments = { error: e instanceof Error ? e.message : "failed" };
+    }
+  }
   // The daily run also catches the Sunday audit when the weekly one fired before 7:00 am Melbourne (winter time).
   let serviceAudit: unknown = "skipped (dry run)";
   if (!dryRun) {
@@ -39,5 +49,5 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     photoCleanup = { error: e instanceof Error ? e.message : "failed" };
   }
-  return NextResponse.json({ ...reminders, xeroPayments, serviceAudit, photoCleanup });
+  return NextResponse.json({ ...reminders, xeroPayments, phAccountsPayments, serviceAudit, photoCleanup });
 }

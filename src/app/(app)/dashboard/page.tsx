@@ -100,7 +100,7 @@ export default async function DashboardPage() {
   for (const p of payments ?? []) paidByInvoice.set(p.invoice_id, (paidByInvoice.get(p.invoice_id) ?? 0) + p.amount);
   const openInvoices = (invoices ?? []).filter((i) => ["Sent", "Partially Paid", "Overdue"].includes(i.status));
   const outstandingTotal = openInvoices.reduce((s, i) => {
-    const total = calcTotals(itemsByInvoice.get(i.id) ?? [], i.mode).total;
+    const total = calcTotals(itemsByInvoice.get(i.id) ?? [], i.mode, i.gst_rounding).total;
     return s + Math.max(0, total - (paidByInvoice.get(i.id) ?? 0));
   }, 0);
   const overdueInvoiceCount = (invoices ?? []).filter((i) => i.status === "Overdue").length;
@@ -116,7 +116,7 @@ export default async function DashboardPage() {
     quoteItemsByQuote.set(item.quote_id, arr);
   }
   const sentQuotes = (quotes ?? []).filter((q) => q.status === "Sent");
-  const sentQuotesValue = sentQuotes.reduce((s, q) => s + calcTotals(quoteItemsByQuote.get(q.id) ?? [], q.mode).total, 0);
+  const sentQuotesValue = sentQuotes.reduce((s, q) => s + calcTotals(quoteItemsByQuote.get(q.id) ?? [], q.mode, q.gst_rounding).total, 0);
 
   const todaySchedule = jobsToday.slice().sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? ""));
 

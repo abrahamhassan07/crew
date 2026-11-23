@@ -1,4 +1,6 @@
 export type AppRole = "admin" | "staff";
+/** How GST is rounded on a document: per line (since 2026-11-23) or once on the total (older documents). */
+export type GstRounding = "line" | "invoice";
 export type Skill = "cleaning" | "gardening" | "both";
 export type JobStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
 export type Recurrence = "none" | "weekly" | "fortnightly" | "every3weeks" | "every4weeks" | "monthly";
@@ -222,6 +224,7 @@ export type Quote = {
   quote_date: string;
   expiry_date: string;
   mode: GstMode;
+  gst_rounding: GstRounding;
   status: QuoteStatus;
   message: string;
   service_notes: string;
@@ -259,7 +262,8 @@ export type Payment = {
   method: string;
   reference: string;
   xero_payment_id: string | null;
-  source: "app" | "xero";
+  ph_payment_id: string | null;
+  source: "app" | "xero" | "phaccounts";
   org_id: string;
   created_at: string;
 };
@@ -273,6 +277,7 @@ export type Invoice = {
   issue_date: string;
   due_date: string;
   mode: GstMode;
+  gst_rounding: GstRounding;
   status: InvoiceStatus;
   notes: string;
   service_notes: string;

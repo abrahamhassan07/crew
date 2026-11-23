@@ -134,7 +134,7 @@ export function ReportsPageClient({
       invoices
         .filter((i) => ["Sent", "Partially Paid", "Overdue"].includes(i.status))
         .map((i) => {
-          const total = calcTotals(itemsByInvoice.get(i.id) ?? [], i.mode).total;
+          const total = calcTotals(itemsByInvoice.get(i.id) ?? [], i.mode, i.gst_rounding).total;
           const paid = paidByInvoice.get(i.id) ?? 0;
           return { inv: i, total, paid, balance: Math.max(0, total - paid) };
         }),

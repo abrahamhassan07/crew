@@ -15,7 +15,7 @@ import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
 import { renderDocumentPdf } from "@/lib/pdf";
 import { queueXeroPayment, queueXeroSync } from "@/lib/xero";
-import { queuePhSync } from "@/lib/phAccounts";
+import { queuePhPayment, queuePhSync } from "@/lib/phAccounts";
 import { after } from "next/server";
 import { JOB_SNAPSHOT_COLUMNS, notifyJobChange, type JobSnapshot } from "@/lib/staffNotify";
 import { cleanChecklist, setJobChecklist, setJobStatus } from "@/lib/jobOps";
@@ -1626,13 +1626,13 @@ export async function recordPayment(invoiceId: string, input: PaymentInput): Pro
   if (error) return { ok: false, error: dbError(error) };
 
   const [{ data: invoice }, { data: items }, { data: payments }] = await Promise.all([
-    supabase.from("invoices").select("mode, status").eq("id", invoiceId).single(),
+    supabase.from("invoices").select("mode, gst_rounding, status").eq("id", invoiceId).single(),
     supabase.from("invoice_items").select("qty, unit_price").eq("invoice_id", invoiceId),
     supabase.from("payments").select("amount").eq("invoice_id", invoiceId),
   ]);
 
   if (invoice) {
-    const total = calcTotals(items ?? [], invoice.mode).total;
+    const total = calcTotals(items ?? [], invoice.mode, invoice.gst_rounding).total;
     const paid = (payments ?? []).reduce((s, p) => s + p.amount, 0);
     const status: InvoiceStatus = paid >= total - 0.01 ? "Paid" : "Partially Paid";
     await supabase.from("invoices").update({ status }).eq("id", invoiceId);
@@ -1643,8 +1643,9 @@ export async function recordPayment(invoiceId: string, input: PaymentInput): Pro
     }
   }
 
-  // Record it in Xero too, when the business has chosen a bank account for payments.
+  // Record it in Xero / PH Accounts too, when the business has chosen a bank account for payments there.
   await queueXeroPayment(viewer.orgId, invoiceId);
+  await queuePhPayment(viewer.orgId, invoiceId);
 
   revalidatePath("/", "layout");
   return { ok: true };

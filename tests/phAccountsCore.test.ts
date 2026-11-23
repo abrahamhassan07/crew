@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import {
   buildPhInvoiceBody,
+  centsOf,
+  centsToString,
   decryptWith,
   describePhFailure,
   encryptWith,
@@ -10,12 +12,14 @@ import {
   isTenPercent,
   needsReconnect,
   newPkce,
+  parsePhEvent,
   phAuthorizeUrl,
   phBaseUrl,
   phInvoiceUrl,
   phRedirectUri,
   pkceChallenge,
   toDecimalString,
+  verifyPhSignature,
 } from "../src/lib/phAccountsCore.ts";
 
 test("PKCE: the challenge is the base64url SHA-256 of a fresh random verifier", () => {
@@ -140,4 +144,38 @@ test("links to the invoice inside the right PH Accounts business", () => {
 test("only exactly-10% tax codes count as GST", () => {
   for (const r of ["0.1", "0.10", "0.1000", ".1"]) assert.equal(isTenPercent(r), true, r);
   for (const r of ["0", "0.12", "0.01", "1", "0.15", "10"]) assert.equal(isTenPercent(r), false, r);
+});
+
+// --- Payments and webhooks (6c) ---
+
+test("money compares exactly in cents", () => {
+  assert.equal(centsOf("109.98"), BigInt(10998));
+  assert.equal(centsOf("109.9800"), BigInt(10998));
+  assert.equal(centsOf(109.99), BigInt(10999));
+  assert.equal(centsOf(0.1 + 0.2), BigInt(30));
+  assert.equal(centsOf("0.005"), BigInt(1));
+  assert.equal(centsOf("not money"), BigInt(0));
+  assert.equal(centsToString(BigInt(10998)), "109.98");
+  assert.equal(centsToString(BigInt(5)), "0.05");
+});
+
+const SECRET = "phws_test-secret";
+const sign = (body: string, t: number, secret = SECRET) => `t=${t},v1=${createHmac("sha256", secret).update(`${t}.${body}`).digest("hex")}`;
+
+test("accepts only fresh webhooks signed with our secret", () => {
+  const body = '{"id":"e1"}';
+  const now = 1_800_000_000;
+  assert.equal(verifyPhSignature(SECRET, sign(body, now), body, now + 30), true);
+  assert.equal(verifyPhSignature(SECRET, sign(body, now), body + " ", now), false);
+  assert.equal(verifyPhSignature(SECRET, sign(body, now, "other"), body, now), false);
+  assert.equal(verifyPhSignature(SECRET, sign(body, now), body, now + 301), false);
+  assert.equal(verifyPhSignature(SECRET, null, body, now), false);
+  assert.equal(verifyPhSignature(SECRET, "t=abc,v1=zz", body, now), false);
+});
+
+test("reads a webhook event and rejects malformed ones", () => {
+  const e = parsePhEvent(JSON.stringify({ id: "e1", type: "payment.created", occurredAt: "2026-11-23T00:00:00Z", organisationId: "11111111-1111-1111-1111-111111111111", resourceId: "22222222-2222-2222-2222-222222222222" }));
+  assert.equal(e?.type, "payment.created");
+  assert.equal(parsePhEvent("not json"), null);
+  assert.equal(parsePhEvent(JSON.stringify({ id: "e1", type: "invoice.paid", organisationId: "x", resourceId: "y" })), null);
 });

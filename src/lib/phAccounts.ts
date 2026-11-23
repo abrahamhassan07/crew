@@ -2,9 +2,9 @@ import "server-only";
 import { createHash } from "crypto";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { orgMayUseXero } from "@/lib/xero";
+import { orgMayUseXero, refreshInvoiceStatus } from "@/lib/xero";
 import type { PhAccountsConnection } from "@/lib/supabase/types";
-import { buildPhInvoiceBody, isTenPercent, decryptWith, describePhFailure, encryptWith, invoiceContentHash, needsReconnect, phBaseUrl, phRedirectUri, type CrewGstMode } from "@/lib/phAccountsCore";
+import { buildPhInvoiceBody, centsOf, centsToString, isTenPercent, toDecimalString, decryptWith, describePhFailure, encryptWith, invoiceContentHash, needsReconnect, phBaseUrl, phRedirectUri, type CrewGstMode } from "@/lib/phAccountsCore";
 
 // "Connect to PH Accounts": each business connects its own PH Accounts business (OAuth 2.0 + PKCE).
 // Server only. API docs: https://phaccounts.com/developers
@@ -220,7 +220,17 @@ interface PhCustomer {
 interface PhInvoice {
   id: string;
   status: "DRAFT" | "ISSUED" | "PARTIALLY_PAID" | "PAID" | "VOID";
+  customerId: string;
   amountPaid: string;
+  amountDue: string;
+}
+
+interface PhPayment {
+  id: string;
+  status: "RECORDED" | "VOIDED";
+  paymentDate: string;
+  reference: string | null;
+  allocations: { invoiceId: string; amount: string }[];
 }
 
 const shortHash = (value: string) => createHash("sha256").update(value).digest("hex").slice(0, 12);
@@ -342,7 +352,7 @@ export async function pushInvoiceToPh(orgId: string, invoiceId: string): Promise
 
     if (remote && invoice.ph_sync_hash === hash) {
       await admin.from("invoices").update({ ph_error: null }).eq("id", invoiceId);
-      return { ok: true };
+      return await syncPayments(conn, invoiceId, fail);
     }
     if (remote) {
       // Changed here after it reached PH Accounts: replace the unpaid copy.
@@ -368,7 +378,7 @@ export async function pushInvoiceToPh(orgId: string, invoiceId: string): Promise
       .from("invoices")
       .update({ ph_invoice_id: created.id, ph_sync_hash: hash, ph_synced_at: new Date().toISOString(), ph_error: null })
       .eq("id", invoiceId);
-    return { ok: true };
+    return await syncPayments(conn, invoiceId, fail);
   } catch (e) {
     console.error("[phaccounts sync]", e instanceof Error ? e.message : e);
     return await fail(friendly(e));
@@ -380,4 +390,200 @@ export async function queuePhSync(orgId: string, invoiceId: string) {
   const conn = await getConnection(orgId);
   if (!conn?.auto_sync || !(await orgMayUsePhAccounts(orgId))) return;
   after(() => pushInvoiceToPh(orgId, invoiceId));
+}
+
+// ---------------------------------------------------------------------------
+// Payments (step 6c): both ways
+// ---------------------------------------------------------------------------
+
+/** Brings PH Accounts' payments in first (so one entered in both places is matched, not doubled), then sends ours. */
+async function syncPayments(conn: PhAccountsConnection, invoiceId: string, fail: (m: string) => Promise<{ ok: boolean; error?: string }>) {
+  try {
+    await pullPhPayments(conn, [invoiceId]);
+    const pushed = await pushPendingPayments(conn, invoiceId);
+    if (pushed.error) return await fail(pushed.error);
+    return { ok: true };
+  } catch (e) {
+    console.error("[phaccounts payments]", e instanceof Error ? e.message : e);
+    return await fail(friendly(e));
+  }
+}
+
+/**
+ * Payments recorded in PH Accounts (for example when the bank feed is reconciled) for these invoices (local ids)
+ * are added here. A payment already recorded here for the same amount within a few days is linked instead of
+ * added twice. Payments that came from PH Accounts and were voided there are removed here.
+ */
+export async function pullPhPayments(conn: PhAccountsConnection, invoiceIds: string[]): Promise<{ added: number; removed: number }> {
+  const admin = createAdminClient();
+  const result = { added: 0, removed: 0 };
+  const { data: invoices } = await admin
+    .from("invoices")
+    .select("id, ph_invoice_id, status")
+    .eq("org_id", conn.org_id)
+    .in("id", invoiceIds)
+    .not("ph_invoice_id", "is", null);
+  for (const local of invoices ?? []) {
+    if (local.status === "Voided" || !local.ph_invoice_id) continue;
+    const remote = await phApi<{ data: PhPayment[] }>(conn, `/payments?invoiceId=${local.ph_invoice_id}&limit=100`);
+    const recorded = remote.data.filter((p) => p.status === "RECORDED");
+    const { data: existing } = await admin.from("payments").select("id, amount, paid_date, ph_payment_id, source").eq("invoice_id", local.id);
+    let changed = false;
+
+    for (const rp of recorded) {
+      if ((existing ?? []).some((p) => p.ph_payment_id === rp.id)) continue;
+      // The part of this payment that paid this invoice (a payment can pay several).
+      const allocated = rp.allocations.filter((a) => a.invoiceId === local.ph_invoice_id).reduce((sum, a) => sum + centsOf(a.amount), BigInt(0));
+      if (allocated <= BigInt(0)) continue;
+      const twin = (existing ?? []).find(
+        (p) =>
+          !p.ph_payment_id &&
+          p.source === "app" &&
+          centsOf(p.amount) === allocated &&
+          Math.abs(Date.parse(p.paid_date) - Date.parse(rp.paymentDate)) <= 5 * 864e5,
+      );
+      if (twin) {
+        await admin.from("payments").update({ ph_payment_id: rp.id }).eq("id", twin.id);
+        twin.ph_payment_id = rp.id;
+        continue;
+      }
+      const { error } = await admin.from("payments").insert({
+        org_id: conn.org_id,
+        invoice_id: local.id,
+        amount: Number(centsToString(allocated)),
+        paid_date: rp.paymentDate,
+        method: "Recorded in PH Accounts",
+        reference: rp.reference?.trim() || "—",
+        ph_payment_id: rp.id,
+        source: "phaccounts",
+      });
+      if (!error) {
+        result.added++;
+        changed = true;
+      }
+    }
+
+    const live = new Set(recorded.map((p) => p.id));
+    const gone = (existing ?? []).filter((p) => p.source === "phaccounts" && p.ph_payment_id && !live.has(p.ph_payment_id));
+    if (gone.length) {
+      await admin.from("payments").delete().in("id", gone.map((p) => p.id));
+      result.removed += gone.length;
+      changed = true;
+    }
+    if (changed) await refreshInvoiceStatus(local.id);
+  }
+  return result;
+}
+
+/**
+ * Sends payments recorded here (and not yet in PH Accounts) for one invoice, into the bank account chosen in
+ * Settings. Never more than PH Accounts says is still owed is applied to the invoice; any extra stays on the
+ * payment there as unallocated credit. Drafts there can't take payments.
+ */
+async function pushPendingPayments(conn: PhAccountsConnection, invoiceId: string): Promise<{ sent: number; error?: string }> {
+  if (!conn.bank_account_id) return { sent: 0 };
+  const admin = createAdminClient();
+  const [{ data: invoice }, { data: pending }] = await Promise.all([
+    admin.from("invoices").select("ph_invoice_id").eq("id", invoiceId).single(),
+    admin.from("payments").select("*").eq("invoice_id", invoiceId).eq("source", "app").is("ph_payment_id", null).order("paid_date"),
+  ]);
+  if (!invoice?.ph_invoice_id || !pending?.length) return { sent: 0 };
+  let remote = await getOrNull<PhInvoice>(conn, `/invoices/${invoice.ph_invoice_id}`);
+  if (!remote || remote.status === "VOID") return { sent: 0 };
+  if (remote.status === "DRAFT") return { sent: 0, error: "It's still a draft in PH Accounts. Send it there first, then its payments follow." };
+  let sent = 0;
+  for (const p of pending) {
+    const amount = toDecimalString(p.amount);
+    if (!amount) continue;
+    const due = centsOf(remote.amountDue);
+    // Already paid there (and not matched as the same payment): sending it would count the money twice.
+    if (due <= BigInt(0)) {
+      return { sent, error: `PH Accounts already shows this invoice as paid, so the payment of ${amount} recorded here wasn't sent. Check the payments in PH Accounts.` };
+    }
+    const apply = centsOf(amount) < due ? centsOf(amount) : due;
+    try {
+      const saved = await phApi<PhPayment>(conn, "/payments", {
+        method: "POST",
+        idempotencyKey: `crew-payment-${p.id}`,
+        body: {
+          customerId: remote.customerId,
+          paymentDate: p.paid_date,
+          amount,
+          depositToAccountId: conn.bank_account_id,
+          ...(p.method ? { method: p.method.slice(0, 50) } : {}),
+          ...(p.reference && p.reference !== "—" ? { reference: p.reference.slice(0, 100) } : {}),
+          allocations: [{ invoiceId: remote.id, amount: centsToString(apply) }],
+        },
+      });
+      await admin.from("payments").update({ ph_payment_id: saved.id }).eq("id", p.id);
+      sent++;
+      remote = (await getOrNull<PhInvoice>(conn, `/invoices/${remote.id}`)) ?? remote;
+    } catch (e) {
+      return { sent, error: `A payment couldn't be sent to PH Accounts: ${friendly(e)}` };
+    }
+  }
+  return { sent };
+}
+
+/** Fire-and-forget after a payment is recorded here: make sure the invoice is in PH Accounts, then sync payments. */
+export async function queuePhPayment(orgId: string, invoiceId: string) {
+  const conn = await getConnection(orgId);
+  if (!conn?.auto_sync || !(await orgMayUsePhAccounts(orgId))) return;
+  after(() => pushInvoiceToPh(orgId, invoiceId));
+}
+
+/** Webhook from PH Accounts: something changed in a connected business. Pull the affected invoices' payments. */
+export async function handlePhEvent(event: { type: string; organisationId: string; resourceId: string }) {
+  const admin = createAdminClient();
+  const { data: conns } = await admin.from("ph_accounts_connections").select("*").eq("ph_org_id", event.organisationId);
+  for (const conn of conns ?? []) {
+    if (!(await orgMayUsePhAccounts(conn.org_id))) continue;
+    try {
+      let phInvoiceIds: string[] = [];
+      if (event.type.startsWith("invoice.")) phInvoiceIds = [event.resourceId];
+      else {
+        const payment = await getOrNull<PhPayment>(conn, `/payments/${event.resourceId}`);
+        phInvoiceIds = payment?.allocations.map((a) => a.invoiceId) ?? [];
+        if (event.type === "payment.voided" || !payment) {
+          // A voided payment no longer lists its invoices: check every invoice it was recorded against here.
+          const { data: linked } = await admin.from("payments").select("invoice_id").eq("org_id", conn.org_id).eq("ph_payment_id", event.resourceId);
+          const ids = (linked ?? []).map((l) => l.invoice_id);
+          if (ids.length) await pullPhPayments(conn, ids);
+        }
+      }
+      if (!phInvoiceIds.length) continue;
+      const { data: locals } = await admin.from("invoices").select("id").eq("org_id", conn.org_id).in("ph_invoice_id", phInvoiceIds);
+      if (locals?.length) await pullPhPayments(conn, locals.map((l) => l.id));
+    } catch (e) {
+      console.error("[phaccounts webhook]", e instanceof Error ? e.message : e);
+    }
+  }
+}
+
+/** Daily safety net (cron): pull payments for every open invoice that is in PH Accounts. */
+export async function syncAllPhPayments(): Promise<{ orgs: number; added: number; removed: number; errors: number }> {
+  const admin = createAdminClient();
+  const summary = { orgs: 0, added: 0, removed: 0, errors: 0 };
+  const { data: conns } = await admin.from("ph_accounts_connections").select("*");
+  for (const conn of conns ?? []) {
+    if (!(await orgMayUsePhAccounts(conn.org_id))) continue;
+    const { data: open } = await admin
+      .from("invoices")
+      .select("id")
+      .eq("org_id", conn.org_id)
+      .in("status", ["Sent", "Overdue", "Partially Paid", "Paid"])
+      .not("ph_invoice_id", "is", null)
+      .limit(400);
+    if (!open?.length) continue;
+    summary.orgs++;
+    try {
+      const r = await pullPhPayments(conn, open.map((i) => i.id));
+      summary.added += r.added;
+      summary.removed += r.removed;
+    } catch (e) {
+      summary.errors++;
+      console.error("[phaccounts payments sync]", conn.org_id, e instanceof Error ? e.message : e);
+    }
+  }
+  return summary;
 }
