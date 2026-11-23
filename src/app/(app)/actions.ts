@@ -15,6 +15,7 @@ import { isPlatformAdmin, platformAdminEmails } from "@/lib/platform";
 import { loadInvoiceDoc, loadQuoteDoc, type LoadedDoc } from "@/lib/documents";
 import { renderDocumentPdf } from "@/lib/pdf";
 import { queueXeroPayment, queueXeroSync } from "@/lib/xero";
+import { queuePhSync } from "@/lib/phAccounts";
 import { after } from "next/server";
 import { JOB_SNAPSHOT_COLUMNS, notifyJobChange, type JobSnapshot } from "@/lib/staffNotify";
 import { cleanChecklist, setJobChecklist, setJobStatus } from "@/lib/jobOps";
@@ -1448,8 +1449,11 @@ export async function saveInvoice(id: string | null, rawInput: InvoiceInput, sta
   const { error: itemsError } = await supabase.from("invoice_items").insert(rows);
   if (itemsError) return { ok: false, error: dbError(itemsError) };
 
-  // Edits to an invoice that's already been sent flow through to Xero (drafts never do).
-  if (id && status !== "Draft") await queueXeroSync(viewer.orgId, invoiceId!);
+  // Edits to an invoice that's already been sent flow through to Xero / PH Accounts (drafts never do).
+  if (id && status !== "Draft") {
+    await queueXeroSync(viewer.orgId, invoiceId!);
+    await queuePhSync(viewer.orgId, invoiceId!);
+  }
 
   revalidatePath("/", "layout");
   return { ok: true, id: invoiceId };
@@ -1479,7 +1483,10 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Pr
   const { error } = await supabase.from("invoices").update(patch).eq("id", id);
   if (error) return { ok: false, error: dbError(error) };
 
-  if (status === "Voided") await queueXeroSync(viewer.orgId, id);
+  if (status === "Voided") {
+    await queueXeroSync(viewer.orgId, id);
+    await queuePhSync(viewer.orgId, id);
+  }
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -1761,8 +1768,12 @@ export async function emailInvoice(id: string, override?: EmailOverride) {
   const blocked = await approvalBlock("invoices", id);
   if (blocked) return { ok: false as const, error: blocked };
   const result = await emailDocument(await loadInvoiceDoc(id), "invoice", override);
-  // Once the invoice has gone to the client, copy it into Xero (when connected).
-  if (result.ok) await queueXeroSync((await getViewer()).orgId, id);
+  // Once the invoice has gone to the client, copy it into Xero or PH Accounts (whichever is connected).
+  if (result.ok) {
+    const { orgId } = await getViewer();
+    await queueXeroSync(orgId, id);
+    await queuePhSync(orgId, id);
+  }
   return result;
 }
 

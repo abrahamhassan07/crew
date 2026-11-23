@@ -87,6 +87,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       taxCodeName: phConn?.gst_tax_code_name ?? null,
       bankAccountId: phConn?.bank_account_id ?? null,
       bankAccountName: phConn?.bank_account_name ?? null,
+      autoSync: phConn?.auto_sync ?? true,
       ...lists,
       listsFailed,
       reconnectNeeded,

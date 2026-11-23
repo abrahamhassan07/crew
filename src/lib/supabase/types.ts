@@ -145,6 +145,7 @@ export type Client = {
   lead_source: string | null;
   review_requested_at: string | null;
   xero_contact_id: string | null;
+  ph_customer_id: string | null;
   org_id: string;
   created_at: string;
   updated_at: string;
@@ -285,6 +286,10 @@ export type Invoice = {
   xero_invoice_id: string | null;
   xero_synced_at: string | null;
   xero_error: string | null;
+  ph_invoice_id: string | null;
+  ph_synced_at: string | null;
+  ph_sync_hash: string | null;
+  ph_error: string | null;
   org_id: string;
   created_at: string;
   updated_at: string;

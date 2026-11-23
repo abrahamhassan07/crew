@@ -23,6 +23,7 @@ export interface PhAccountsSettingsView {
   taxCodeName: string | null;
   bankAccountId: string | null;
   bankAccountName: string | null;
+  autoSync: boolean;
   revenue: { id: string; name: string }[];
   taxCodes: { id: string; name: string }[];
   banks: { id: string; name: string }[];
@@ -51,6 +52,7 @@ export function PhAccountsCard({ ph, result }: { ph: PhAccountsSettingsView; res
   const [revenue, setRevenue] = useState(ph.revenueAccountId ?? "");
   const [taxCode, setTaxCode] = useState(ph.taxCodeId ?? "");
   const [bank, setBank] = useState(ph.bankAccountId ?? "");
+  const [autoSync, setAutoSync] = useState(ph.autoSync);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(result ? (RESULT_MESSAGES[result] ?? null) : null);
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -61,6 +63,20 @@ export function PhAccountsCard({ ph, result }: { ph: PhAccountsSettingsView; res
       const res = await savePhAccountsSettings({ choice, id: id || null });
       if (!res.ok) {
         undo();
+        setMessage({ text: res.error ?? "Couldn't save that.", ok: false });
+        return;
+      }
+      setMessage({ text: "Saved.", ok: true });
+    });
+  };
+
+  const saveAutoSync = (next: boolean) => {
+    setMessage(null);
+    setAutoSync(next);
+    startTransition(async () => {
+      const res = await savePhAccountsSettings({ autoSync: next });
+      if (!res.ok) {
+        setAutoSync(!next);
         setMessage({ text: res.error ?? "Couldn't save that.", ok: false });
         return;
       }
@@ -152,7 +168,7 @@ export function PhAccountsCard({ ph, result }: { ph: PhAccountsSettingsView; res
                 />
                 <SelectField
                   label="GST tax code"
-                  help="Used on invoice lines that include GST. Invoices without GST are sent with no tax code."
+                  help="Used on invoice lines that include GST (only 10% codes are listed). Invoices without GST are sent with no tax code."
                   value={taxCode}
                   disabled={pending}
                   onChange={(e) => {
@@ -176,6 +192,16 @@ export function PhAccountsCard({ ph, result }: { ph: PhAccountsSettingsView; res
                 />
               </div>
             )}
+
+            <label className="flex items-start gap-2.5 text-sm text-ink-primary cursor-pointer">
+              <input type="checkbox" className="mt-0.5" checked={autoSync} disabled={pending} onChange={(e) => saveAutoSync(e.target.checked)} />
+              <span>
+                <span className="font-semibold">Send invoices to PH Accounts automatically</span>
+                <span className="block text-xs text-ink-muted">
+                  When off, use the &ldquo;Send to PH Accounts&rdquo; button on each invoice. Drafts stay in Crew &amp; Grounds until they&rsquo;re sent.
+                </span>
+              </span>
+            </label>
 
             <div className="pt-1">
               {confirming ? (

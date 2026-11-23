@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { nameForUser, publicOrg, staffDraftContext, staffDraftData } from "@/lib/staffDrafts";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { getConnection, orgMayUseXero } from "@/lib/xero";
+import { getConnection as getPhConnection, orgMayUsePhAccounts, phConfigured } from "@/lib/phAccounts";
+import { phBaseUrl } from "@/lib/phAccountsCore";
 
 export default async function InvoicePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const viewer = await getViewer();
@@ -22,6 +24,8 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const sp = await searchParams;
   const supabase = await createClient();
   const xeroConnected = !!(await getConnection(viewer.orgId)) && (await orgMayUseXero(viewer.orgId));
+  const phConn = phConfigured() ? await getPhConnection(viewer.orgId) : null;
+  const phAccounts = phConn && (await orgMayUsePhAccounts(viewer.orgId)) ? { orgId: phConn.ph_org_id, baseUrl: phBaseUrl() } : null;
 
   const [{ data: invoice }, { data: items }, { data: payments }, { data: clients }, { data: properties }, { data: services }, { data: jobs }, { data: organization }] = await Promise.all([
     supabase.from("invoices").select("*").eq("id", id).single(),
@@ -51,6 +55,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
       organization={organization ?? null}
       startInEdit={sp.edit === "1"}
       xeroConnected={xeroConnected}
+      phAccounts={phAccounts}
       approval={approval}
     />
   );

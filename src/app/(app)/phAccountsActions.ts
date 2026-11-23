@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getViewer } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { disconnectPhAccounts, getConnection, listPhChoices, orgMayUsePhAccounts, PH_PLAN_MESSAGE } from "@/lib/phAccounts";
+import { disconnectPhAccounts, getConnection, listPhChoices, orgMayUsePhAccounts, PH_PLAN_MESSAGE, pushInvoiceToPh } from "@/lib/phAccounts";
 import type { ActionResult } from "./actions";
 import type { PhAccountsConnection } from "@/lib/supabase/types";
 import { appSafe } from "@/lib/inApp";
@@ -64,4 +64,15 @@ export async function disconnectPhAccountsAction(): Promise<ActionResult> {
   await disconnectPhAccounts(viewer.orgId);
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+/** The "Send to PH Accounts" / "Resync to PH Accounts" button on an invoice. */
+export async function syncInvoiceToPhAccounts(invoiceId: string): Promise<ActionResult> {
+  const viewer = await adminViewer();
+  if (!viewer) return { ok: false, error: "Only admins can do that." };
+  if (!(await getConnection(viewer.orgId))) return { ok: false, error: "PH Accounts isn't connected. Connect it in Settings." };
+  if (!(await orgMayUsePhAccounts(viewer.orgId))) return { ok: false, error: await appSafe(PH_PLAN_MESSAGE) };
+  const result = await pushInvoiceToPh(viewer.orgId, invoiceId);
+  revalidatePath("/", "layout");
+  return result.ok ? { ok: true } : { ok: false, error: result.error ?? "Couldn't send the invoice to PH Accounts." };
 }

@@ -18,6 +18,7 @@ import { SendEmailModal } from "@/components/SendEmailModal";
 import { DecimalInput } from "@/components/forms/DecimalInput";
 import { DEFAULT_REFERENCE_TEMPLATE, renderReference } from "@/lib/invoiceNumbers";
 import { syncInvoiceToXero } from "@/app/(app)/xeroActions";
+import { syncInvoiceToPhAccounts } from "@/app/(app)/phAccountsActions";
 import type { EmailDraft } from "@/lib/emailTemplates";
 import { ToastBanner, useToast } from "@/components/Toast";
 import { calcTotals } from "@/lib/gst";
@@ -53,6 +54,7 @@ export function InvoiceEditor({
   organization,
   startInEdit = false,
   xeroConnected = false,
+  phAccounts = null,
   suggestedNum = "",
   prefill,
   voiceEnabled = false,
@@ -70,6 +72,8 @@ export function InvoiceEditor({
   startInEdit?: boolean;
   /** The business has connected Xero: show the sync controls. */
   xeroConnected?: boolean;
+  /** The business has connected PH Accounts: show its sync controls (links go to that business). */
+  phAccounts?: { orgId: string; baseUrl: string } | null;
   /** The number a new invoice will get (shown, and editable, on the form). */
   suggestedNum?: string;
   /** A new invoice started from a completed job: client, address, job reference and a line item. */
@@ -299,6 +303,15 @@ export function InvoiceEditor({
     });
   };
 
+  const sendToPhAccounts = () => {
+    if (!invoice) return;
+    startTransition(async () => {
+      const result = await syncInvoiceToPhAccounts(invoice.id);
+      showToast(result.ok ? `${invoice.num} sent to PH Accounts` : result.error ?? "Couldn't send to PH Accounts.");
+      router.refresh();
+    });
+  };
+
   const savePayment = () => {
     if (!invoice || !payModal) return;
     setError(null);
@@ -340,6 +353,16 @@ export function InvoiceEditor({
                     In Xero ↗
                   </a>
                 )}
+                {phAccounts && invoice.ph_invoice_id && (
+                  <a
+                    href={`${phAccounts.baseUrl}/${phAccounts.orgId}/sales/invoices/${invoice.ph_invoice_id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-semibold text-brand hover:text-brand-hover"
+                  >
+                    In PH Accounts ↗
+                  </a>
+                )}
               </div>
               <div className="flex gap-2 flex-wrap">
                 <a href={`/api/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">
@@ -351,6 +374,11 @@ export function InvoiceEditor({
                 {xeroConnected && invoice.status !== "Draft" && (invoice.status !== "Voided" || invoice.xero_invoice_id) && (
                   <Button variant="secondary" size="md" onClick={sendToXero} disabled={pending}>
                     {invoice.xero_invoice_id ? "Resync to Xero" : "Send to Xero"}
+                  </Button>
+                )}
+                {phAccounts && invoice.status !== "Draft" && (invoice.status !== "Voided" || invoice.ph_invoice_id) && (
+                  <Button variant="secondary" size="md" onClick={sendToPhAccounts} disabled={pending}>
+                    {invoice.ph_invoice_id ? "Resync to PH Accounts" : "Send to PH Accounts"}
                   </Button>
                 )}
                 {invoice.status === "Draft" && (
@@ -392,6 +420,14 @@ export function InvoiceEditor({
 
         <div className="px-6 py-8">
           <div className="max-w-5xl mx-auto">
+            {phAccounts && invoice.ph_error && (
+              <div className="flex items-start gap-2.5 px-4 py-3 bg-danger-tint border border-danger-border rounded-lg text-sm text-danger-text mb-6">
+                <Info className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>
+                  PH Accounts doesn&rsquo;t have the latest version of this invoice: {invoice.ph_error} Then use &ldquo;{invoice.ph_invoice_id ? "Resync to PH Accounts" : "Send to PH Accounts"}&rdquo;.
+                </span>
+              </div>
+            )}
             {xeroConnected && invoice.xero_error && (
               <div className="flex items-start gap-2.5 px-4 py-3 bg-danger-tint border border-danger-border rounded-lg text-sm text-danger-text mb-6">
                 <Info className="w-4 h-4 mt-0.5 shrink-0" />

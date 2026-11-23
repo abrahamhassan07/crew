@@ -65,3 +65,104 @@ export function describePhFailure(body: unknown, status: number): { code: string
 
 /** Errors that mean the business must connect again (the person who connected lost access, or the token was revoked). */
 export const needsReconnect = (status: number, code: string) => status === 401 && (code === "reconnect_required" || code === "invalid_token" || code === "invalid_grant");
+
+// ---------------------------------------------------------------------------
+// Invoices (step 6b)
+// ---------------------------------------------------------------------------
+
+/**
+ * A money or quantity value as the decimal string PH Accounts requires ("1000.00", never a JSON number), up to
+ * 4 decimal places. Null when it can't be sent (negative, not a number, or too large).
+ */
+export function toDecimalString(value: number | string): string | null {
+  const n = typeof value === "string" ? Number(value) : value;
+  if (!Number.isFinite(n) || n < 0 || n >= 1e13) return null;
+  const fixed = n.toFixed(4).replace(/\.?0+$/, "");
+  return /^\d{1,13}(\.\d{1,4})?$/.test(fixed) ? fixed : null;
+}
+
+export type CrewGstMode = "exclusive" | "inclusive" | "none";
+
+export interface CrewInvoiceForPh {
+  num: string;
+  issue_date: string;
+  due_date: string;
+  mode: CrewGstMode;
+  reference: string | null;
+  items: { service_name: string; description: string; qty: number; unit_price: number }[];
+}
+
+/** A fingerprint of what PH Accounts was sent, so an edit made afterwards can be noticed. */
+export function invoiceContentHash(customerId: string, inv: CrewInvoiceForPh): string {
+  const content = {
+    customerId,
+    num: inv.num,
+    issue: inv.issue_date,
+    due: inv.due_date,
+    mode: inv.mode,
+    reference: inv.reference ?? "",
+    items: inv.items.map((i) => [i.service_name, i.description, toDecimalString(i.qty), toDecimalString(i.unit_price)]),
+  };
+  return createHash("sha256").update(JSON.stringify(content)).digest("hex");
+}
+
+export type PhInvoiceBody = {
+  customerId: string;
+  invoiceDate: string;
+  dueDate: string;
+  reference: string;
+  notes?: string;
+  taxInclusive: boolean;
+  status: "DRAFT" | "ISSUED";
+  lines: { description: string; quantity: string; unitPrice: string; accountId?: string; taxCodeId?: string }[];
+};
+
+/**
+ * The POST /v1/invoices body for a Crew invoice. PH Accounts numbers the invoice itself, so Crew's number goes in
+ * `reference` (the business can find one from the other); Crew's own reference, if any, goes in the notes.
+ * GST lines use the chosen GST tax code; invoices without GST use none.
+ */
+export function buildPhInvoiceBody(
+  inv: CrewInvoiceForPh,
+  opts: { customerId: string; revenueAccountId: string | null; gstTaxCodeId: string | null; canIssue: boolean },
+): { ok: true; body: PhInvoiceBody } | { ok: false; error: string } {
+  const taxed = inv.mode !== "none";
+  if (taxed && !opts.gstTaxCodeId) return { ok: false, error: "Choose a GST tax code in Settings › PH Accounts, then send it again." };
+  if (inv.items.length === 0) return { ok: false, error: "The invoice has no lines." };
+  if (inv.items.length > 200) return { ok: false, error: "PH Accounts takes up to 200 lines per invoice." };
+  const lines: PhInvoiceBody["lines"] = [];
+  for (const item of inv.items) {
+    const quantity = toDecimalString(item.qty);
+    const unitPrice = toDecimalString(item.unit_price);
+    if (quantity === null || unitPrice === null) {
+      return { ok: false, error: `PH Accounts can't take the line "${item.service_name || item.description}": quantities and prices must be zero or more.` };
+    }
+    lines.push({
+      description: ([item.service_name, item.description].filter((s) => s && s.trim()).join("\n") || "Service").slice(0, 1000),
+      quantity,
+      unitPrice,
+      ...(opts.revenueAccountId ? { accountId: opts.revenueAccountId } : {}),
+      ...(taxed ? { taxCodeId: opts.gstTaxCodeId! } : {}),
+    });
+  }
+  const notes = inv.reference?.trim();
+  return {
+    ok: true,
+    body: {
+      customerId: opts.customerId,
+      invoiceDate: inv.issue_date,
+      dueDate: inv.due_date,
+      reference: inv.num.slice(0, 100),
+      ...(notes ? { notes: `Reference: ${notes}`.slice(0, 2000) } : {}),
+      taxInclusive: inv.mode === "inclusive",
+      status: opts.canIssue ? "ISSUED" : "DRAFT",
+      lines,
+    },
+  };
+}
+
+/** The PH Accounts web address of an invoice, for the "In PH Accounts" link. */
+export const phInvoiceUrl = (baseUrl: string, phOrgId: string, phInvoiceId: string) => `${baseUrl}/${phOrgId}/sales/invoices/${phInvoiceId}`;
+
+/** A PH Accounts tax rate (a fraction as text, e.g. "0.1" or "0.1000") that is exactly 10%. */
+export const isTenPercent = (rate: string) => /^0?\.10*$/.test(rate.trim());

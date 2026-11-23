@@ -1,8 +1,10 @@
 import "server-only";
+import { createHash } from "crypto";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { orgMayUseXero } from "@/lib/xero";
 import type { PhAccountsConnection } from "@/lib/supabase/types";
-import { decryptWith, describePhFailure, encryptWith, phBaseUrl, phRedirectUri } from "@/lib/phAccountsCore";
+import { buildPhInvoiceBody, isTenPercent, decryptWith, describePhFailure, encryptWith, invoiceContentHash, needsReconnect, phBaseUrl, phRedirectUri, type CrewGstMode } from "@/lib/phAccountsCore";
 
 // "Connect to PH Accounts": each business connects its own PH Accounts business (OAuth 2.0 + PKCE).
 // Server only. API docs: https://phaccounts.com/developers
@@ -192,13 +194,190 @@ export interface PhChoice {
 export async function listPhChoices(conn: PhAccountsConnection): Promise<{ revenue: PhChoice[]; taxCodes: PhChoice[]; banks: PhChoice[] }> {
   const [accounts, taxCodes, banks] = await Promise.all([
     phApi<{ data: { id: string; code: string; name: string }[] }>(conn, "/accounts?type=REVENUE"),
-    phApi<{ data: { id: string; code: string; name: string; rate: string }[] }>(conn, "/tax-codes"),
+    phApi<{ data: { id: string; code: string; name: string; rate: string; usableForSales?: boolean }[] }>(conn, "/tax-codes"),
     phApi<{ data: { accountId: string; name: string; bankName: string | null }[] }>(conn, "/bank-accounts"),
   ]);
   return {
     revenue: accounts.data.map((a) => ({ id: a.id, name: `${a.code} · ${a.name}` })),
-    // A rate of "0", "0.0000" etc. is not a GST code. Compared as text: no floating-point maths on rates.
-    taxCodes: taxCodes.data.filter((t) => !/^0+(\.0+)?$/.test(t.rate)).map((t) => ({ id: t.id, name: `${t.code} · ${t.name}` })),
+    // Only 10% codes that can go on a sales invoice: Crew & Grounds works GST out at 10% (Australia), so any other
+    // rate would make the two apps' totals disagree, and a purchases-only code (e.g. GST_PURCHASES) is refused on
+    // invoices. Rates are fractions ("0.1" = 10%), compared as text, never floating-point.
+    taxCodes: taxCodes.data.filter((t) => isTenPercent(t.rate) && t.usableForSales !== false).map((t) => ({ id: t.id, name: `${t.code} · ${t.name}` })),
     banks: banks.data.map((b) => ({ id: b.accountId, name: b.bankName ? `${b.name} (${b.bankName})` : b.name })),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Invoices (step 6b): a sent invoice is created in PH Accounts
+// ---------------------------------------------------------------------------
+interface PhCustomer {
+  id: string;
+  displayName: string;
+  email: string | null;
+  status: string;
+}
+
+interface PhInvoice {
+  id: string;
+  status: "DRAFT" | "ISSUED" | "PARTIALLY_PAID" | "PAID" | "VOID";
+  amountPaid: string;
+}
+
+const shortHash = (value: string) => createHash("sha256").update(value).digest("hex").slice(0, 12);
+
+/** GET that treats 404 as "not there" (the business may have switched to another PH Accounts business). */
+async function getOrNull<T>(conn: PhAccountsConnection, path: string): Promise<T | null> {
+  try {
+    return await phApi<T>(conn, path);
+  } catch (e) {
+    if (e instanceof PhApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+async function ensureCustomer(
+  conn: PhAccountsConnection,
+  client: { id: string; name: string; email: string | null; phone: string | null; address: string | null; ph_customer_id: string | null },
+): Promise<string> {
+  // A saved link only counts if that customer is still in the connected business.
+  if (client.ph_customer_id && (await getOrNull<PhCustomer>(conn, `/customers/${client.ph_customer_id}`))) return client.ph_customer_id;
+
+  const name = client.name.trim();
+  const email = client.email?.trim();
+  let found: PhCustomer | undefined;
+  if (email) {
+    const byEmail = await phApi<{ data: PhCustomer[] }>(conn, `/customers?status=ALL&email=${encodeURIComponent(email)}`);
+    found = byEmail.data.find((c) => c.status === "ACTIVE") ?? byEmail.data[0];
+  }
+  if (!found && name) {
+    const byName = await phApi<{ data: PhCustomer[] }>(conn, `/customers?name=${encodeURIComponent(name)}&limit=100`);
+    found = byName.data.find((c) => c.displayName.trim().toLowerCase() === name.toLowerCase());
+  }
+  let customerId = found?.id;
+  if (!customerId) {
+    const body = {
+      displayName: (name || "Customer").slice(0, 200),
+      ...(email ? { email } : {}),
+      ...(client.phone?.trim() ? { phone: client.phone.trim().slice(0, 50) } : {}),
+      ...(client.address?.trim() ? { address: { street: client.address.trim().slice(0, 200) } } : {}),
+    };
+    const created = await phApi<PhCustomer>(conn, "/customers", {
+      method: "POST",
+      body,
+      // The same client with the same details is only ever added once, even if a request is retried.
+      idempotencyKey: `crew-customer-${client.id}-${shortHash(JSON.stringify(body))}`,
+    });
+    customerId = created.id;
+  }
+  await createAdminClient().from("clients").update({ ph_customer_id: customerId }).eq("id", client.id);
+  return customerId;
+}
+
+function friendly(e: unknown): string {
+  if (e instanceof PhApiError) {
+    if (needsReconnect(e.status, e.code)) return "PH Accounts needs you to connect again. Reconnect it in Settings.";
+    if (e.code === "issue_not_allowed") return "This connection can only create drafts in PH Accounts.";
+    if (e.code === "insufficient_scope") return "Reconnect PH Accounts in Settings and allow invoices and customers.";
+    return e.message;
+  }
+  return "Couldn't reach PH Accounts. Try again in a minute.";
+}
+
+/**
+ * Creates the invoice in PH Accounts (finished, or a draft when the connection is drafts-only). Drafts here are
+ * skipped: an invoice goes over once it's been sent. Voiding here voids it there. PH Accounts' API can't edit an
+ * issued invoice, so if a sent invoice is changed here while its PH Accounts copy is still unpaid, that copy is
+ * voided (reversed, kept in history) and a corrected one is created. The outcome is stored on the invoice.
+ */
+export async function pushInvoiceToPh(orgId: string, invoiceId: string): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
+  const admin = createAdminClient();
+  const conn = await getConnection(orgId);
+  if (!conn) return { ok: false, skipped: true };
+  if (!(await orgMayUsePhAccounts(orgId))) return { ok: false, error: PH_PLAN_MESSAGE };
+
+  const fail = async (message: string) => {
+    await admin.from("invoices").update({ ph_error: message }).eq("id", invoiceId);
+    return { ok: false, error: message };
+  };
+
+  try {
+    const [{ data: invoice }, { data: items }] = await Promise.all([
+      admin.from("invoices").select("*").eq("id", invoiceId).eq("org_id", orgId).single(),
+      admin.from("invoice_items").select("service_name, description, qty, unit_price").eq("invoice_id", invoiceId).order("sort_order"),
+    ]);
+    if (!invoice) return { ok: false, error: "Invoice not found." };
+    if (invoice.status === "Draft") return { ok: true, skipped: true };
+
+    let remote = invoice.ph_invoice_id ? await getOrNull<PhInvoice>(conn, `/invoices/${invoice.ph_invoice_id}`) : null;
+    if (invoice.ph_invoice_id && !remote) {
+      await admin.from("invoices").update({ ph_invoice_id: null, ph_synced_at: null, ph_sync_hash: null }).eq("id", invoiceId);
+    }
+
+    const voidRemote = async (target: PhInvoice, why: string) => {
+      if (target.status === "VOID") return null;
+      if (target.status === "DRAFT") return `It's a draft in PH Accounts, so ${why} there yourself.`;
+      if (!conn.can_issue_invoices) return `This connection can only create drafts, so ${why} in PH Accounts yourself.`;
+      if (target.amountPaid !== "0.00") return `It has payments in PH Accounts, so ${why} there yourself (void its payments first).`;
+      await phApi(conn, `/invoices/${target.id}/void`, {
+        method: "POST",
+        body: { reason: `Voided in Crew & Grounds (${invoice.num})` },
+        idempotencyKey: `crew-void-${target.id}`,
+      });
+      return null;
+    };
+
+    if (invoice.status === "Voided") {
+      if (!remote) return { ok: true, skipped: true };
+      const problem = await voidRemote(remote, "void it");
+      if (problem) return await fail(problem);
+      await admin.from("invoices").update({ ph_synced_at: new Date().toISOString(), ph_error: null }).eq("id", invoiceId);
+      return { ok: true };
+    }
+
+    const { data: client } = await admin.from("clients").select("id, name, email, phone, address, ph_customer_id").eq("id", invoice.client_id).single();
+    if (!client) return await fail("The client for this invoice wasn't found.");
+    const customerId = await ensureCustomer(conn, client);
+    const crewInvoice = { num: invoice.num, issue_date: invoice.issue_date, due_date: invoice.due_date, mode: invoice.mode as CrewGstMode, reference: invoice.reference, items: items ?? [] };
+    const hash = invoiceContentHash(customerId, crewInvoice);
+
+    if (remote && invoice.ph_sync_hash === hash) {
+      await admin.from("invoices").update({ ph_error: null }).eq("id", invoiceId);
+      return { ok: true };
+    }
+    if (remote) {
+      // Changed here after it reached PH Accounts: replace the unpaid copy.
+      const problem = await voidRemote(remote, "update it");
+      if (problem) return await fail(`This invoice changed after it was sent to PH Accounts. ${problem}`);
+      remote = null;
+    }
+
+    const built = buildPhInvoiceBody(crewInvoice, {
+      customerId,
+      revenueAccountId: conn.revenue_account_id,
+      gstTaxCodeId: conn.gst_tax_code_id,
+      canIssue: conn.can_issue_invoices,
+    });
+    if (!built.ok) return await fail(built.error);
+    const created = await phApi<PhInvoice>(conn, "/invoices", {
+      method: "POST",
+      body: built.body,
+      // Retrying the same version of this invoice never creates a second copy.
+      idempotencyKey: `crew-invoice-${invoice.id}-${hash.slice(0, 16)}`,
+    });
+    await admin
+      .from("invoices")
+      .update({ ph_invoice_id: created.id, ph_sync_hash: hash, ph_synced_at: new Date().toISOString(), ph_error: null })
+      .eq("id", invoiceId);
+    return { ok: true };
+  } catch (e) {
+    console.error("[phaccounts sync]", e instanceof Error ? e.message : e);
+    return await fail(friendly(e));
+  }
+}
+
+/** Fire-and-forget sync after an invoice is sent, edited or voided, when the business has auto-sync on. */
+export async function queuePhSync(orgId: string, invoiceId: string) {
+  const conn = await getConnection(orgId);
+  if (!conn?.auto_sync || !(await orgMayUsePhAccounts(orgId))) return;
+  after(() => pushInvoiceToPh(orgId, invoiceId));
 }
