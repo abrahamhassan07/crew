@@ -2,10 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { SettingsPageClient } from "@/components/SettingsPageClient";
 import type { XeroSettingsView } from "@/components/XeroCard";
+import type { PhAccountsSettingsView } from "@/components/PhAccountsCard";
 import type { AiSettingsView } from "@/components/AiFeaturesCard";
 import { aiAllowed, aiMonthlyLimit, getBillingState } from "@/lib/billing";
 import { aiUsageThisMonth } from "@/lib/ai/access";
 import { getConnection, hasPaymentScope, listBankAccounts, listSalesAccounts, orgMayUseXero, xeroConfigured } from "@/lib/xero";
+import { getConnection as getPhConnection, listPhChoices, PhApiError, phConfigured } from "@/lib/phAccounts";
+import { needsReconnect } from "@/lib/phAccountsCore";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const viewer = await requireAdmin();
@@ -58,5 +61,46 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     staffDrafts: organization.staff_drafts_enabled,
   };
 
-  return <SettingsPageClient organization={organization} xero={xero} ai={ai} xeroResult={typeof sp.xero === "string" ? sp.xero : undefined} />;
+  let ph: PhAccountsSettingsView | null = null;
+  if (phConfigured()) {
+    const phConn = await getPhConnection(viewer.orgId);
+    let lists = { revenue: [] as PhAccountsSettingsView["revenue"], taxCodes: [] as PhAccountsSettingsView["taxCodes"], banks: [] as PhAccountsSettingsView["banks"] };
+    let listsFailed = false;
+    let reconnectNeeded = false;
+    if (phConn && allowed) {
+      try {
+        lists = await listPhChoices(phConn);
+      } catch (e) {
+        listsFailed = true;
+        reconnectNeeded = e instanceof PhApiError && needsReconnect(e.status, e.code);
+      }
+    }
+    ph = {
+      allowed,
+      connected: !!phConn,
+      xeroConnected: !!connection,
+      businessName: phConn?.ph_org_name ?? "",
+      canIssueInvoices: phConn?.can_issue_invoices ?? false,
+      revenueAccountId: phConn?.revenue_account_id ?? null,
+      revenueAccountName: phConn?.revenue_account_name ?? null,
+      taxCodeId: phConn?.gst_tax_code_id ?? null,
+      taxCodeName: phConn?.gst_tax_code_name ?? null,
+      bankAccountId: phConn?.bank_account_id ?? null,
+      bankAccountName: phConn?.bank_account_name ?? null,
+      ...lists,
+      listsFailed,
+      reconnectNeeded,
+    };
+  }
+
+  return (
+    <SettingsPageClient
+      organization={organization}
+      xero={xero}
+      ai={ai}
+      xeroResult={typeof sp.xero === "string" ? sp.xero : undefined}
+      ph={ph}
+      phResult={typeof sp.phaccounts === "string" ? sp.phaccounts : undefined}
+    />
+  );
 }

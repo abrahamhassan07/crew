@@ -35,6 +35,7 @@ const RESULT_MESSAGES: Record<string, { text: string; ok: boolean }> = {
   error: { text: "We couldn't connect to Xero. Please try again.", ok: false },
   unavailable: { text: "Xero isn't available right now.", ok: false },
   plan: { text: "Xero isn't part of your current plan.", ok: false },
+  phaccounts: { text: "Disconnect PH Accounts first: invoices go to one set of books at a time.", ok: false },
 };
 
 /** Settings card for the Xero integration: connect, pick the sales account, turn auto-sync on or off, disconnect. */

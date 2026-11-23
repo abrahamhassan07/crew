@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getViewer } from "@/lib/auth";
 import { orgMayUseXero, xeroAuthorizeUrl, xeroConfigured } from "@/lib/xero";
+import { getConnection as getPhConnection } from "@/lib/phAccounts";
 
 // Starts "Connect Xero": admins only. The random state is kept in a short-lived cookie and checked on the way back.
 export async function GET(req: NextRequest) {
@@ -11,6 +12,8 @@ export async function GET(req: NextRequest) {
   if (viewer.profile.role !== "admin") return NextResponse.redirect(`${origin}/settings`);
   if (!(await orgMayUseXero(viewer.orgId))) return NextResponse.redirect(`${origin}/settings?xero=plan`);
   if (!xeroConfigured()) return NextResponse.redirect(`${origin}/settings?xero=unavailable`);
+  // One set of books at a time: disconnect PH Accounts first.
+  if (await getPhConnection(viewer.orgId)) return NextResponse.redirect(`${origin}/settings?xero=phaccounts`);
 
   const state = randomBytes(24).toString("hex");
   (await cookies()).set("xero_oauth_state", state, {

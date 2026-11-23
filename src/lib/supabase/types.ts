@@ -308,6 +308,28 @@ export type XeroConnection = {
   updated_at: string;
 };
 
+export type PhAccountsConnection = {
+  org_id: string;
+  ph_org_id: string;
+  ph_org_name: string;
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+  refreshing_until: string | null;
+  scopes: string[];
+  can_issue_invoices: boolean;
+  revenue_account_id: string | null;
+  revenue_account_name: string | null;
+  gst_tax_code_id: string | null;
+  gst_tax_code_name: string | null;
+  bank_account_id: string | null;
+  bank_account_name: string | null;
+  auto_sync: boolean;
+  connected_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type EmailLog = {
   id: string;
   org_id: string;
@@ -599,6 +621,12 @@ export type Database = {
         Row: XeroConnection;
         Insert: Partial<XeroConnection> & Pick<XeroConnection, "org_id" | "connection_id" | "tenant_id" | "access_token" | "refresh_token" | "expires_at">;
         Update: Partial<XeroConnection>;
+        Relationships: [];
+      };
+      ph_accounts_connections: {
+        Row: PhAccountsConnection;
+        Insert: Partial<PhAccountsConnection> & Pick<PhAccountsConnection, "org_id" | "ph_org_id" | "access_token" | "refresh_token" | "expires_at">;
+        Update: Partial<PhAccountsConnection>;
         Relationships: [];
       };
       invoice_items: {

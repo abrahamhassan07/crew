@@ -10,6 +10,7 @@ import { TextAreaField } from "@/components/forms/TextAreaField";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LogoUploader } from "@/components/LogoUploader";
 import { XeroCard, type XeroSettingsView } from "@/components/XeroCard";
+import { PhAccountsCard, type PhAccountsSettingsView } from "@/components/PhAccountsCard";
 import { InvoiceNumberingCard } from "@/components/InvoiceNumberingCard";
 import { AiFeaturesCard, type AiSettingsView } from "@/components/AiFeaturesCard";
 import { logoUrl } from "@/lib/logo";
@@ -18,7 +19,22 @@ import { isValidAbn } from "@/lib/validate";
 import { DEFAULT_TEMPLATES, MAX_BODY, MAX_SUBJECT, PLACEHOLDERS, templateFor, type TemplateKind } from "@/lib/emailTemplates";
 import type { Organization } from "@/lib/supabase/types";
 
-export function SettingsPageClient({ organization, xero, ai, xeroResult }: { organization: Organization; xero: XeroSettingsView; ai: AiSettingsView; xeroResult?: string }) {
+export function SettingsPageClient({
+  organization,
+  xero,
+  ai,
+  xeroResult,
+  ph,
+  phResult,
+}: {
+  organization: Organization;
+  xero: XeroSettingsView;
+  ai: AiSettingsView;
+  xeroResult?: string;
+  /** Null until PH Accounts is set up on this site (its app credentials are configured). */
+  ph: PhAccountsSettingsView | null;
+  phResult?: string;
+}) {
   const [input, setInput] = useState<OrganizationInput>({
     name: organization.name,
     email: organization.email ?? "",
@@ -167,6 +183,8 @@ export function SettingsPageClient({ organization, xero, ai, xeroResult }: { org
           <AiFeaturesCard ai={ai} />
 
           <XeroCard xero={xero} result={xeroResult} />
+
+          {ph && <PhAccountsCard ph={ph} result={phResult} />}
 
           <CollapsibleCard title="SMS notifications" summary="Coming soon">
             <div className="flex items-start gap-3 pt-3">
