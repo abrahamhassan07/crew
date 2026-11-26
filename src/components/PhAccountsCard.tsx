@@ -9,7 +9,7 @@ import { SelectField } from "@/components/forms/SelectField";
 import { disconnectPhAccountsAction, savePhAccountsSettings } from "@/app/(app)/phAccountsActions";
 
 export interface PhAccountsSettingsView {
-  /** The business's plan includes it (Team plan and above, same as Xero). */
+  /** The business's plan includes it (every paid plan, same as Xero). */
   allowed: boolean;
   connected: boolean;
   /** Xero is connected: invoices go to one set of books at a time. */
@@ -100,7 +100,7 @@ export function PhAccountsCard({ ph, result }: { ph: PhAccountsSettingsView; res
     <CollapsibleCard
       className="xl:col-span-2"
       title="PH Accounts"
-      summary={!ph.allowed ? <><span data-app-hide>Included with the Team plan and above</span><span data-app-only>Not part of your current plan</span></> : ph.connected ? `Connected to ${ph.businessName}` : "Not connected"}
+      summary={!ph.allowed ? <><span data-app-hide>Included with every paid plan</span><span data-app-only>Not part of your current plan</span></> : ph.connected ? `Connected to ${ph.businessName}` : "Not connected"}
       defaultOpen={!!result}
     >
       <div className="pt-3 space-y-4">
@@ -109,7 +109,7 @@ export function PhAccountsCard({ ph, result }: { ph: PhAccountsSettingsView; res
         {!ph.allowed ? (
           <>
             <p className="text-sm text-ink-muted">
-              Connect PH Accounts and the invoices you send are also recorded in your books.<span data-app-hide> PH Accounts is included with the Team plan (2–5 users) and above.</span><span data-app-only> PH Accounts isn&apos;t part of your current plan.</span>
+              Connect PH Accounts and the invoices you send are also recorded in your books.<span data-app-hide> PH Accounts is included with every paid plan.</span><span data-app-only> PH Accounts isn&apos;t part of your current plan.</span>
               {ph.connected && " Your connection is paused until your plan includes it again."}
             </p>
             <Link href="/subscription">

@@ -12,7 +12,7 @@ import { disconnectXeroAction, saveXeroSettings } from "@/app/(app)/xeroActions"
 export interface XeroSettingsView {
   /** The app has Xero credentials (the platform owner set it up). */
   available: boolean;
-  /** The business's plan includes Xero (Team plan and above). */
+  /** The business's plan includes Xero (every paid plan). */
   allowed: boolean;
   connected: boolean;
   tenantName: string;
@@ -35,6 +35,7 @@ const RESULT_MESSAGES: Record<string, { text: string; ok: boolean }> = {
   error: { text: "We couldn't connect to Xero. Please try again.", ok: false },
   unavailable: { text: "Xero isn't available right now.", ok: false },
   plan: { text: "Xero isn't part of your current plan.", ok: false },
+  full: { text: "Xero connections are full right now. Please try again later or contact support.", ok: false },
   phaccounts: { text: "Disconnect PH Accounts first: invoices go to one set of books at a time.", ok: false },
 };
 
@@ -79,7 +80,7 @@ export function XeroCard({ xero, result }: { xero: XeroSettingsView; result?: st
     <CollapsibleCard
       className="xl:col-span-2"
       title="Xero"
-      summary={!xero.allowed ? <><span data-app-hide>Included with the Team plan and above</span><span data-app-only>Not part of your current plan</span></> : xero.connected ? `Connected to ${xero.tenantName}` : "Not connected"}
+      summary={!xero.allowed ? <><span data-app-hide>Included with every paid plan</span><span data-app-only>Not part of your current plan</span></> : xero.connected ? `Connected to ${xero.tenantName}` : "Not connected"}
       defaultOpen={!!result}
     >
       <div className="pt-3 space-y-4">
@@ -88,7 +89,7 @@ export function XeroCard({ xero, result }: { xero: XeroSettingsView; result?: st
         {!xero.allowed ? (
           <>
             <p className="text-sm text-ink-muted">
-              Connect Xero and every invoice you send is also created in Xero, with the client, line items and GST filled in.<span data-app-hide> Xero is included with the Team plan (2–5 users) and above.</span><span data-app-only> Xero isn&apos;t part of your current plan.</span>
+              Connect Xero and every invoice you send is also created in Xero, with the client, line items and GST filled in.<span data-app-hide> Xero is included with every paid plan.</span><span data-app-only> Xero isn&apos;t part of your current plan.</span>
               {xero.connected && " Your connection is paused until your plan includes it again."}
             </p>
             <Link href="/subscription">

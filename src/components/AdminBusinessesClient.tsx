@@ -36,7 +36,7 @@ export interface AdminBusiness {
 
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "Never");
 
-export function AdminBusinessesClient({ businesses, audit }: { businesses: AdminBusiness[]; audit: PlatformAudit[] }) {
+export function AdminBusinessesClient({ businesses, audit, xero }: { businesses: AdminBusiness[]; audit: PlatformAudit[]; xero: { used: number; max: number } }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -72,7 +72,7 @@ export function AdminBusinessesClient({ businesses, audit }: { businesses: Admin
 
   return (
     <div className="min-h-screen bg-page-bg">
-      <PageHeader title="Businesses" subtitle={`${businesses.length} businesses, ${totalUsers} users. Only platform owners can see this page.`} />
+      <PageHeader title="Businesses" subtitle={`${businesses.length} businesses, ${totalUsers} users. Xero connections: ${xero.used} of ${xero.max}${xero.used >= xero.max * 0.8 ? " (nearly full: raise XERO_MAX_CONNECTIONS after upgrading your Xero plan)" : ""}. Only platform owners can see this page.`} />
       <div className="px-6 py-6">
         <div className="max-w-[1400px] mx-auto">
           <div className="flex items-center gap-3 mb-4">

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PLAN, TEAM_SIZES, priceFor } from "@/lib/plans";
+import { LAUNCH_OFFER, PLAN, TEAM_SIZES, priceFor } from "@/lib/plans";
 import { getStripe } from "@/lib/stripe";
 
 // Moves an existing subscription to a different team size (and price), prorated.
@@ -37,6 +37,8 @@ export async function POST(req: Request) {
       items: [{ id: item.id, price_data: { currency: "aud", product, recurring: { interval }, unit_amount: perMonth * (interval === "year" ? 12 : 1) * 100 } }],
       proration_behavior: "create_prorations",
       metadata: { ...sub.metadata, plan: PLAN.k, team_size: team.k },
+      // The launch offer is an amount off Solo's price; it ends when moving to another team size.
+      ...(team.k !== LAUNCH_OFFER.team && sub.discounts?.length ? { discounts: "" as const } : {}),
     });
     await createAdminClient().from("organizations").update({ team_size: team.k }).eq("id", org.id);
     return NextResponse.json({ ok: true });

@@ -6,7 +6,7 @@ import { getConnection as getXeroConnection } from "@/lib/xero";
 import { orgMayUsePhAccounts, phConfigured } from "@/lib/phAccounts";
 import { newPkce, phAuthorizeUrl, phBaseUrl } from "@/lib/phAccountsCore";
 
-// Starts "Connect to PH Accounts": admins only, Team plan and above, and only when Xero isn't connected (one set
+// Starts "Connect to PH Accounts": admins only, any paid plan, and only when Xero isn't connected (one set
 // of books at a time). The random state and the PKCE verifier are kept in a short-lived cookie for the callback.
 export async function GET(req: NextRequest) {
   const origin = req.nextUrl.origin;

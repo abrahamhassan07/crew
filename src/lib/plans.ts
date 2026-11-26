@@ -1,4 +1,4 @@
-// A Free plan plus three paid sizes. Every plan has the same features (Xero is Team and above); what changes is the
+// A Free plan plus three paid sizes. Every plan has the same features (Xero is on every paid plan); what changes is the
 // number of users (seats) and how many invoices can be sent each month. `invoices` is a monthly cap on invoices
 // sent to clients (drafts and quotes don't count).
 export const TEAM_SIZES = [
@@ -31,13 +31,35 @@ export const PLAN = {
     "Service price list",
     "Equipment tracking",
     "Reports, including crew utilisation",
-    "Xero integration, Team plan and above: invoices you send are copied into Xero",
+    "Xero integration on every paid plan: invoices you send are copied into Xero",
     "Logins for your whole team",
     "Email support",
   ],
 };
 
 export const POPULAR_TEAM = "2-5";
+
+/**
+ * Launch offer: Solo, billed monthly, for a lower price during the first months. Applied at checkout as a Stripe
+ * coupon (amount off the normal Solo price for a set number of months), so the normal price returns on its own.
+ * New subscriptions only; it closes to new signups after `lastDay` (inclusive, Sydney time).
+ */
+export const LAUNCH_OFFER = { team: "1", price: 6.99, months: 12, lastDay: "2027-01-31" } as const;
+
+/** Whether new signups can still get the launch offer. */
+export function launchOfferOpen(now: Date = new Date()): boolean {
+  const today = now.toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
+  return today <= LAUNCH_OFFER.lastDay;
+}
+
+/** The offer's closing date for display, e.g. "31 January 2027". */
+export function launchOfferEnds(): string {
+  return new Date(`${LAUNCH_OFFER.lastDay}T12:00:00Z`).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+/** The launch price applies to this team size when billed monthly. */
+export const launchPriceFor = (team: { k: string }, annual: boolean, now: Date = new Date()) =>
+  !annual && team.k === LAUNCH_OFFER.team && launchOfferOpen(now) ? LAUNCH_OFFER.price : null;
 
 /** Cost per user when the team is full, e.g. $7.80 for 5 users on $39. */
 export function perUser(team: TeamSize) {
@@ -62,7 +84,7 @@ export interface TierLimits {
   emails: number | null;
   /** Reminder-type emails per month: customer reminders, staff schedules and review requests share this. */
   reminders: number | null;
-  /** Xero integration (Team and above). It stays off during the trial: Xero limits how many businesses one app can connect. */
+  /** Xero integration (every paid plan). It stays off during the trial: Xero limits how many businesses one app can connect. */
   xero: boolean;
   /** AI features (Client Service Auditor, Voice-to-Quote/Invoice): Team and above, plus a small taste on the trial. */
   ai: boolean;
@@ -80,7 +102,7 @@ const paid = (k: (typeof TEAM_SIZES)[number]["k"]): Omit<TierLimits, "xero" | "a
 export const TIER_LIMITS: Record<TierKey, TierLimits> = {
   free: { users: FREE_PLAN.users, invoices: FREE_PLAN.invoices, emails: FREE_PLAN.invoices * 2, reminders: 20, xero: false, ai: false, photos: false, aiMonthly: 0 },
   trial: { users: 5, invoices: 100, emails: 200, reminders: 100, xero: false, ai: true, photos: true, aiMonthly: 5 },
-  solo: { ...paid("1"), xero: false, ai: false, photos: false, aiMonthly: 0 },
+  solo: { ...paid("1"), xero: true, ai: false, photos: false, aiMonthly: 0 },
   // Ceilings, not allowances: they stop a runaway loop from becoming a surprise bill. Raise them here when needed.
   team: { ...paid("2-5"), xero: true, ai: true, photos: true, aiMonthly: 300 },
   business: { ...paid("6-10"), xero: true, ai: true, photos: true, aiMonthly: 600 },

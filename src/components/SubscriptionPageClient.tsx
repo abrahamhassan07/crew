@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, Info, Tag } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ToastBanner, useToast } from "@/components/Toast";
-import { ANNUAL_DISCOUNT, FREE_PLAN, PLAN, POPULAR_TEAM, TEAM_SIZES, perUser, priceFor, type TeamSize } from "@/lib/plans";
+import { ANNUAL_DISCOUNT, FREE_PLAN, LAUNCH_OFFER, PLAN, POPULAR_TEAM, TEAM_SIZES, launchOfferEnds, launchPriceFor, perUser, priceFor, type TeamSize } from "@/lib/plans";
 
 export interface SubscriptionPageProps {
   status: string | null;
@@ -117,7 +117,7 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
           )}
 
           <h1 className="text-3xl font-extrabold tracking-tight text-ink-primary">{subscribed ? "Your plan" : "Simple pricing"}</h1>
-          <p className="text-base text-ink-secondary mt-2 mb-6 max-w-2xl">Every plan has the same features (Xero is on Team and above). You choose by team size and how many invoices you send each month, and a bigger team costs less per person.</p>
+          <p className="text-base text-ink-secondary mt-2 mb-6 max-w-2xl">Every plan has the same features (Xero is on every paid plan). You choose by team size and how many invoices you send each month, and a bigger team costs less per person.</p>
 
           {!subscribed && (
             <div className="flex flex-wrap items-center gap-3.5 mb-6">
@@ -189,6 +189,9 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
               const popular = t.k === POPULAR_TEAM;
               const tooSmall = seatsUsed > t.users;
               const yearlySaving = monthly * 12 - priceFor(t, true).now * 12;
+              // Launch offer: new subscriptions only, Solo billed monthly.
+              const launch = subscribed ? null : launchPriceFor(t, billedAnnually);
+              const launchIfMonthly = !subscribed && billedAnnually ? launchPriceFor(t, false) : null;
               return (
                 <div
                   key={t.k}
@@ -205,12 +208,16 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
                   </div>
                   <div className="text-sm text-ink-secondary mt-1">{t.users === 1 ? "Just you" : `Up to ${t.users} users`}</div>
 
-                  <div className="mt-5 min-h-[22px]">{billedAnnually && <span className="text-base font-bold text-ink-muted line-through">${monthly}/mo</span>}</div>
+                  <div className="mt-5 min-h-[22px]">{(billedAnnually || launch !== null) && <span className="text-base font-bold text-ink-muted line-through">${monthly}/mo</span>}</div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[44px] font-extrabold tracking-tight leading-none">${now}</span>
+                    <span className="text-[44px] font-extrabold tracking-tight leading-none">${launch ?? now}</span>
                     <span className="text-base text-ink-secondary">/mo</span>
                   </div>
-                  <div className="text-sm text-ink-muted mt-1">{billedAnnually ? `billed annually ($${now * 12}/yr)` : "billed monthly"}</div>
+                  <div className="text-sm text-ink-muted mt-1">
+                    {launch !== null ? `Launch offer: first ${LAUNCH_OFFER.months} months, then $${monthly}/mo` : billedAnnually ? `billed annually ($${now * 12}/yr)` : "billed monthly"}
+                  </div>
+                  {launch !== null && <div className="text-xs text-ink-muted mt-1">Billed monthly. Sign up by {launchOfferEnds()}.</div>}
+                  {launchIfMonthly !== null && <div className="text-xs font-semibold text-ok-fg mt-1">Choose Monthly for the ${launchIfMonthly}/mo launch offer.</div>}
 
                   <div className="mt-4 rounded-lg bg-page-bg px-3.5 py-3 text-sm flex flex-col gap-1.5">
                     <div className="flex justify-between">
@@ -219,7 +226,7 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
                     </div>
                     <div className="flex justify-between">
                       <span className="text-ink-secondary">Xero</span>
-                      <span className="font-semibold">{t.k === "1" ? "Not included" : "Included"}</span>
+                      <span className="font-semibold">Included</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-ink-secondary">Per user</span>
@@ -277,11 +284,13 @@ export function SubscriptionPageClient({ status, renews, trialDaysLeft, exempt, 
               <div className="text-sm text-ink-secondary leading-relaxed mb-1.5">
                 {changing
                   ? `$${priceFor(chosen, billedAnnually).now}/mo for ${chosen.users === 1 ? "1 user" : `up to ${chosen.users} users`}.`
-                  : `$${priceFor(chosen, annual).now}/mo, ${chosen.users === 1 ? "1 user" : `up to ${chosen.users} users`}, ${annual ? "billed annually" : "billed monthly"}.`}
+                  : launchPriceFor(chosen, annual) !== null
+                    ? `$${launchPriceFor(chosen, annual)}/mo for your first ${LAUNCH_OFFER.months} months, then $${chosen.price}/mo, 1 user, billed monthly.`
+                    : `$${priceFor(chosen, annual).now}/mo, ${chosen.users === 1 ? "1 user" : `up to ${chosen.users} users`}, ${annual ? "billed annually" : "billed monthly"}.`}
               </div>
               <div className="text-xs text-ink-muted leading-relaxed mb-5">
                 {changing
-                  ? "The difference is charged or credited pro rata for the rest of your current billing period."
+                  ? `The difference is charged or credited pro rata for the rest of your current billing period.${currentTeam?.k === LAUNCH_OFFER.team ? " If you're on the launch offer, it ends when you switch." : ""}`
                   : `You'll be taken to our payment partner, Stripe, to enter your card.${trialDaysLeft != null && trialDaysLeft > 1 ? " Your free trial continues, so you won't be charged until it ends." : ""}`}
               </div>
               <div className="flex justify-end gap-2.5">

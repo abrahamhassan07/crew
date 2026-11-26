@@ -3,6 +3,7 @@ import { getViewer } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isPlatformAdmin } from "@/lib/platform";
 import { getBillingState } from "@/lib/billing";
+import { xeroConnectionUsage } from "@/lib/xero";
 import { AdminBusinessesClient, type AdminBusiness } from "@/components/AdminBusinessesClient";
 
 export default async function AdminBusinessesPage() {
@@ -82,5 +83,6 @@ export default async function AdminBusinessesPage() {
     };
   });
 
-  return <AdminBusinessesClient businesses={businesses} audit={audit ?? []} />;
+  const xero = await xeroConnectionUsage();
+  return <AdminBusinessesClient businesses={businesses} audit={audit ?? []} xero={xero} />;
 }

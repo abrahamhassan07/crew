@@ -2,7 +2,7 @@ import { timingSafeEqual } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getViewer } from "@/lib/auth";
-import { exchangeCode, fetchTenants, orgMayUseXero, saveConnection, xeroConfigured } from "@/lib/xero";
+import { exchangeCode, fetchTenants, orgMayUseXero, saveConnection, xeroConfigured, xeroHasRoomFor } from "@/lib/xero";
 import { getConnection as getPhConnection } from "@/lib/phAccounts";
 
 // Xero sends the user back here after they approve (or refuse) access.
@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   if (viewer.profile.role !== "admin" || !xeroConfigured()) return back("error");
   if (!(await orgMayUseXero(viewer.orgId))) return back("plan");
   if (await getPhConnection(viewer.orgId)) return back("phaccounts");
+  if (!(await xeroHasRoomFor(viewer.orgId))) return back("full");
 
   const params = req.nextUrl.searchParams;
   if (params.get("error")) return back("declined");

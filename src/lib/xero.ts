@@ -19,12 +19,34 @@ const API = "https://api.xero.com";
 export const XERO_SCOPES = ["offline_access", "accounting.invoices", "accounting.contacts", "accounting.settings.read", "accounting.payments"];
 const PAYMENT_SCOPE = "accounting.payments";
 
-export const XERO_PLAN_MESSAGE = "Xero is included with the Team plan (2–5 users) and above. See plans to upgrade.";
+export const XERO_PLAN_MESSAGE = "Xero is included with every paid plan. See plans to upgrade.";
 
 /** Whether this business's plan includes Xero (see xeroAllowed). */
 export async function orgMayUseXero(orgId: string): Promise<boolean> {
   const { data } = await createAdminClient().from("organizations").select("billing_exempt, subscription_status, plan, current_period_end, trial_ends_at, team_size").eq("id", orgId).single();
   return xeroAllowed(data ?? null);
+}
+
+/**
+ * How many businesses may have Xero connected at once. Xero's developer plans limit connected organisations
+ * (5 on the free tier), so set XERO_MAX_CONNECTIONS in Vercel to match the plan you pay for.
+ */
+export const xeroMaxConnections = () => {
+  const n = Number(process.env.XERO_MAX_CONNECTIONS);
+  return Number.isInteger(n) && n > 0 ? n : 5;
+};
+
+/** Connected businesses right now, and the limit. */
+export async function xeroConnectionUsage(): Promise<{ used: number; max: number }> {
+  const { count } = await createAdminClient().from("xero_connections").select("org_id", { count: "exact", head: true });
+  return { used: count ?? 0, max: xeroMaxConnections() };
+}
+
+/** Whether this business can connect Xero without going over the limit (reconnecting its own connection always can). */
+export async function xeroHasRoomFor(orgId: string): Promise<boolean> {
+  const { count, error } = await createAdminClient().from("xero_connections").select("org_id", { count: "exact", head: true }).neq("org_id", orgId);
+  if (error) return false;
+  return (count ?? 0) < xeroMaxConnections();
 }
 
 export const xeroConfigured = () => !!process.env.XERO_CLIENT_ID && !!process.env.XERO_CLIENT_SECRET;

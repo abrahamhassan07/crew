@@ -11,10 +11,10 @@ import { buildPhInvoiceBody, centsOf, centsToString, isTenPercent, toDecimalStri
 
 export const phConfigured = () => !!process.env.PH_ACCOUNTS_CLIENT_ID && !!process.env.PH_ACCOUNTS_CLIENT_SECRET;
 
-/** PH Accounts is included on the same plans as Xero (Team plan and above), decided 2026-11-23. */
+/** PH Accounts is included on the same plans as Xero (every paid plan; Solo added 2026-11-27). */
 export const orgMayUsePhAccounts = (orgId: string) => orgMayUseXero(orgId);
 
-export const PH_PLAN_MESSAGE = "PH Accounts is included with the Team plan (2–5 users) and above. See plans to upgrade.";
+export const PH_PLAN_MESSAGE = "PH Accounts is included with every paid plan. See plans to upgrade.";
 
 const secret = () => {
   const s = process.env.PH_ACCOUNTS_CLIENT_SECRET;

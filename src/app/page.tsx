@@ -21,7 +21,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Reveal } from "@/components/marketing/Reveal";
-import { ANNUAL_DISCOUNT, FREE_PLAN, PLAN, POPULAR_TEAM, TEAM_SIZES } from "@/lib/plans";
+import { ANNUAL_DISCOUNT, FREE_PLAN, LAUNCH_OFFER, PLAN, POPULAR_TEAM, TEAM_SIZES, launchOfferEnds, launchPriceFor } from "@/lib/plans";
+
+// Rebuilt hourly so the launch-offer price disappears on its own once the offer closes.
+export const revalidate = 3600;
 
 // The public marketing page. Signed-in people never see it: the proxy sends them to /dashboard.
 // Every claim here is a feature that is live today; keep it that way (no weather, SMS is marked "Coming soon").
@@ -55,7 +58,7 @@ const FEATURES: { icon: LucideIcon; title: string; text: string; soon?: boolean 
   { icon: BellRing, title: "Your team kept in the loop", text: "Staff are emailed when a job is assigned, moved or cancelled, plus a summary of their day's schedule." },
   { icon: MailCheck, title: "Reminders the day before", text: "Customers get an email reminder the day before you arrive, with the time and address. Fewer missed appointments." },
   { icon: FileText, title: "Quotes and tax invoices", text: "PDF quotes and tax invoices with your logo, ABN and GST, emailed in a couple of clicks. Finish a job and the invoice is filled in for you." },
-  { icon: RefreshCw, title: "Xero integration", text: "Invoices you send are copied into Xero with the client, line items and GST. No double entry. Team plan and above." },
+  { icon: RefreshCw, title: "Xero integration", text: "Invoices you send are copied into Xero with the client, line items and GST. No double entry. On every paid plan." },
   { icon: Star, title: "Google review requests", text: "After a job is done, customers get a friendly email asking for a Google review, so more locals can find you." },
   { icon: MessageSquareText, title: "SMS reminders", text: "Text-message reminders for customers and staff are on the way. Until then, reminders go out by email.", soon: true },
 ];
@@ -105,7 +108,7 @@ const SHOWCASE = [
     alt: "A tax invoice marked as copied into Xero",
     eyebrow: "Xero",
     title: "Invoices in Xero, without retyping",
-    text: "Connect Xero and every invoice you send is created there too, matched to the right contact, with GST and line items. Available on the Team plan and above.",
+    text: "Connect Xero and every invoice you send is created there too, matched to the right contact, with GST and line items. Available on every paid plan.",
   },
   {
     image: "/marketing/mobile-dashboard.jpg",
@@ -137,7 +140,7 @@ const FAQ = [
   },
   {
     q: "Does it work with Xero?",
-    a: "Yes. On the Team plan and above, connect your Xero organisation and every invoice you send is copied into Xero with the client, line items and GST. Edits and voids are kept in step, and payments sync both ways: payments you record are added to Xero, and payments recorded in Xero (for example from your bank feed) mark the invoice paid here.",
+    a: "Yes. On any paid plan, connect your Xero organisation and every invoice you send is copied into Xero with the client, line items and GST. Edits and voids are kept in step, and payments sync both ways: payments you record are added to Xero, and payments recorded in Xero (for example from your bank feed) mark the invoice paid here.",
   },
   {
     q: "Can I use it on my phone?",
@@ -394,24 +397,28 @@ export default function LandingPage() {
               </div>
               {TEAM_SIZES.map((t) => {
                 const popular = t.k === POPULAR_TEAM;
-                const xero = t.k !== "1";
+                const launch = launchPriceFor(t, false);
                 return (
                   <div key={t.k} className={`relative rounded-2xl bg-card-bg p-6 border ${popular ? "border-brand shadow-lg" : "border-line shadow-sm"}`}>
                     {popular && <span className="absolute -top-3 left-6 rounded-full bg-brand text-white text-xs font-bold px-3 py-1">Most popular</span>}
                     <h3 className="font-bold text-lg">{t.name}</h3>
                     <p className="text-sm text-ink-muted">{t.label}</p>
+                    {launch !== null && <span className="absolute -top-3 right-6 rounded-full bg-forest text-white text-xs font-bold px-3 py-1">Launch offer</span>}
                     <p className="mt-4">
-                      <span className="text-4xl font-extrabold text-forest">${t.price}</span>
+                      {launch !== null && <span className="text-base font-bold text-ink-muted line-through mr-1.5">${t.price}</span>}
+                      <span className="text-4xl font-extrabold text-forest">${launch ?? t.price}</span>
                       <span className="text-ink-secondary">/mo</span>
                     </p>
+                    {launch !== null && (
+                      <p className="text-xs text-ink-secondary mt-1 leading-snug">
+                        For your first {LAUNCH_OFFER.months} months, billed monthly, then ${t.price}/mo. Sign up by {launchOfferEnds()}.
+                      </p>
+                    )}
                     <ul className="mt-5 space-y-2 text-sm">
                       <li className="flex gap-2"><Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden />{t.users === 1 ? "1 user" : `Up to ${t.users} users`}</li>
                       <li className="flex gap-2"><Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden />{t.invoices} invoices sent a month</li>
                       <li className="flex gap-2"><Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden />Every feature below</li>
-                      <li className={`flex gap-2 ${xero ? "" : "text-ink-muted"}`}>
-                        {xero ? <Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden /> : <span className="w-4 shrink-0 text-center" aria-hidden>–</span>}
-                        {xero ? "Xero integration" : "Xero not included"}
-                      </li>
+                      <li className="flex gap-2"><Check className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden />Xero integration</li>
                     </ul>
                     <Link
                       href={SIGNUP}

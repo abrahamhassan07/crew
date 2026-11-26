@@ -57,7 +57,7 @@ export const emailLimit = (org: SeatOrg | null): number | null => limitsFor(org)
 /** Monthly cap on reminder-type emails (customer reminders, staff schedules, review requests), or null for no cap. */
 export const reminderLimit = (org: SeatOrg | null): number | null => limitsFor(org)?.reminders ?? null;
 
-/** Xero comes with the Team plan and above (and complimentary accounts, and while billing isn't enforced). */
+/** Xero comes with every paid plan (and complimentary accounts, and while billing isn't enforced). */
 export function xeroAllowed(org: SeatOrg | null): boolean {
   if (!org || org.billing_exempt !== false) return true;
   return limitsFor(org)?.xero ?? true;
