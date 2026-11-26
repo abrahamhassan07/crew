@@ -44,7 +44,7 @@ export const POPULAR_TEAM = "2-5";
  * coupon (amount off the normal Solo price for a set number of months), so the normal price returns on its own.
  * New subscriptions only; it closes to new signups after `lastDay` (inclusive, Sydney time).
  */
-export const LAUNCH_OFFER = { team: "1", price: 6.99, months: 12, lastDay: "2027-01-31" } as const;
+export const LAUNCH_OFFER = { team: "1", price: 6.99, months: 12, lastDay: "2027-03-31" } as const;
 
 /** Whether new signups can still get the launch offer. */
 export function launchOfferOpen(now: Date = new Date()): boolean {
